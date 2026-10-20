@@ -120,19 +120,27 @@ export function checkAction(
   }
   // #9
   if (!includesAddress(mandate.allowedTargets, action.target)) return { ok: false, error: 'TargetNotAllowed' };
+  // #9b (D-032): a SWAP must not target the lending simulator. The vault probes pools(poolId)
+  // with a staticcall right after #9; the equality check here is the pure mirror of that probe.
+  // D-032 also keeps the trusted-context approximation: a SWAP whose target is not the configured
+  // swap target is rejected here, while the vault names that failure only at the target call
+  // (untyped revert → D-029 Unknown). Dev A declined the feeBps() probe; MockSwap is unchanged.
+  if (
+    action.actionType === 'SWAP'
+    && (sameAddress(action.target, ctx.lendingSim)
+      || ctx.swapTarget === undefined
+      || !sameAddress(action.target, ctx.swapTarget))
+  ) {
+    return { ok: false, error: 'TargetNotAllowed' };
+  }
   // #10
   if ((action.actionType === 'REPAY' || action.actionType === 'SWAP') && includesAddress(mandate.lockedTokens, action.tokenIn)) {
     return { ok: false, error: 'AssetLocked' };
   }
-  // #11 (D-030, agreed 2026-10-20) wrong-role targets, positive and symmetric. The vault probes
-  // both roles with a staticcall validated by returndata length — a lending target must answer
-  // pools(poolId), a SWAP target must answer MockSwap.feeBps() — right after #10 and before this
-  // freshness loop. This pure mirror approximates both probes with equality against the trusted
-  // context addresses, at the same position.
+  // #11 (D-030): the lending role check. The vault probes pools(poolId) while building the #11
+  // price set, so this error lands after #10 and before the freshness loop (unlike the SWAP
+  // probe, which the vault places at #9b). Mirror approximates the probe with equality.
   if (lendingAction(action) && !sameAddress(action.target, ctx.lendingSim)) {
-    return { ok: false, error: 'TargetNotAllowed' };
-  }
-  if (action.actionType === 'SWAP' && (ctx.swapTarget === undefined || !sameAddress(action.target, ctx.swapTarget))) {
     return { ok: false, error: 'TargetNotAllowed' };
   }
 

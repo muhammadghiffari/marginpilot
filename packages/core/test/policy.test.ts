@@ -192,8 +192,11 @@ describe('checkAction target roles and the reserve price (D-030, D-031)', () => 
     expect(policy(swapMandate, fixtureVault, fixturePrices, { ...swapAction, target: TEST_ADDRESSES.lending })).toEqual({ ok: false, error: 'TargetNotAllowed' });
   });
 
-  test('the SWAP role check is symmetric with the lending one: after #10, before freshness and #15', () => {
+  test('the SWAP role check sits right after #9, ahead of #10 and the freshness loop (D-032)', () => {
     const wrongTarget = { ...swapAction, target: TEST_ADDRESSES.lending };
+    // The vault rejects a SWAP at a LendingSim right after #9, so the role error beats a locked tokenIn.
+    const lockedSwap = { ...wrongTarget, tokenIn: TEST_ADDRESSES.mWETH, tokenOut: TEST_ADDRESSES.mWSTETH, amount: 1_000_000n };
+    expect(policy(swapMandate, fixtureVault, fixturePrices, lockedSwap)).toEqual({ ok: false, error: 'TargetNotAllowed' });
     const staleTokenIn = fixturePrices.map((price) => price.token === TEST_ADDRESSES.mWSTETH ? { ...price, updatedAt: FIXTURE_NOW - 601n } : price);
     expect(policy(swapMandate, fixtureVault, staleTokenIn, wrongTarget)).toEqual({ ok: false, error: 'TargetNotAllowed' });
     expect(policy(swapMandate, fixtureVault, fixturePrices, { ...wrongTarget, minAmountOut: 0n })).toEqual({ ok: false, error: 'TargetNotAllowed' });
