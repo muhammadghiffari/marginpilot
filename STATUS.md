@@ -33,11 +33,11 @@ Last updated: 2026-10-20 by Dev B. B-01..B-07, B-09, B-10, B-11, B-12 Part 1 don
 | B-05 | Dev B | P0 | done | 9284979 | ordered #1-#15 + pure #16; 21 policy tests, D-023 set; D-025 |
 | B-06 | Dev B | P0 | done | 43282e9 | 31 new tests: atomic rollback, UNKNOWN no-resubmit, event ledger, audit chain, redactor, state machines; 81 total |
 | B-07 | Dev B | P0 | done | 81837e6 | `LlmClient`, typed live stub, `ScriptedLlm`, normalizer, clarifications, sanitizer/tripwire; m01–m12 zero dangerous widening; 16 tests green |
-| B-08 | Dev B | P0 | todo | | |
+| B-08 | Dev B | P0 | blocked | | A-07 missing: `deployments/<chainId>.json`, `packages/core/src/abi/`, `eval/fixtures/base.json`, `Deploy.s.sol`; skipped without inventing an adapter |
 | B-09 | Dev B | P0 | done | d8b0701 | fixed tool set + orchestrator; S1–S5/S7/S9 green with `ScriptedLlm` on `MockChainPort` (SIMULATED); 12 tests; verify-all GREEN |
 | B-10 | Dev B | P0 | done | 81c5794 | Fastify API + SSE + zod + demo gating + 429 + static serving + demo signing; 8 contract tests; verify-all GREEN |
 | B-11 | Dev B | P0 | done | 99ecd55 | Vite/React console served with the API: compile/sign/run/SSE/audit/scenario lab; 5 web tests; 1440px + 390px browser check; all labels SIMULATED |
-| B-12 | Dev B | P0 | doing | 4c4da28 | Part 1 generated 500 SIMULATED cases, 6 eval tests and summary; Part 2 blocked on A-07/A-09; `--part all` fails closed |
+| B-12 | Dev B | P0 | partial | 4c4da28 | Part 1: 500 seeded SIMULATED cases, 6 eval tests, generated summary; Part 2 blocked on A-07/A-09, `--part all` fails closed |
 | B-13 | Dev B | P1 | todo | | |
 | B-14 | Dev B | P1 | todo | | |
 | B-15 | Dev B | P1 | todo | | |
@@ -60,8 +60,8 @@ Last updated: 2026-10-20 by Dev B. B-01..B-07, B-09, B-10, B-11, B-12 Part 1 don
 - **Events:** vault pause events are `VaultPaused` / `VaultUnpaused`; the error remains `Paused` (D-022). Update any ABI/event usage accordingly.
 
 ## Blockers
-- B-08 is blocked on A-04.4 (execute effects, check #16, `liquidReserveUsd8`, `ActionExecuted`) and A-07 (`Deploy.s.sol`, `scripts/deploy.sh`, `deployments/<chainId>.json`, `packages/core/src/abi/`, `eval/fixtures/base.json`). See `docs/reviews/DEV-A-sync.md` and `docs/reviews/MESSAGE-TO-DEV-A.md`.
-- B-12 Part 2 (anvil configs A–D) is blocked on A-07 deployment/ABI/base fixture and A-09 chain runner; Part 1 is independent and generated.
+- B-08 is blocked on A-07 (`Deploy.s.sol`, `scripts/deploy.sh`, `deployments/<chainId>.json`, `packages/core/src/abi/`, `eval/fixtures/base.json`); A-04.4 effects/post-condition commits `e1f90f3`/`dec5aae` exist on `a/A-04-vault` but are not merged into `main`. See `docs/reviews/DEV-A-sync.md` and `docs/reviews/MESSAGE-TO-DEV-A.md`.
+- B-12 Part 2 (anvil configs A–D) is blocked on the same A-07 artifacts and A-09 chain runner; Part 1 is independent and generated.
 
 ## Decisions needed from human
 See `docs/DECISIONS.md` rows with OPEN/VERIFY (D-003, D-006, D-013, D-016, D-020, D-021). D-018 is superseded by D-027.
