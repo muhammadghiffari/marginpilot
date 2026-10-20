@@ -1,8 +1,8 @@
 # STATUS (update at the end of every task; agents load this each session)
 
-Last updated: 2026-10-20 18:15 WIB by Dev B. B-01..B-07, B-09, B-10, B-11 done; B-12 Part 1 done; B-08 skipped (A-07 artifacts missing); Part 8 submission package done (`3adcbe1`, `a612d22` on `main`).
-- **A-04 PR #1 verified**: `origin/a/A-04-vault` @ `fef6fb1` → `scripts/verify-all.sh` GREEN on this machine, 120 forge tests, 0 failed (98→120 with effects, post-conditions and execute-order proofs).
-- **Mirror updated for the PR**: `PolicyContext` gains `reserveToken`, `lendingSim`, `swapTarget`; wrong-role targets and the reserve price are now enforced in `packages/core/src/policy.ts` (D-030, D-031); 88 core tests green, all workspaces green (235 tests). Reply: `docs/reviews/A04-PR1-REVIEW.md`; Dev A asks: `docs/reviews/MESSAGE-TO-DEV-A.md`.
+Last updated: 2026-10-20 by Dev A. A-04 complete on `a/A-04-vault` (PR #1, 125 Forge tests); D-030/D-031/D-032 closed on the contract side. B-01..B-07, B-09, B-10, B-11 done; B-12 Part 1 done; B-08 blocked on A-07; Part 8 submission package done (`3adcbe1`, `a612d22` on `main`).
+- **A-04 PR #1**: `a/A-04-vault` now carries checks #1–#16, effects, `liquidReserveUsd8`, `ActionExecuted`, the SWAP role probe (D-032), the reserve token in the #11 price set (D-031), and missing-price → `StalePrice`; `forge test` = 125 passed, 0 failed.
+- **Mirror updated for the PR**: `PolicyContext` gains `reserveToken`, `lendingSim`, `swapTarget`; wrong-role targets and the reserve price are now enforced in `packages/core/src/policy.ts` (D-030, D-031); 88 core tests green, all workspaces green (235 tests). Reply: `docs/reviews/A04-PR1-REVIEW.md`; Dev A asks: `docs/reviews/MESSAGE-TO-DEV-A.md`. Pending on the mirror side: move the SWAP role check from after #15 to after #9 (D-032).
 - B-11 (`99ecd55`): one Vite/React page served by the API — compile/clarify/sign, plan, live state, ledger, audit, demo-only scenario lab, 390px layout; 5 web tests; browser click-through observed run→2 actions→ledger, stale-oracle halt and budget-exhausted halt; screenshots in `docs/submission/screenshots/`.
 - B-12 Part 1 (`4c4da28`, summary `eval/results/2026-10-20T09-44-04-427Z/summary.md`): realized-loss mean B−A −$13.9234, win/tie/loss 118/158/224, bootstrap 95% CI [−$17.6227, −$10.3966]; B loses some cases because A may choose partial-target amounts outside B's discrete candidates — no per-case dominance claim.
 - Part 8: root `README.md` (setup in 8 commands), `docs/submission/TECH-DOC.md`, `SECURITY-SELF-ASSESSMENT.md`, `EXECUTION-EVIDENCE.md`, `DECK-OUTLINE.md` (≤10 min, source per slide), `REGISTRATION-EMAIL.md`; `scripts/check-secrets.sh` clean and `scripts/verify-all.sh` GREEN (98 Forge + 83 core + 36 agent + 5 web + 6 eval = 228 tests, 7 scenarios × 1 run).
@@ -22,7 +22,7 @@ Last updated: 2026-10-20 18:15 WIB by Dev B. B-01..B-07, B-09, B-10, B-11 done; 
 | A-01 | Dev A | P0 | done | b6b5a7f | Foundry scaffold, MockERC20 + MockOracle, 7 tests |
 | A-02 | Dev A | P0 | done | f1d41c1 | LendingSim; HF 0.942857/1.051429, 11 tests |
 | A-03 | Dev A | P0 | done | a7893aa | MockSwap; 30 bps fee, slippage, setBroken, 5 tests |
-| A-04 | Dev A | P0 | doing | 264cf63 | Sub-steps 1-3: auth/pause/withdraw; EIP-712 mandate; `execute` checks #1-#15. Effects/#16 and ABIs next |
+| A-04 | Dev A | P0 | done | #1 / a/A-04-vault | Auth/pause/withdraw; EIP-712 mandate; checks #1–#16; effects + `ActionExecuted`; D-030/D-031/D-032 role + reserve-price parity; 125 Forge tests; PR pending merge |
 | A-05 | Dev A | P0 | todo | | |
 | A-06 | Dev A | P0 | todo | | |
 | A-07 | Dev A | P0 | todo | | |
@@ -65,11 +65,12 @@ Last updated: 2026-10-20 18:15 WIB by Dev B. B-01..B-07, B-09, B-10, B-11 done; 
 - **EIP-712:** arrays use standard encoding (each address padded to 32 bytes, concatenated, `keccak256`), not `abi.encodePacked(address[])`. `SET_MANDATE_TYPEHASH` is the full EIP-712 `encodeType` hash, including the referenced `Mandate` type string. viem's `hashTypedData` already does both; `INTERFACES.md` §8 types are unchanged.
 - **Events:** vault pause events are `VaultPaused` / `VaultUnpaused`; the error remains `Paused` (D-022). Update any ABI/event usage accordingly.
 - **Pools:** `MandateVault` reads `LendingSim.pools(uint8)` for the collateral/debt tokens (checks #11 and #16). `CONTRACTS.md` §2.3 will document that public getter; `PolicyContext.pools` already carries exactly `{ collateralToken, debtToken }` per pool.
-- **Wrong-role target (pending A-04.4):** a lending action at an allowed target that is not `LendingSim` maps the failed `pools()` read to `TargetNotAllowed`. `PolicyContext` has no `lendingSim`/`swapTarget`, so the TS mirror cannot yet detect this; see `docs/reviews/D-025-dev-a-reply.md` §e.
+- **Wrong-role target (D-030/D-032):** on chain, a lending action at an allowed target that is not `LendingSim` maps the failed `pools()` read (start of #11) to `TargetNotAllowed`; a SWAP at a target that answers `pools()` is rejected immediately after #9. The mirror already names both; move its SWAP check from after #15 to after #9 to match the vault's precedence. `PolicyContext.lendingSim`/`swapTarget` carry the roles.
+- **Missing price (D-032):** the vault maps a missing oracle price in the #11 price set (including the reserve token) to `StalePrice`; it no longer leaks `MockOracle.UnknownToken`.
 
 ## Blockers
 - B-08 is blocked on A-07 (`Deploy.s.sol`, `scripts/deploy.sh`, `deployments/<chainId>.json`, `packages/core/src/abi/`, `eval/fixtures/base.json`); A-04.4 effects/post-condition commits `e1f90f3`/`dec5aae` exist on `a/A-04-vault` but are not merged into `main`. See `docs/reviews/DEV-A-sync.md` and `docs/reviews/MESSAGE-TO-DEV-A.md`.
-- `main` does not yet contain the A-04.4 contract rules, but the TS mirror already implements them (D-030 wrong-role target, D-031 reserve token in the #11 price set). The mirror is therefore ahead of `main` until PR #1 is merged; the differential test (B-15) is what will prove the two agree.
+- `main` does not yet contain the A-04.4 contract rules; `a/A-04-vault` now implements D-030/D-031/D-032 (SWAP role after #9, reserve token in #11, missing price → `StalePrice`). The mirror still places the SWAP role check after #15; it must move to after #9. PR #1 is green (125 Forge tests) and pending merge; B-15 proves the two sides agree.
 - B-12 Part 2 (anvil configs A–D) is blocked on the same A-07 artifacts and A-09 chain runner; Part 1 is independent and generated.
 
 ## Decisions needed from human
