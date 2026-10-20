@@ -8,7 +8,7 @@ You can start immediately: Node 22 + pnpm are enough. No chain needed until B-08
 | B-01 | P0 | - | pnpm workspace scaffold (`packages/core`, `apps/agent`, `apps/web`), tsconfig strict, vitest, root scripts (`test`, `typecheck`, `eval:run`) | [x] `pnpm -r test` and `typecheck` run; `scripts/verify-all.sh` picks them up (2026-10-20: 1 test passed; 3 projects typechecked; VERIFY-ALL GREEN) |
 | B-02 | P0 | B-01 | `types.ts`, zod schemas, bigint (de)serialization, ErrorName | [x] round-trip tests (2026-10-20: 9 schema tests incl. mandate/action/plan, strict rejection, canonical JSON; all green) |
 | B-03 | P0 | B-02 | `valuation.ts` + `health.ts` (usd8, decimals, HF wad) | [x] 6-dec vs 18-dec tests; exact wad 942857142857142857 / 1051428571428571428 (2026-10-20, 8 math tests green) |
-| B-04 | P0 | B-03 | `optimizer.ts` per OPTIMIZER.md | pinned fixture (86.57 / 163.59 / ≈16.4179; local baseline 64.00), determinism, brute-force cross-check |
+| B-04 | P0 | B-03 | `optimizer.ts` per OPTIMIZER.md | [x] pinned fixture 86.57/163.59, spend 250.16, loss 16.417875, local baseline 64.00; shuffled determinism + 24 seeded brute-force cases (2026-10-20; 11 tests green, Python OK) |
 | B-05 | P0 | B-03 | `policy.ts` mirror with exact check order | unit test per check; same error names |
 | B-06 | P0 | B-02, B-05 | `MockChainPort` (same math/checks as contracts) + ledger + state machines + hash-chained audit + redactor | all unit tested |
 | B-07 | P0 | B-02 | LLM layer: `LlmClient`, provider impl, `ScriptedLlm`; `compile_mandate` with normalizer and clarification logic | seed prompts m01–m12: no dangerous widening; ambiguous ⇒ clarification (scripted + live) |
