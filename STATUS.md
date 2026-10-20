@@ -69,6 +69,7 @@ Last updated: 2026-10-20 18:15 WIB by Dev B. B-01..B-07, B-09, B-10, B-11 done; 
 
 ## Blockers
 - B-08 is blocked on A-07 (`Deploy.s.sol`, `scripts/deploy.sh`, `deployments/<chainId>.json`, `packages/core/src/abi/`, `eval/fixtures/base.json`); A-04.4 effects/post-condition commits `e1f90f3`/`dec5aae` exist on `a/A-04-vault` but are not merged into `main`. See `docs/reviews/DEV-A-sync.md` and `docs/reviews/MESSAGE-TO-DEV-A.md`.
+- `main` does not yet contain the A-04.4 contract rules, but the TS mirror already implements them (D-030 wrong-role target, D-031 reserve token in the #11 price set). The mirror is therefore ahead of `main` until PR #1 is merged; the differential test (B-15) is what will prove the two agree.
 - B-12 Part 2 (anvil configs A–D) is blocked on the same A-07 artifacts and A-09 chain runner; Part 1 is independent and generated.
 
 ## Decisions needed from human
