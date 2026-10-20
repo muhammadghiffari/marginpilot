@@ -12,7 +12,9 @@ import { LOCAL_TEST_REGISTRY, type TokenRegistry } from '../mandate/registry.js'
 export const DEMO_OWNER = '0x00000000000000000000000000000000000000e3' as const;
 export const DEMO_EXECUTOR = '0x00000000000000000000000000000000000000e1' as const;
 export const DEMO_VAULT = '0x00000000000000000000000000000000000000b2' as const;
-export const DEMO_NOW = 1_700_000_000n;
+// Fixed simulated chain clock: 2026-10-20T00:00:00Z, so demo mandate expiry is
+// deterministic and readable rather than a date in the past.
+export const DEMO_NOW = 1_792_454_400n;
 export const DEMO_BLOCK = 100n;
 
 export function demoMandate(registry: TokenRegistry = LOCAL_TEST_REGISTRY): Mandate {

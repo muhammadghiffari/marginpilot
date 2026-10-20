@@ -47,6 +47,7 @@ async function getState() {
     mandate: { id: string } | null;
     positions: { healthFactor: string }[];
     simulated: boolean;
+    demoMode: boolean;
   };
 }
 
@@ -83,10 +84,11 @@ describe('API contract (SIMULATED demo runtime)', () => {
     });
     expect(response.statusCode).toBe(200);
     const draft = response.json() as {
-      mandate: { maxTotalSpendUsd: string; minLiquidReserveUsd: string; lockedTokens: string[] };
+      mandate: { maxTotalSpendUsd: string; maxPerActionUsd: string; minLiquidReserveUsd: string; lockedTokens: string[] };
       clarifications: unknown[];
     };
     expect(draft.mandate.maxTotalSpendUsd).toBe('26000000000');
+    expect(draft.mandate.maxPerActionUsd).toBe('26000000000');
     expect(draft.mandate.minLiquidReserveUsd).toBe('10000000000');
     expect(draft.clarifications).toEqual([]);
     expect(draft.mandate.lockedTokens).toHaveLength(1);
@@ -179,6 +181,7 @@ describe('API contract (SIMULATED demo runtime)', () => {
 
     const state = await getState();
     expect(state.simulated).toBe(true);
+    expect(state.demoMode).toBe(true);
     expect(state.positions.every((position) => BigInt(position.healthFactor) >= 1_005_000_000_000_000_000n)).toBe(true);
   });
 
@@ -226,6 +229,7 @@ describe('API contract (SIMULATED demo runtime)', () => {
       payload: { token: '0x00000000000000000000000000000000000000a2', priceUsd8: '1' },
     });
     expect(shock.statusCode).toBe(404);
+    expect((await getState()).demoMode).toBe(false);
   });
 
   test('rate limiting returns 429 on a burst', async () => {

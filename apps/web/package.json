@@ -3,7 +3,12 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "scripts": { "test": "vitest run --passWithNoTests --config ../../vitest.config.ts", "typecheck": "tsc -p tsconfig.json" },
-  "dependencies": { "react": "19.2.0", "react-dom": "19.2.0" },
-  "devDependencies": { "@types/react": "19.2.2", "@types/react-dom": "19.2.1" }
+  "scripts": {
+    "test": "vitest run --passWithNoTests --config ../../vitest.config.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "build": "vite build",
+    "dev": "vite --host 127.0.0.1"
+  },
+  "dependencies": { "@marginpilot/core": "workspace:*", "react": "19.2.0", "react-dom": "19.2.0", "zod": "3.25.76" },
+  "devDependencies": { "@types/react": "19.2.2", "@types/react-dom": "19.2.1", "vite": "7.3.7" }
 }

@@ -39,12 +39,18 @@ importers:
 
   apps/web:
     dependencies:
+      '@marginpilot/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       react:
         specifier: 19.2.0
         version: 19.2.0
       react-dom:
         specifier: 19.2.0
         version: 19.2.0(react@19.2.0)
+      zod:
+        specifier: 3.25.76
+        version: 3.25.76
     devDependencies:
       '@types/react':
         specifier: 19.2.2
@@ -52,6 +58,9 @@ importers:
       '@types/react-dom':
         specifier: 19.2.1
         version: 19.2.1(@types/react@19.2.2)
+      vite:
+        specifier: 7.3.7
+        version: 7.3.7(@types/node@22.19.0)(tsx@4.20.6)
 
   eval:
     dependencies:

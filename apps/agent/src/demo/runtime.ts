@@ -18,7 +18,7 @@ const DOMAIN_VERSION = '1';
 
 const DEMO_MODEL_OUTPUT = {
   maxTotalSpendUsd: '260',
-  maxPerActionUsd: '26',
+  maxPerActionUsd: '260',
   minLiquidReserveUsd: '100',
   maxSlippageBps: 100,
   validForSec: 86_400,
