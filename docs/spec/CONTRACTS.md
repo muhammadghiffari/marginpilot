@@ -38,6 +38,7 @@ positionOf(uint8 pool, address user) view returns (uint256 collateral, uint256 d
 liquidate(uint8 pool, address user, uint256 repayAmount) returns (uint256 collateralSeized)
 setPoolPaused(uint8 pool, bool paused)      // admin; repay/supply/borrow revert PoolPaused (failure injection, scenario S4)
 pools(uint8 pool) view returns (address collateralToken, address debtToken, uint32 ltBps, uint32 liqBonusBps, uint32 closeFactorBps, bool paused)
+seedPosition(uint8 pool, address user, uint256 collateral, uint256 debt) // admin; deploy/test-only seeding, moves no tokens
 ```
 Math (all via oracle prices; document rounding direction in code comments):
 - `HF = collateralUsd * ltBps / 10000 / debtUsd` (as wad). Liquidatable iff `HF < 1e18`.
