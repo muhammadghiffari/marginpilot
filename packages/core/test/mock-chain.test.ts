@@ -154,6 +154,20 @@ describe('MockChainPort SWAP mirrors MockSwap', () => {
     expect(result).toMatchObject({ status: 'reverted', error: 'SlippageExceeded' });
     expect((await chain.getVault()).balances[TEST_ADDRESSES.mWETH]).toBeUndefined();
   });
+
+  test('rejects a wrong-role target before any state change (D-030)', async () => {
+    const mandate: Mandate = { ...swapMandate, allowedTargets: [TEST_ADDRESSES.lending, TEST_ADDRESSES.swap] };
+    const chain = new MockChainPort(config({ mandate, swapTarget: TEST_ADDRESSES.swap }));
+    const before = await chain.getVault();
+
+    const lendingAtSwap = await chain.submit({ ...repayAction, target: TEST_ADDRESSES.swap });
+    expect(lendingAtSwap).toMatchObject({ status: 'reverted', error: 'TargetNotAllowed' });
+
+    const swapAtLending = await chain.submit({ ...swapAction, target: TEST_ADDRESSES.lending });
+    expect(swapAtLending).toMatchObject({ status: 'reverted', error: 'TargetNotAllowed' });
+
+    expect(await chain.getVault()).toEqual(before);
+  });
 });
 
 describe('MockChainPort UNKNOWN reconciliation', () => {

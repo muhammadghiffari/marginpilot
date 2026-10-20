@@ -70,7 +70,8 @@ function lendingAction(action: Action): boolean {
 }
 
 function priceSet(action: Action, ctx: PolicyContext): Address[] {
-  const tokens: Address[] = [action.tokenIn];
+  // D-031: the reserve token is priced for every action because check #16 values the reserve with it.
+  const tokens: Address[] = [action.tokenIn, ctx.reserveToken];
   if (action.actionType === 'SWAP') {
     if (action.tokenOut === null) throw new PolicyConfigError('SWAP is missing tokenOut');
     tokens.push(action.tokenOut);
@@ -78,7 +79,7 @@ function priceSet(action: Action, ctx: PolicyContext): Address[] {
     const pool = poolOf(ctx, action.poolId);
     tokens.push(pool.collateralToken, pool.debtToken);
   }
-  return tokens;
+  return [...new Map(tokens.map((token) => [token.toLowerCase(), token])).values()];
 }
 
 function valueUsd8(action: Action, oraclePriceUsd8: bigint, ctx: PolicyContext): bigint {
@@ -122,6 +123,11 @@ export function checkAction(
   // #10
   if ((action.actionType === 'REPAY' || action.actionType === 'SWAP') && includesAddress(mandate.lockedTokens, action.tokenIn)) {
     return { ok: false, error: 'AssetLocked' };
+  }
+  // #11 (D-030) wrong-role target: a lending action must address the lending simulator.
+  // The vault raises this inside the #11 pool-token read, so it lands after #10 and before the freshness loop.
+  if (lendingAction(action) && !sameAddress(action.target, ctx.lendingSim)) {
+    return { ok: false, error: 'TargetNotAllowed' };
   }
 
   let pricesByToken: Map<string, bigint>;
@@ -176,6 +182,15 @@ export function checkAction(
     );
     const minimumFairOut = mulDivFloor(fairOut, BPS - BigInt(mandate.maxSlippageBps), BPS);
     if (action.minAmountOut < minimumFairOut) return { ok: false, error: 'SlippageExceeded' };
+  }
+
+  // #15.5 (D-030) wrong-role target: a SWAP must address the swap target. The vault has no
+  // role probe for SWAP yet, so it fails at the target call instead; the mirror is stricter and
+  // names the reason. See docs/reviews/A04-PR1-REVIEW.md.
+  if (action.actionType === 'SWAP') {
+    if (ctx.swapTarget === undefined || !sameAddress(action.target, ctx.swapTarget)) {
+      return { ok: false, error: 'TargetNotAllowed' };
+    }
   }
 
   return { ok: true, valueUsd8: value };
