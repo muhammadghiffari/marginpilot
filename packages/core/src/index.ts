@@ -1,1 +1,2 @@
-export const packageName = "@marginpilot/core";
+export * from './types.js';
+export * from './schemas.js';
