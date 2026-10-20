@@ -6,6 +6,13 @@ fail=0
 step() { printf '\n== %s ==\n' "$1"; }
 run()  { "$@" || { echo "FAILED: $*"; fail=1; }; }
 
+# Forge lives in ~/.foundry/bin on this machine; put it on PATH automatically so the
+# contract suite runs without the caller exporting PATH first.
+if ! command -v forge >/dev/null 2>&1 && [ -x "$HOME/.foundry/bin/forge" ]; then
+  PATH="$HOME/.foundry/bin:$PATH"
+  export PATH
+fi
+
 step "secrets";  run bash scripts/check-secrets.sh
 step "script syntax"; for s in scripts/*.sh; do run bash -n "$s"; done
 step "opencode.json valid"; run jq -e . opencode.json >/dev/null
