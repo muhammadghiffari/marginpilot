@@ -1,6 +1,6 @@
 # STATUS (update at the end of every task; agents load this each session)
 
-Last updated: 2026-10-20 by Dev B. Synced `origin/main` at `264cf63` (A-04.3). B-01..B-07 done (`packages/core`, 83 tests; B-07 16 agent tests). B-09 done (`d8b0701`): fixed tool set, plan binding, plan-age/price-drift replans, simulate-before-submit, UNKNOWN reconciliation, kill switch; 12 orchestrator tests, S1–S5/S7/S9 green with `ScriptedLlm` on `MockChainPort` (SIMULATED); `verify-all` GREEN. D-025 and D-029 recorded; D-026..D-028 confirmed. Dev A has A-04 sub-steps 1–3 (auth/pause/withdraw, EIP-712 mandate, execute checks #1–#15); 98 Foundry tests green, effects/#16 and A-07 next. `docs/reviews/DEV-A-sync.md` records the cross-check and the mock SWAP fee/minAmountOut fix (`7cac091`). `main` and `feat/dev-b-foundations` were pushed successfully at Part 0.
+Last updated: 2026-10-20 by Dev B. Synced `origin/main` at `264cf63` (A-04.3). B-01..B-07 done (`packages/core`, 83 tests; B-07 16 agent tests). B-09 done (`d8b0701`): fixed tool set, plan binding, plan-age/price-drift replans, simulate-before-submit, UNKNOWN reconciliation, kill switch; 12 orchestrator tests, S1–S5/S7/S9 green with `ScriptedLlm` on `MockChainPort` (SIMULATED). B-10 done (`81c5794`): Fastify API, SSE, zod on every route, demo gating, 429 limiter, static `apps/web/dist`, demo signer; 8 API contract tests; `verify-all` GREEN. D-025 and D-029 recorded; D-026..D-028 confirmed. Dev A has A-04 sub-steps 1–3 (auth/pause/withdraw, EIP-712 mandate, execute checks #1–#15); 98 Foundry tests green, effects/#16 and A-07 next. `docs/reviews/DEV-A-sync.md` records the cross-check and the mock SWAP fee/minAmountOut fix (`7cac091`). `main` and `feat/dev-b-foundations` were pushed successfully at Part 0.
 
 ## Milestones
 - [ ] M0 Setup done (both machines pass `scripts/preflight.sh`; repo pushed; keys funded) — Owner
@@ -35,7 +35,7 @@ Last updated: 2026-10-20 by Dev B. Synced `origin/main` at `264cf63` (A-04.3). B
 | B-07 | Dev B | P0 | done | 81837e6 | `LlmClient`, typed live stub, `ScriptedLlm`, normalizer, clarifications, sanitizer/tripwire; m01–m12 zero dangerous widening; 16 tests green |
 | B-08 | Dev B | P0 | todo | | |
 | B-09 | Dev B | P0 | done | d8b0701 | fixed tool set + orchestrator; S1–S5/S7/S9 green with `ScriptedLlm` on `MockChainPort` (SIMULATED); 12 tests; verify-all GREEN |
-| B-10 | Dev B | P0 | todo | | |
+| B-10 | Dev B | P0 | done | 81c5794 | Fastify API + SSE + zod + demo gating + 429 + static serving + demo signing; 8 contract tests; verify-all GREEN |
 | B-11 | Dev B | P0 | todo | | |
 | B-12 | Dev B | P0 | todo | | |
 | B-13 | Dev B | P1 | todo | | |
