@@ -2,7 +2,7 @@
 
 Send to: `fintechathon@ican-x.com`
 Cc: `info@ican-x.com`
-Subject: **International Track Registration – Team Name – Team Leader Name**
+Subject: **International Track Registration – MarginPilot – Team Leader Name**
 
 > Replace `Team Name` and `Team Leader Name` in the subject with the registered values, keeping the
 > same wording and order. Do not send until every placeholder below is replaced. This file contains
@@ -12,7 +12,7 @@ Subject: **International Track Registration – Team Name – Team Leader Name**
 
 Dear Organising Committee,
 
-We are **<TEAM NAME>**, registering for the **International Track** of FinTechathon 2026. Our team
+We are **MarginPilot** (team name, D-035), registering for the **International Track** of FinTechathon 2026. Our team
 leader is **<TEAM LEADER NAME>**, and our submission targets **Topic F (Agent Wallet)**.
 
 Our project, **MarginPilot**, is a mandate-bound wallet agent for rescuing multiple at-risk lending

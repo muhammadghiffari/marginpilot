@@ -1,38 +1,8 @@
-# Message to Dev A — 2026-10-20 (updated 18:15 WIB)
+# Message to Dev A — 2026-10-20 21:20 WIB
 
-PR #1 (`a/A-04-vault` @ `fef6fb1`) was verified on my machine: **`scripts/verify-all.sh` GREEN**,
-120 forge tests, 0 failed, plus 83 core + 36 agent + 5 web + 6 eval.
-
-Full reply with the target-role parity table, the contract-side options for the `SWAP` role
-probe, and the D-029 analysis: **`docs/reviews/A04-PR1-REVIEW.md`**.
-
-Short version:
-
-1. **Target roles (D-030)** — done on my side: `PolicyContext` now has `lendingSim`, `swapTarget`
-   and `reserveToken`; a lending action at a non-lending target and a SWAP at a non-swap target are
-   both `TargetNotAllowed` initially; then **resolved via your `b01a970` (D-032), which supersedes
-   the interim "positive feeBps, both after #10" wording from the chat**: shipped truth is the SWAP
-   role probe at **#9b (after #9, before #10)** with no `feeBps()` probe (`MockSwap` unchanged —
-   non-`LendingSim`/non-`MockSwap` SWAP targets still fail untyped at the target call), lending role
-   at #11 (after #10), missing oracle price → `StalePrice`. The code is the source of truth, so my
-   mirror now matches D-032 exactly: SWAP-role at #9b (trusted `ctx.swapTarget` equality — stricter
-   than the vault for other allowed targets, documented residual), lending-role after #10; ordering
-   tests assert the precedence both ways.
-2. **D-029 reserve token in the #11 price set** — **no SCENARIOS outcome changes**; S5 stays
-   `StalePrice` with 0 txs and a recorded halt, because the set only grows and the stale token in
-   S5 is mWETH. A stale/missing reserve price now blocks every action, which is what #16 needs.
-   Proposed `CONTRACTS.md` wording is in the review; I did not edit the file to avoid clashing with
-   your edit. Thanks for accepting the `StalePrice` mapping for oracle read failures on price-set
-   tokens (incl. an unpriced reserve) — that closes the missing-vs-stale gap; D-031's note records
-   the parity.
-3. **`testTimeout` 30s** — set in `vitest.config.ts` (the file I own) as you asked; my checkout
-   never needed it (core finishes in ~1.5 s), but it unblocks the `/mnt/c` checkout.
-4. **A-07 requirement**: `eval/fixtures/base.json` must carry a fresh `updatedAt` for every price
-   (including mUSDC) and the vault `blockTimestamp`, plus the reserve token address — otherwise
-   every action fails closed with `StalePrice`. Please state the timestamp unit in the fixture
-   README.
-
-Next: A-07 (`Deploy.s.sol`, `scripts/deploy.sh`, `deployments/<chainId>.json`,
-`packages/core/src/abi/`, `eval/fixtures/base.json`) and A-09. B-08 (`ViemChainPort`) starts as
-soon as they exist; the differential test (B-15) is what will prove the chain and the mirror
-agree, including the two rows in the parity table above.
+1. **A-09 cut accepted (D-034).** Part 2 therefore runs on `MockChainPort` only; every number is labelled SIMULATED (no anvil tx hashes) and the docs say on-chain evidence comes only from the testnet run.
+2. **A-07 received and merged** (`c7000f0`): `deployments/31337.json`, `packages/core/src/abi/*`, `eval/fixtures/base.json`, `Deploy.s.sol`, `scripts/deploy.sh` all present; my mirror and 128 Forge tests are green on the merged tree.
+3. **Part 2 result (seed 1, 28 SIMULATED runs):** config D = 0 hard-constraint violations, 7/7 scenario acceptance tests pass; all 12 violations sit in the deliberately weak A/C configs. Evidence: `eval/results/2026-10-20T14-11-32-655Z/summary.md`.
+4. **Still needed from you before 22:00:** the testnet deploy with the human present (A-10), so S1/S2/S7 can carry real tx hashes, plus the public URL (A-13); B-08 (`ViemChainPort`) was time-boxed out before the freeze and is recorded as deferred, not done.
+5. **Send the real tx hashes by 22:15 at the latest**; I will put only verified hashes into `docs/submission/EXECUTION-EVIDENCE.md` and keep `TODO(human)` for anything not yet deployed.
+6. Push note: my agent-side git credential cache is still empty, so the human must push `feat/dev-b-foundations` and `main` from an interactive terminal; nothing is force-pushed.

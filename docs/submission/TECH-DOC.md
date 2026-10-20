@@ -1,8 +1,10 @@
 # MarginPilot — Technical Documentation
 
-Team: `<TEAM NAME>` (TODO(human), D-016) · Topic F · Commit: `99ecd55` · Date: 2026-10-20
+Team: **MarginPilot** (D-035) · Topic F · Commit: `a0debd4` · Date: 2026-10-20
 
-This document describes only what the repository at commit `99ecd55` implements and what was
+This document describes only what the repository at commit `a0debd4` implements and what was
+measured; the submission-doc commit sits on top of it. Every number below comes from a command or a
+generated artifact in this repository.
 actually run on 2026-10-20. Where an artifact is still missing, it says so. The lending market is
 **SIMULATED**; the repository currently has **no public-testnet deployment** (see §7 and
 `docs/submission/EXECUTION-EVIDENCE.md`).
@@ -53,7 +55,7 @@ Trust zones (`docs/spec/ARCHITECTURE.md`):
 | Core | `packages/core/src/policy.ts`, `optimizer.ts`, `mock-chain-port.ts`, `audit.ts`, `ledger.ts` | Pure policy mirror, loss model and exhaustive planner, typed chain port, hash-chained audit, redaction |
 | Agent | `apps/agent/src/orchestrator.ts`, `llm/`, `mandate/`, `api/`, `demo/` | Fixed tool loop, deterministic `ScriptedLlm`, mandate compiler, Fastify API/SSE, demo runtime |
 | Web | `apps/web/src/` | One Vite/React page for instruction → mandate → plan → verified state |
-| Evaluation | `eval/src/part1-simulation.ts`, `report.ts`, `cli.ts` | Seeded Part 1 study and generated report artifacts |
+| Evaluation | `eval/src/part1-simulation.ts`, `eval/src/part2-runner.ts`, `report.ts`, `cli.ts` | Seeded Part 1 study and the SIMULATED A–D Part 2 ablation, with generated artifacts |
 
 Data flow: instruction → zod-validated mandate draft (untrusted text is escaped and tripwired) →
 owner/demo signature → `getPositions`/`getPrices`/`getVault` → `optimizeRescue` → per-action
@@ -75,15 +77,16 @@ contract bound). `setMandateWithSig` rejects replay, wrong signer, expired deadl
 mandate, mandate id/nonce, deadline, validity window, non-zero amount, action bit (and
 `BorrowForbidden`), target allow-list, locked tokens, price freshness for every token in the
 action's price set, quoted-price deviation, per-action cap, cumulative budget, slippage, then the
-specified target call; after the call, reserve floor and non-decreasing HF. At this commit the
-contract enforces checks #1–#15 but does not yet perform the effects or check #16; reverts are
-atomic and the off-chain ledger records no spend for a reverted action.
+specified target call; after the call, reserve floor and non-decreasing HF. Checks #1–#16 and the
+effects are merged on `main` (PR #1 `7039146`, follow-up `b01a970`; PR #2 `c7000f0`): wrong-role
+targets map to `TargetNotAllowed` (SWAP role probe at #9b, D-032), the reserve token is in the #11
+price set (D-031), and a missing price maps to `StalePrice`. Reverts are atomic and the off-chain
+ledger records no spend for a reverted action.
 
-**Current integration limit:** the evaluated commit enforces checks #1–#15. Effects,
-check #16 (`PostConditionFailed`) and `liquidReserveUsd8()` exist on Dev A's `a/A-04-vault` branch
-(commits `e1f90f3`, `dec5aae`) but are not yet merged into `main`; therefore T07's on-chain half is
-not run here (TODO(Dev A): A-04.4 merge). The TypeScript policy mirror already implements the same
-ordering plus `checkPostConditions`.
+**Current integration limit:** the on-chain code is merged and its Foundry suite is green (128 tests),
+but T07's full on-chain run still needs the testnet deployment (A-10) and a chain port (B-08, deferred
+before the freeze). The TypeScript policy mirror implements the same ordering plus
+`checkPostConditions`; the differential test is B-15.
 
 Permission tiers (`docs/security/PERMISSION-TIERS.md`): L0 read, L1 plan/simulate (no submit path),
 L2 bounded execution inside the mandate, L3 owner-only decisions such as more budget, unlock,
@@ -108,9 +111,12 @@ Prompt handling: `apps/agent/src/llm/sanitize.ts` strips control/zero-width char
 length, neutralizes delimiter look-alikes, and flags directive/secret-shaped text with pattern ids
 only. The mandate compiler clamps model output to the owner's text, cross-checks amounts with a
 regex, emits clarifications for missing or ambiguous fields, and refuses to confirm a draft with
-open clarifications. `ScriptedLlm` replays deterministic traces in tests; the configured live
-provider is a typed offline stub that makes no network call (`LlmNotConfiguredError` /
-`LlmProviderUnavailableError`).
+open clarifications. `ScriptedLlm` replays deterministic traces in tests and remains the CI/demo
+default. `OpenAICompatLlm` (D-036) implements the same `LlmClient` against any OpenAI-compatible
+`/chat/completions` endpoint: tools first, a JSON-schema retry when the endpoint rejects tools, a
+primary→fallback chain, temperature 0, model/usage recorded in the response, and the API key read
+only from the environment and never logged. It was tested against a local mock HTTP server only; **no
+live model call was made**, so no live-provider result is claimed.
 
 The API (`apps/agent/src/api/server.ts`) validates every request with zod, streams typed
 `RunEvent`s over SSE, rate-limits with a capacity bucket (429), hides `/api/demo/*` unless
@@ -153,8 +159,8 @@ hashes in them are synthetic.
 
 Design (`docs/eval/EVALUATION-PLAN.md`): Part 1 compares a local threshold rule A
 (`localThresholdBaseline`) with the exhaustive optimizer B on seeded, constructed two-pool cases.
-Part 2 (anvil configs A–D) and Part 3 (LLM compile/explanation/injection) are **not run**: Part 2
-needs A-07/A-09 and Part 3 needs B-13. No numbers are claimed for them.
+Part 2 runs the A–D ablation of workflow/enforcement. Part 3 (LLM compile/explanation/injection)
+is **not run**.
 
 Part 1 command actually run:
 
@@ -183,22 +189,53 @@ there is no interest, MEV or execution cost; B's discrete levels can lose to A's
 amount. The result supports "lower mean loss in this study", not per-case dominance and not
 real-market performance. Raw numbers must be regenerated, never hand-edited.
 
+### Part 2 — workflow & enforcement (SIMULATED, `MockChainPort`)
+
+Command actually run: `pnpm eval:run -- --part 2 --seed 1`. Generated artifact:
+`eval/results/2026-10-20T14-11-32-655Z/summary.md` (28 runs: configs A–D × S1–S5, S7/T15, S9).
+A-09 (anvil runner + liquidator bot) was cut to protect the deadline (D-034), so Part 2 runs on the
+in-memory `MockChainPort` with the deterministic `ScriptedLlm`: it produces **no anvil transactions,
+no gas observations and no on-chain hashes**. Every Part 2 number is SIMULATED, and on-chain evidence
+must come from the testnet run.
+
+Configs: A = per-position threshold script + permissive mandate; B = fixed optimizer loop + strict
+on-chain gate; C = agent on a permissive mandate (off-chain per-plan check only); D = agent with the
+strict on-chain gate (the product). A and C are weak by construction; the comparison is an ablation
+of design choices, not a competitive benchmark. Realized loss applies a single-step liquidation
+model (close factor × liquidation bonus) to the final simulated state; it is not chain state.
+
+| Cfg | Violations (all 7 scenarios) | False completions | Acceptance passes | Direct SWAP (S7/T15) |
+|---|---:|---:|---:|---|
+| A | 4 (stale ×1, direct-SWAP ×3) | n/a (script) | 1/7 | mines → intended-mandate violations |
+| B | 0 | n/a (script) | 5/7 | rejected, 0 tx |
+| C | 8 (budget ×3, stale ×2, direct-SWAP ×3) | 4 | 2/7 | mines → 3 intended-mandate violations |
+| D | **0** | **0** | **7/7** | rejected, 0 tx |
+
+Totals: 12 hard-constraint violations across 7 of 28 runs, all in A/C; 0 duplicate executions;
+false completion 4/28 (all C). Config D spent $250.16 on S1 (cap $260), $86.57 on S2 (cap $150,
+`COMPLETED_PARTIAL`), halted on S4/S5/S9 as expected, and left $32.8357 modeled realized loss on S3
+after the mid-plan 5% price move (it replanned; no violation). The exact per-run rows are in the
+generated `summary.md`; do not copy numbers from this prose without regenerating.
+
 ## 9. Security
 
 `docs/submission/SECURITY-SELF-ASSESSMENT.md` reports controls and T01–T18 status honestly. The
-evaluated tree has 228 passing automated tests: 98 Foundry, 83 core, 36 agent, 5 web, 6 eval.
-Seven scenarios (S1–S5, S7, S9) run once each with `ScriptedLlm` on `MockChainPort`; this is not a
-k=5 reliability study. No violations were found in those reported scenarios; the contracts are
-unaudited and must not hold real funds.
+evaluated tree has 272 passing automated tests: 128 Foundry, 89 core, 42 agent, 5 web, 8 eval
+(`scripts/verify-all.sh`, 2026-10-20). Seven scenarios (S1–S5, S7, S9) run once each with
+`ScriptedLlm` on `MockChainPort`, plus the 28-run Part 2 ablation. Config D records 0
+hard-constraint violations and 7/7 acceptance passes in that SIMULATED study; this is not a k=5
+reliability study and not on-chain evidence. The contracts are unaudited and must not hold real
+funds.
 
 ## 10. Limitations & future work
 
 From `docs/security/KNOWN-RISKS.md`: unaudited contracts; simulated market and oracle; hot executor
 key; server-held demo-owner key; gas outside the on-chain budget; oracle dependence; LLM/provider
 variance; injection robustness relies on the gate; one chain, one simulated protocol, two pools;
-public-demo abuse; EOA-only signatures; constructed evaluation. B-08 (`ViemChainPort`), B-15
-(wallet signing), B-13 (LLM paraphrase/grounding) and A-07/A-09 (deployment and anvil runner) are
-not complete. Mainnet is out of scope.
+public-demo abuse; EOA-only signatures; constructed evaluation. A-07 is merged, but B-08
+(`ViemChainPort`) was deferred before the freeze, B-15 (wallet signing/differential test) and B-13
+(LLM paraphrase/grounding) are not complete, A-09 was cut (D-034), and A-10/A-13 (testnet deploy,
+public URL) are human-run. Mainnet is out of scope.
 
 ## 11. References
 

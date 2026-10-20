@@ -1,7 +1,7 @@
 # Security Self-Assessment — MarginPilot
 
-Commit: `99ecd55` · Run date: 2026-10-20 · Chain: **SIMULATED (`MockChainPort`)**; no public
-testnet deployment at this commit (TODO(Dev A): A-07/A-09).
+Commit: `a0debd4` (submission-doc commit follows) · Run date: 2026-10-20 · Chain: **SIMULATED (`MockChainPort`)**; no public
+testnet deployment at this commit (TODO(human)/TODO(Dev A): A-10 deploy, A-13 URL; A-09 cut, D-034).
 
 Wording rule followed: no violations were found in the reported scenarios; this is **not** a claim
 that the system is secure. Contracts are unaudited and must not hold real funds.
@@ -27,7 +27,7 @@ verification, multi-chain, ERC-1271 smart-account owners, gas accounting on chai
 |---|---|---|---|
 | L0 | Read-only | read positions, prices, vault, audit | `apps/agent/src/orchestrator.ts` read tool handlers; no key needed |
 | L1 | Plan & simulate | compute plans, `simulate` actions, explain | `orchestrator.ts` simulate path; no submit call |
-| L2 | Bounded execution | submit actions inside the owner mandate | `contracts/src/MandateVault.sol:176` `execute` checks #1–#15; `packages/core/src/policy.ts:89` mirror |
+| L2 | Bounded execution | submit actions inside the owner mandate | `contracts/src/MandateVault.sol:176` `execute` checks #1–#16 (PR #1 `7039146`); `packages/core/src/policy.ts:89` mirror |
 | L3 | Owner decision | more budget, new target, unlock, extend, unpause | `MandateVault.sol:135` `unpause`, `:141` `ownerWithdraw`, `:151`/`:156` mandate setters; agent emits `HALTED_NEEDS_OWNER` |
 
 The agent has no tool that creates or edits a mandate; `execute` builds target calldata itself and
@@ -55,11 +55,12 @@ owner may unpause.
 
 ## 4. Test results
 
-`tests_total=228 passed=228 scenarios=7 runs_per_scenario=1 any_failed=none`
+`tests_total=272 passed=272 scenarios=7 runs_per_scenario=1 any_failed=none`
 
-Breakdown: 98 Foundry, 83 core, 36 agent, 5 web, 6 eval (all run 2026-10-20; `scripts/verify-all.sh`
+Breakdown: 128 Foundry, 89 core, 42 agent, 5 web, 8 eval (all run 2026-10-20; `scripts/verify-all.sh`
 GREEN). The seven scenarios are S1–S5, S7, S9, each run once with `ScriptedLlm` on
-`MockChainPort`. This is **not** a repeated-run (pass^k) study.
+`MockChainPort`; the Part 2 ablation adds 28 SIMULATED runs (A–D × S1–S5/S7/S9/T15). This is **not**
+a repeated-run (pass^k) study and not on-chain evidence.
 
 | ID | Status | Layer | Evidence / gap |
 |---|---|---|---|
@@ -111,7 +112,7 @@ consistency, injected-note plan comparison, indexer disagreement, wallet signing
 | R4 | Demo-owner key lives on the server | server compromise lets attacker set mandates | testnet only; labelled; wallet mode planned (B-15) | not suitable for production custody |
 | R5 | Gas not counted in on-chain budget | spend slightly above stated budget in total cost | tracked off-chain per run and reported separately | no on-chain gas accounting |
 | R6 | USD valuation depends on oracle | wrong/stale price mis-sizes limits | freshness and deviation checks; fail closed | oracle compromise out of scope |
-| R7 | LLM variance and third-party dependency | inconsistent plan text/choices; provider downtime | numbers from code, gate independent, `ScriptedLlm` for tests | live provider is an offline stub; no pass^k study |
+| R7 | LLM variance and third-party dependency | inconsistent plan text/choices; provider downtime | numbers from code, gate independent, `ScriptedLlm` for tests, primary→fallback client (D-036) | live client is mock-tested only, never called live in this run; no pass^k study |
 | R8 | Prompt/memory injection | model might be nudged to odd choices | untrusted delimiting, tool allow-list, plan binding, on-chain gate | model-level robustness is not guaranteed; we rely on the gate |
 | R9 | Single chain, single protocol, 2 pools | narrow generality | explicit scope | no multi-chain, no real Aave |
 | R10 | Public demo abuse | cost burn, spam | rate limits, demo-only controls | determined DoS not handled |

@@ -5,7 +5,7 @@ Source: official International Track rules file and registration form, captured 
 ## Human-only items
 - [ ] Keep the official rules file and registration confirmation with the submission record.
 - [ ] Verify the real team composition meets D-027: "at least 60% of a team's members should be non-Chinese nationals."
-- [ ] Decide the open items that affect the package: team/brand name (D-016), license (D-013).
+- [ ] Decide the open items that affect the package: team/brand name is decided (**MarginPilot**, D-035); license (D-013) is still the human's choice.
 - [ ] Email organizers about testnet acceptance (`EMAIL-TO-ORGANIZERS.md`), keep the reply.
 - [ ] Registration form (Attachment 3) already sent and confirmed.
 - [ ] Public URL opens from a phone on mobile data; executor/demo-owner wallets funded; LLM usage cap set.
