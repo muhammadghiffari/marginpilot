@@ -12,14 +12,15 @@ so every hash is synthetic and no explorer link exists. See
 
 | Area | State |
 |---|---|
-| Core policy, loss model, exhaustive planner, audit chain, ledger | Implemented, 83 tests |
+| Core policy, loss model, exhaustive planner, audit chain, ledger | Implemented, 88 tests |
 | Deterministic `ScriptedLlm`, mandate compiler, clarification gate, prompt sanitizer | Implemented, 16 tests |
 | Orchestrator: fixed tools, plan binding, replans on remaining budget, unknown-tx reconciliation, halt/kill switch | Implemented, 12 tests; S1–S5, S7, S9 on `MockChainPort` |
 | Fastify API + SSE + zod boundaries + 429 limit + demo signing | Implemented, 8 tests |
 | Web console (instruction → mandate → plan → live state → ledger) | Implemented, 5 tests; verified at 1440px and 390px |
 | Seeded Part 1 evaluation and generated report | Implemented, 6 tests; 500 cases |
-| Public testnet deployment, `ViemChainPort`, wallet signing, live LLM provider | **Not implemented** (A-07/B-08/B-15/B-13) |
-| On-chain `execute` effects and post-condition check #16 | On Dev A's `a/A-04-vault` branch, not merged here |
+| Local anvil deploy, base fixture and ABIs | Implemented, 128 Forge tests; `scripts/deploy.sh` (A-07) |
+| Public testnet deployment, `ViemChainPort`, wallet signing, live LLM provider | **Not implemented** (A-10/B-08/B-15/B-13) |
+| On-chain `execute` effects and post-condition check #16 | Implemented on `main` (`7039146`); 125 Forge tests at merge |
 
 ## Quick start (setup in fewer than ten commands)
 
@@ -36,6 +37,13 @@ scripts/verify-all.sh
 cd contracts && forge test
 ```
 
+Local on-chain demo (anvil only; no keys are read):
+
+```bash
+scripts/dev-anvil.sh   # keep running in a second shell
+scripts/deploy.sh      # deployments/31337.json, eval/fixtures/base.json, packages/core/src/abi/
+```
+
 Open `http://127.0.0.1:8787`. The page is served by the API at one URL. The preloaded mandate is
 SIMULATED; click **Run rescue** to watch observe → plan → simulate → two gated repays → refreshed
 state and ledger. **Demo signing** additionally needs `DEMO_OWNER_PRIVATE_KEY` in the environment;
@@ -43,8 +51,8 @@ without it the UI shows the configured error path and the preloaded mandate stil
 a key.
 
 `pnpm eval:run` writes `eval/results/<timestamp>/{results.json,summary.md,run-meta.json}`. Use the
-generated summary; never hand-edit results. Part 2 fails closed until Dev A's deployment artifacts
-exist.
+generated summary; never hand-edit results. Part 2 has the A-07 deployment artifacts; it still needs
+the A-09 chain runner.
 
 ## What is real vs simulated
 
