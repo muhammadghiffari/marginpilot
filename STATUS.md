@@ -1,6 +1,6 @@
 # STATUS (update at the end of every task; agents load this each session)
 
-Last updated: 2026-10-20 by Dev B. B-01..B-06 done (`packages/core`, 81 tests); D-025 merged with `PolicyContext` + `checkPostConditions`; D-026..D-028 confirmed from the official rules and mirrored in the submission checklist. Local `main` also contains A-01..A-03 from `origin/main`; `scripts/verify-all.sh` is GREEN locally. Push is pending owner credentials (see Blockers).
+Last updated: 2026-10-20 by Dev B. B-01..B-06 done (`packages/core`, 81 tests); D-025 merged with `PolicyContext` + `checkPostConditions`; D-026..D-028 confirmed from the official rules and mirrored in the submission checklist. `opencode.json` now allows non-force `origin` pushes and denies credential files; `git ls-remote origin` succeeded. Local `main` also contains A-01..A-03 from `origin/main`; `scripts/verify-all.sh` GREEN.
 
 ## Milestones
 - [ ] M0 Setup done (both machines pass `scripts/preflight.sh`; repo pushed; keys funded) — Owner
@@ -55,7 +55,7 @@ Last updated: 2026-10-20 by Dev B. B-01..B-06 done (`packages/core`, 81 tests); 
 - forge-std v1.17.0 (`f3dae6e`, `contracts/foundry.lock`)
 
 ## Blockers
-- Push to `origin` blocked: the HTTPS remote has no credential helper and this WSL host has no usable SSH key. Owner must run the push commands once (see handover message); local `main` is verified and ready.
+(none)
 
 ## Decisions needed from human
 See `docs/DECISIONS.md` rows with OPEN/VERIFY (D-003, D-006, D-013, D-016, D-020, D-021). D-018 is superseded by D-027.
