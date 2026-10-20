@@ -271,6 +271,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
       runId: latest?.runId ?? null,
       runState: latest?.state ?? 'IDLE',
       simulated: true,
+      demoMode: options.demoMode,
     });
   });
 
