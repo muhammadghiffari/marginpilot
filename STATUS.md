@@ -1,6 +1,6 @@
 # STATUS (update at the end of every task; agents load this each session)
 
-Last updated: 2026-10-20 by Dev A. A-01/A-02 done: Foundry scaffold + mocks, `LendingSim` matches worked-example HF; 18 tests green.
+Last updated: 2026-10-20 by Dev A. A-01/A-02 done and pushed to `origin/main`: Foundry scaffold + mocks, `LendingSim` matches worked-example HF; 18 tests green.
 
 ## Milestones
 - [ ] M0 Setup done (both machines pass `scripts/preflight.sh`; repo pushed; keys funded) — Owner
