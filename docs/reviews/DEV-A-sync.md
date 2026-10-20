@@ -1,23 +1,23 @@
 # DEV-A sync review — 2026-10-20
 
-Synced `origin/main` at `52cece8` (A-04.2) into `main` and the feature branch. Compared `contracts/` with `packages/core/src/types.ts`, `policy.ts`, `mock-chain-port.ts` and `docs/spec/{CONTRACTS,INTERFACES}.md`.
+Synced `origin/main` at `264cf63` (A-04.3) into `main` and the feature branch. Compared `contracts/` with `packages/core/src/types.ts`, `policy.ts`, `mock-chain-port.ts` and `docs/spec/{CONTRACTS,INTERFACES}.md`.
 
-Validation: `forge test -vv` → **44 passed, 0 failed**; `pnpm -r typecheck` green; core tests **83 passed** after the TS fix below. The EIP-712 literals in the Foundry tests were independently reproduced with viem (`hashTypedData`): both non-empty-array and empty-array digests match exactly.
+Validation: `forge test -vv` → **98 passed, 0 failed**; `pnpm -r typecheck` green; core tests **83 passed** after the TS fix below. The EIP-712 literals in the Foundry tests were independently reproduced with viem (`hashTypedData`): both non-empty-array and empty-array digests match exactly.
 
 ## Findings by severity
 
-### High — A-04 is still incomplete
+### High — A-04 still lacks effects and check #16
 
-`contracts/src/MandateVault.sol` now has the `Mandate` struct (`:37-51`), the EIP-712 domain and typehashes (`:53-58, :77-79`), `setMandate`, `setMandateWithSig`, `mandate()` and the mandate/executor/pause events. The `Mandate` field names, order and Solidity types match `packages/core/src/types.ts:29-43`.
+`contracts/src/MandateVault.sol` now has the `Mandate` and `Action` structs (`:39-74`), `ActionType` (`:55-60`), the EIP-712 domain/typehashes (`:76-81, :102-104`), `actionNonce` (`:91`), `revokeMandate` (`:166-173`), `mandate()`, and `execute` checks #1–#15 in the CONTRACTS order (`:176-235`). The struct field names, order and Solidity types match `packages/core/src/types.ts:29-43, 81-93`; `tokenOut = address(0)` is the on-chain form of the off-chain `null`.
 
-Still missing from `contracts/src/MandateVault.sol`:
+The following are still missing from `contracts/src/MandateVault.sol`:
 
-- the `Action` struct and `ActionType` enum vs `types.ts:81-93`
-- `revokeMandate`, `actionNonce`, `liquidReserveUsd8()`, `execute`
-- the `ActionExecuted` and `MandateRevoked` events
-- the full `execute` check order #1–#16, effects, approvals and post-reads
+- `execute` effects: nonce increment, `spentUsd` update, exact approvals, target call, approval reset (`CONTRACTS.md:139`)
+- check #16 / `PostConditionFailed` and `liquidReserveUsd8()`
+- `ActionExecuted` event and the `MandateRevoked`/`ActionExecuted` ABI surface for the UI
+- ABI export and deployment artifacts (A-07)
 
-This blocks A-07/B-08. Proposed change: finish A-04 per `CONTRACTS.md` §2.5, then export the ABI.
+`execute` currently returns `valueUsd8` after the checks and changes no state. A-07/B-08 remain blocked. Proposed change: finish A-04.4 per `CONTRACTS.md` §2.5, then export the ABI.
 
 ### High — A-07 artifacts are absent
 
@@ -42,9 +42,20 @@ B-08 is blocked until A-04 and A-07 produce the ABIs, deployment addresses and b
 
 `MockChainPort` maps target failures such as `PoolPaused` to `Unknown` with a raw reason. ViemChainPort must do the same, or the shared `ErrorName`/spec needs a documented mapping. Proposed decision: keep `Unknown` plus a redacted `raw` for target errors and do not widen the vault's `execute` error set implicitly.
 
-### Medium — D-023 and D-025 are implemented only on the TypeScript side
+### Verified — A-04.3 checks #1–#15 match the TypeScript mirror
 
-`policy.ts` already applies the D-023 price set for lending actions and consumes `PolicyContext` (`packages/core/src/policy.ts:72-81, 89-96`). `MandateVault.sol` has no `execute`, so there is no contract-side check #11 or #16 to compare. Once A-04 lands, the vault must read fresh pool collateral/debt prices and fresh post-action HF, not trust caller-supplied snapshots. No contract change is possible until the execute path exists.
+`contracts/src/MandateVault.sol:176-235` implements checks #1–#15 in the exact CONTRACTS order, and `packages/core/src/policy.ts:89-181` returns the same errors in the same order. Spot checks:
+
+- #8 BORROW/`allowedActions` bit handling is identical.
+- #11 uses the D-023 price set: `tokenIn`, plus `tokenOut` for SWAP, plus the pool's collateral and debt tokens for lending actions (`_priceSet`, `:292-305`).
+- #12 compares `tokenIn` only; #13 values BORROW at 0; #14 reads `spentUsd[a.mandateId]`; #15 uses the same single-floor `fairOut` math.
+- D-025 data: the vault reads `MockERC20(token).decimals()` and `LendingSim(target).pools(poolId)` directly, while TS uses `PolicyContext`; ViemChainPort must populate the context from these same sources.
+
+No new TypeScript-side mismatch was found in A-04.3. The prior SWAP fee/`minAmountOut` mock fix remains the only TS correction in this sync.
+
+### Medium — D-023 price set is present; #16 is still unavailable on-chain
+
+Check #11 now covers the full D-023 price set. Check #16 is still absent because effects are not implemented, so the vault cannot yet verify `liquidReserveUsd8` or post-action HF. The off-chain `checkPostConditions` (`policy.ts:184-196`) remains the only executable #16 mirror until A-04.4.
 
 ### Low — LendingSim numbers match, but the Foundry test is approximate
 
@@ -68,7 +79,7 @@ These match `packages/core/test/fixtures.ts` and `eval/worked_example.py`. The l
 
 ## What B-08 needs from Dev A
 
-1. A completed `MandateVault` ABI: `Action`, `execute`, `revokeMandate`, remaining views and events.
+1. A completed `MandateVault` ABI: `execute` effects/check #16, `liquidReserveUsd8()`, `ActionExecuted`, and the final `MandateRevoked` surface.
 2. Exported ABIs in `packages/core/src/abi/`.
 3. `deployments/<chainId>.json` with all contract addresses and block numbers.
 4. `eval/fixtures/base.json` with the base prices, positions, reserve and locked mWETH.
