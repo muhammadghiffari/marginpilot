@@ -126,6 +126,23 @@ export interface Plan {
   haltReason?: HaltReason;
 }
 
+export interface PolicyContext {
+  caller: Address;
+  executor: Address;
+  tokenDecimals: Record<Address, number>;
+  pools: Record<number, { collateralToken: Address; debtToken: Address }>;
+}
+
+export interface PostConditionContext {
+  action: Action;
+  mandate: Mandate;
+}
+
+export interface PostConditionSnapshot {
+  liquidReserveUsd8: bigint;
+  healthFactor: bigint;
+}
+
 export interface AuditEntry {
   seq: number;
   ts: number;
