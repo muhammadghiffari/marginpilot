@@ -58,6 +58,8 @@ Last updated: 2026-10-20 by Dev B. Synced `origin/main` at `264cf63` (A-04.3). B
 ## Spec notes for Dev B (2026-10-20)
 - **EIP-712:** arrays use standard encoding (each address padded to 32 bytes, concatenated, `keccak256`), not `abi.encodePacked(address[])`. `SET_MANDATE_TYPEHASH` is the full EIP-712 `encodeType` hash, including the referenced `Mandate` type string. viem's `hashTypedData` already does both; `INTERFACES.md` §8 types are unchanged.
 - **Events:** vault pause events are `VaultPaused` / `VaultUnpaused`; the error remains `Paused` (D-022). Update any ABI/event usage accordingly.
+- **Pools:** `MandateVault` reads `LendingSim.pools(uint8)` for the collateral/debt tokens (checks #11 and #16). `CONTRACTS.md` §2.3 will document that public getter; `PolicyContext.pools` already carries exactly `{ collateralToken, debtToken }` per pool.
+- **Wrong-role target (pending A-04.4):** a lending action at an allowed target that is not `LendingSim` maps the failed `pools()` read to `TargetNotAllowed`. `PolicyContext` has no `lendingSim`/`swapTarget`, so the TS mirror cannot yet detect this; see `docs/reviews/D-025-dev-a-reply.md` §e.
 
 ## Blockers
 - B-08 is blocked on A-04.4 (execute effects, check #16, `liquidReserveUsd8`, `ActionExecuted`) and A-07 (`Deploy.s.sol`, `scripts/deploy.sh`, `deployments/<chainId>.json`, `packages/core/src/abi/`, `eval/fixtures/base.json`). See `docs/reviews/DEV-A-sync.md` and `docs/reviews/MESSAGE-TO-DEV-A.md`.
