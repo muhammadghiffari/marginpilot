@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import {Test} from "forge-std/Test.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {MockERC20} from "../src/MockERC20.sol";
 import {MockOracle} from "../src/MockOracle.sol";
 import {MockSwap} from "../src/MockSwap.sol";
@@ -43,6 +44,33 @@ contract MandateVaultHarness is MandateVault {
 
     function setSpent(uint64 id, uint128 value) external {
         spentUsd[id] = value;
+    }
+}
+
+/// @dev Executor/target that re-enters execute during the target call.
+contract ReentrantExecutor {
+    MandateVault private vault;
+    MandateVault.Action private inner;
+
+    function run(MandateVault vault_, MandateVault.Action calldata outer, MandateVault.Action calldata inner_)
+        external
+    {
+        vault = vault_;
+        inner = inner_;
+        vault_.execute(outer);
+    }
+
+    function swap(address, address, uint256, uint256) external returns (uint256) {
+        vault.execute(inner);
+        return 0;
+    }
+}
+
+/// @dev Target that tries to pull one unit more than the vault approved.
+contract GreedySwap {
+    function swap(address tokenIn, address, uint256 amountIn, uint256) external returns (uint256) {
+        MockERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn + 1);
+        return 0;
     }
 }
 
@@ -91,6 +119,14 @@ contract MandateVaultTest is Test {
         usdc.mint(address(vault), 1_000e6);
         weth.mint(address(vault), 1e18);
         wsteth.mint(address(vault), 1e18);
+
+        // Seed MockSwap so SWAP actions can pay tokenOut.
+        usdc.mint(address(swap), 10_000e6);
+        weth.mint(address(swap), 10e18);
+        wsteth.mint(address(swap), 10e18);
+
+        // Seed LendingSim so BORROW actions can pay the debt token.
+        usdc.mint(address(sim), 10_000e6);
     }
 
     function test_Constructor_SetsRoles() public view {
@@ -540,6 +576,7 @@ contract MandateVaultTest is Test {
 
     function test_Execute_Check08_BorrowAllowedPasses() public {
         _setExecMandate(true, 7);
+        _supplyVaultCollateral(1e18); // borrow needs collateral; this test has no #16 yet
         MandateVault.Action memory a = _baseAction();
         a.actionType = MandateVault.ActionType.BORROW;
         a.amount = 1e6;
@@ -693,6 +730,7 @@ contract MandateVaultTest is Test {
         vm.prank(executor);
         assertEq(vault.execute(a), 100e8);
 
+        a.nonce = vault.actionNonce();
         oracle.setPriceAt(address(usdc), 1e8, block.timestamp - 601);
         vm.prank(executor);
         vm.expectRevert(MandateVault.StalePrice.selector);
@@ -918,6 +956,240 @@ contract MandateVaultTest is Test {
         vm.prank(executor);
         vm.expectRevert(MandateVault.AssetLocked.selector);
         vault.execute(a);
+    }
+
+    // ---------------------------------------------------------------------
+    // A-04.4a: effects (nonce, spend, exact approvals, target calls, event)
+    // ---------------------------------------------------------------------
+
+    function test_Effects_NonceSpendEventAndApproval() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+
+        vm.expectEmit(false, false, false, true, address(vault));
+        emit MandateVault.ActionExecuted(1, 0, 0, address(sim), address(usdc), 100e6, 100e8, 100e8);
+
+        vm.prank(executor);
+        assertEq(vault.execute(a), 100e8);
+
+        assertEq(vault.actionNonce(), 1);
+        assertEq(uint256(vault.spentUsd(1)), 100e8);
+        assertEq(usdc.allowance(address(vault), address(sim)), 0);
+    }
+
+    function test_Effects_ApprovalReset_Supply() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+        a.actionType = MandateVault.ActionType.SUPPLY_COLLATERAL;
+        a.tokenIn = address(weth);
+        a.amount = 0.01e18;
+        a.quotedPriceUsd8 = 1600e8;
+
+        vm.prank(executor);
+        assertEq(vault.execute(a), 16e8);
+
+        assertEq(weth.allowance(address(vault), address(sim)), 0);
+        assertEq(uint256(vault.spentUsd(1)), 16e8);
+    }
+
+    function test_Effects_ApprovalReset_Swap() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _swapAction(100e6, 0.061875e18);
+
+        vm.prank(executor);
+        assertEq(vault.execute(a), 100e8);
+
+        assertEq(usdc.allowance(address(vault), address(swap)), 0);
+        assertEq(uint256(vault.spentUsd(1)), 100e8);
+    }
+
+    function test_Effects_BorrowNoApproval() public {
+        _setExecMandate(true, 7);
+        _supplyVaultCollateral(1e18);
+        MandateVault.Action memory a = _baseAction();
+        a.actionType = MandateVault.ActionType.BORROW;
+        a.amount = 1e6;
+
+        vm.prank(executor);
+        assertEq(vault.execute(a), 0);
+
+        assertEq(usdc.allowance(address(vault), address(sim)), 0);
+        assertEq(uint256(vault.spentUsd(1)), 0);
+    }
+
+    function test_Effects_FailedSwapRollsBackNonceAndSpend() public {
+        _setExecMandate(false, 7);
+        swap.setBroken(true);
+        MandateVault.Action memory a = _swapAction(100e6, 0.061875e18);
+
+        vm.prank(executor);
+        vm.expectRevert(MockSwap.SwapBroken.selector);
+        vault.execute(a);
+
+        assertEq(vault.actionNonce(), 0);
+        assertEq(uint256(vault.spentUsd(1)), 0);
+        assertEq(usdc.allowance(address(vault), address(swap)), 0);
+    }
+
+    function test_Effects_PoolPausedRollsBackNonceAndSpend() public {
+        _setExecMandate(false, 7);
+        sim.setPoolPaused(0, true);
+        MandateVault.Action memory a = _baseAction();
+        a.actionType = MandateVault.ActionType.SUPPLY_COLLATERAL;
+        a.tokenIn = address(weth);
+        a.amount = 0.01e18;
+        a.quotedPriceUsd8 = 1600e8;
+
+        vm.prank(executor);
+        vm.expectRevert(abi.encodeWithSelector(LendingSim.PoolPaused.selector, 0));
+        vault.execute(a);
+
+        assertEq(vault.actionNonce(), 0);
+        assertEq(uint256(vault.spentUsd(1)), 0);
+        assertEq(weth.allowance(address(vault), address(sim)), 0);
+    }
+
+    function test_Effects_CumulativeBudget() public {
+        _setExecMandate(false, 7, 2_000e8, 5_000e8);
+        weth.mint(address(vault), 3e18);
+
+        for (uint256 i; i < 3; ++i) {
+            MandateVault.Action memory a = _baseAction();
+            a.actionType = MandateVault.ActionType.SUPPLY_COLLATERAL;
+            a.tokenIn = address(weth);
+            a.amount = 1e18;
+            a.quotedPriceUsd8 = 1600e8;
+
+            vm.prank(executor);
+            assertEq(vault.execute(a), 1600e8);
+            assertEq(uint256(vault.spentUsd(1)), (i + 1) * 1600e8);
+        }
+
+        assertEq(vault.actionNonce(), 3);
+
+        MandateVault.Action memory a = _baseAction();
+        a.actionType = MandateVault.ActionType.SUPPLY_COLLATERAL;
+        a.tokenIn = address(weth);
+        a.amount = 1e18;
+        a.quotedPriceUsd8 = 1600e8;
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.BudgetExceeded.selector);
+        vault.execute(a);
+        assertEq(vault.actionNonce(), 3);
+    }
+
+    function test_Effects_Decimals_100mUSDC_And_0_05mWETH() public {
+        oracle.setPrice(address(weth), 2000e8);
+        _setExecMandate(false, 7, 260e8, 260e8);
+
+        MandateVault.Action memory a = _swapAction(100e6, 0.0495e18);
+        vm.prank(executor);
+        assertEq(vault.execute(a), 100e8);
+
+        a = _baseAction();
+        a.actionType = MandateVault.ActionType.SUPPLY_COLLATERAL;
+        a.tokenIn = address(weth);
+        a.amount = 0.05e18;
+        a.quotedPriceUsd8 = 2000e8;
+
+        vm.prank(executor);
+        assertEq(vault.execute(a), 100e8);
+
+        assertEq(uint256(vault.spentUsd(1)), 200e8);
+    }
+
+    function test_Effects_RoundsUpValue() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+        a.actionType = MandateVault.ActionType.SUPPLY_COLLATERAL;
+        a.tokenIn = address(weth);
+        a.amount = 1; // 1 wei * 1600e8 / 1e18 = 0.00000016 usd8 -> 1
+        a.quotedPriceUsd8 = 1600e8;
+
+        vm.prank(executor);
+        assertEq(vault.execute(a), 1);
+        assertEq(uint256(vault.spentUsd(1)), 1);
+    }
+
+    function test_Effects_SwapAtLendingSimRollsBack() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _swapAction(100e6, 0.061875e18);
+        a.target = address(sim);
+
+        vm.prank(executor);
+        vm.expectRevert();
+        vault.execute(a);
+
+        assertEq(vault.actionNonce(), 0);
+        assertEq(uint256(vault.spentUsd(1)), 0);
+        assertEq(usdc.allowance(address(vault), address(sim)), 0);
+    }
+
+    function test_Effects_ExactApproval_GreedyTargetCannotPullMore() public {
+        GreedySwap greedy = new GreedySwap();
+        _setMandateForTarget(address(greedy));
+        MandateVault.Action memory a = _swapAction(100e6, 0.061875e18);
+        a.target = address(greedy);
+
+        vm.prank(executor);
+        vm.expectRevert();
+        vault.execute(a);
+
+        assertEq(vault.actionNonce(), 0);
+        assertEq(uint256(vault.spentUsd(1)), 0);
+        assertEq(usdc.allowance(address(vault), address(greedy)), 0);
+    }
+
+    function test_Effects_ReentrancyReverts() public {
+        ReentrantExecutor reentrant = new ReentrantExecutor();
+        vm.prank(owner);
+        vault.setExecutor(address(reentrant));
+        _setMandateForTarget(address(reentrant));
+
+        MandateVault.Action memory outer = _swapAction(100e6, 0.061875e18);
+        outer.target = address(reentrant);
+        MandateVault.Action memory inner = outer;
+
+        vm.expectRevert(ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
+        reentrant.run(vault, outer, inner);
+
+        assertEq(vault.actionNonce(), 0);
+        assertEq(uint256(vault.spentUsd(1)), 0);
+        assertEq(usdc.allowance(address(vault), address(reentrant)), 0);
+    }
+
+    function _supplyVaultCollateral(uint256 amount) private {
+        vm.prank(address(vault));
+        weth.approve(address(sim), amount);
+        vm.prank(address(vault));
+        sim.supply(0, amount);
+    }
+
+    function _setMandateForTarget(address target) private returns (uint64 id) {
+        id = vault.nextMandateId();
+        address[] memory targets = new address[](1);
+        targets[0] = target;
+        address[] memory locked = new address[](1);
+        locked[0] = address(weth);
+
+        MandateVault.Mandate memory m = MandateVault.Mandate({
+            id: id,
+            validFrom: uint64(block.timestamp),
+            validUntil: uint64(block.timestamp + 1 days),
+            maxTotalSpendUsd: 260e8,
+            maxPerActionUsd: 260e8,
+            minLiquidReserveUsd: 0,
+            maxSlippageBps: 100,
+            maxPriceAgeSec: 600,
+            maxPriceDeviationBps: 300,
+            allowedActions: 7,
+            allowBorrow: false,
+            allowedTargets: targets,
+            lockedTokens: locked
+        });
+        vm.prank(owner);
+        vault.setMandate(m);
     }
 
     function _setExecMandate(bool allowBorrow, uint8 allowedActions) private returns (uint64) {

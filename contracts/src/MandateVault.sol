@@ -9,6 +9,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {MockERC20} from "./MockERC20.sol";
 import {MockOracle} from "./MockOracle.sol";
 import {LendingSim} from "./LendingSim.sol";
+import {MockSwap} from "./MockSwap.sol";
 
 /// @notice Owner-mandated vault; the agent only holds the executor hot key (CONTRACTS §2.5).
 contract MandateVault is EIP712, ReentrancyGuard {
@@ -98,6 +99,16 @@ contract MandateVault is EIP712, ReentrancyGuard {
     event ExecutorChanged(address indexed executor);
     event MandateSet(uint64 id, bytes32 mandateHash);
     event MandateRevoked(uint64 id);
+    event ActionExecuted(
+        uint64 mandateId,
+        uint64 nonce,
+        uint8 actionType,
+        address target,
+        address tokenIn,
+        uint256 amount,
+        uint256 valueUsd8,
+        uint256 spentUsd8After
+    );
 
     constructor(address owner_, address executor_, address oracle_, address reserveToken_)
         EIP712("MarginPilotVault", "1")
@@ -172,7 +183,7 @@ contract MandateVault is EIP712, ReentrancyGuard {
         emit MandateRevoked(id);
     }
 
-    /// @notice Runs checks #1-#15 from CONTRACTS §2.5. Effects land in A-04.4.
+    /// @notice Runs the mandated action: checks #1-#15, effects, then the A-04.4 post-condition.
     function execute(Action calldata a) external onlyExecutor nonReentrant returns (uint256 valueUsd8) {
         // 2
         if (paused) revert Paused();
@@ -232,6 +243,34 @@ contract MandateVault is EIP712, ReentrancyGuard {
             uint256 fairOut = _fairOut(a.amount, a.tokenIn, a.tokenOut, priceIn);
             if (a.minAmountOut < fairOut * (10_000 - m.maxSlippageBps) / 10_000) revert SlippageExceeded();
         }
+
+        _executeEffects(a, valueUsd8);
+
+        emit ActionExecuted(
+            a.mandateId, a.nonce, uint8(a.actionType), a.target, a.tokenIn, a.amount, valueUsd8, spentUsd[a.mandateId]
+        );
+    }
+
+    /// @dev Effects in CONTRACTS §2.5 order: nonce, spend, exact approval, target call, reset.
+    function _executeEffects(Action calldata a, uint256 valueUsd8) private {
+        actionNonce++;
+        spentUsd[a.mandateId] += uint128(valueUsd8);
+
+        // BORROW pulls no token from the vault: no approval, and #13 already values it at 0.
+        if (a.actionType == ActionType.BORROW) {
+            LendingSim(a.target).borrow(a.poolId, a.amount);
+            return;
+        }
+
+        IERC20(a.tokenIn).forceApprove(a.target, a.amount);
+        if (a.actionType == ActionType.REPAY) {
+            LendingSim(a.target).repay(a.poolId, a.amount);
+        } else if (a.actionType == ActionType.SUPPLY_COLLATERAL) {
+            LendingSim(a.target).supply(a.poolId, a.amount);
+        } else {
+            MockSwap(a.target).swap(a.tokenIn, a.tokenOut, a.amount, a.minAmountOut);
+        }
+        IERC20(a.tokenIn).forceApprove(a.target, 0);
     }
 
     function _activateMandate(Mandate calldata m) private {
