@@ -220,16 +220,22 @@ contract MandateVault is EIP712, ReentrancyGuard {
         // 9
         if (!_isAllowedTarget(m, a.target)) revert TargetNotAllowed();
 
+        // 9b (D-030, D-032): a SWAP must not target the lending simulator.
+        if (a.actionType == ActionType.SWAP) {
+            (bool isLendingSim,,) = _probePool(a.target, a.poolId);
+            if (isLendingSim) revert TargetNotAllowed();
+        }
+
         // 10
         if ((a.actionType == ActionType.REPAY || a.actionType == ActionType.SWAP) && _isLocked(m, a.tokenIn)) {
             revert AssetLocked();
         }
 
-        // 11 (D-023 price set)
-        (uint256 priceIn,) = oracle.getPrice(a.tokenIn);
+        // 11 (D-023, D-031 price set; a missing price counts as stale)
         address[] memory priceSet = _priceSet(a);
+        (uint256 priceIn,) = _readPrice(a.tokenIn);
         for (uint256 i; i < priceSet.length; ++i) {
-            (, uint256 updatedAt) = oracle.getPrice(priceSet[i]);
+            (, uint256 updatedAt) = _readPrice(priceSet[i]);
             if (updatedAt + m.maxPriceAgeSec < block.timestamp) revert StalePrice();
         }
 
@@ -355,32 +361,34 @@ contract MandateVault is EIP712, ReentrancyGuard {
                 || actionType == ActionType.BORROW;
     }
 
-    /// @dev D-023: tokenIn, plus tokenOut for SWAP, plus the pool's collateral/debt for lending actions.
+    /// @dev D-023/D-031: tokenIn, tokenOut for SWAP, the pool's collateral/debt for lending actions, plus the reserve.
     function _priceSet(Action calldata a) private view returns (address[] memory tokens) {
         if (a.actionType == ActionType.SWAP) {
-            tokens = new address[](2);
+            tokens = new address[](3);
             tokens[0] = a.tokenIn;
             tokens[1] = a.tokenOut;
+            tokens[2] = address(reserveToken);
         } else {
-            (address collateralToken, address debtToken) = _poolTokens(a.target, a.poolId);
-            tokens = new address[](3);
+            (bool isLendingSim, address collateralToken, address debtToken) = _probePool(a.target, a.poolId);
+            if (!isLendingSim) revert TargetNotAllowed();
+            tokens = new address[](4);
             tokens[0] = a.tokenIn;
             tokens[1] = collateralToken;
             tokens[2] = debtToken;
+            tokens[3] = address(reserveToken);
         }
     }
 
-    function _poolTokens(address target, uint8 poolId)
+    /// @dev A failed `pools()` read means the target is not a LendingSim (D-030). A flag is required:
+    /// a revert inside the try body is caught by its own catch.
+    function _probePool(address target, uint8 poolId)
         private
         view
-        returns (address collateralToken, address debtToken)
+        returns (bool isLendingSim, address collateralToken, address debtToken)
     {
-        // A lending action at an allowed Non-LendingSim target must fail closed with a named error (check #11).
         try LendingSim(target).pools(poolId) returns (address collateral, address debt, uint32, uint32, uint32, bool) {
-            return (collateral, debt);
-        } catch {
-            revert TargetNotAllowed();
-        }
+            return (true, collateral, debt);
+        } catch {}
     }
 
     function _usd8Up(uint256 amount, address token, uint256 priceUsd8) private view returns (uint256) {
@@ -396,6 +404,15 @@ contract MandateVault is EIP712, ReentrancyGuard {
         uint256 scaleIn = 10 ** uint256(MockERC20(tokenIn).decimals());
         uint256 scaleOut = 10 ** uint256(MockERC20(tokenOut).decimals());
         return amountIn * priceIn * scaleOut / (scaleIn * _price(tokenOut));
+    }
+
+    /// @dev A missing oracle price is stale for policy purposes (D-032); #11 never leaks UnknownToken.
+    function _readPrice(address token) private view returns (uint256 priceUsd8, uint256 updatedAt) {
+        try oracle.getPrice(token) returns (uint256 price, uint256 updated) {
+            return (price, updated);
+        } catch {
+            revert StalePrice();
+        }
     }
 
     function _price(address token) private view returns (uint256 priceUsd8) {

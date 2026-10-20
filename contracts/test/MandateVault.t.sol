@@ -625,6 +625,16 @@ contract MandateVaultTest is Test {
         assertEq(vault.execute(a), 100e8);
     }
 
+    function test_Execute_Check09_SwapAtLendingSimRevertsTargetNotAllowed() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _swapAction(100e6, 0.061875e18);
+        a.target = address(sim); // allowed target, but not the swap target
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.TargetNotAllowed.selector);
+        vault.execute(a);
+    }
+
     function test_Execute_Check10_RepayLockedToken() public {
         _setExecMandate(false, 7);
         MandateVault.Action memory a = _baseAction();
@@ -691,6 +701,61 @@ contract MandateVaultTest is Test {
         oracle.setPriceAt(address(weth), 1600e8, block.timestamp - 601);
         _setExecMandate(false, 7);
         MandateVault.Action memory a = _swapAction(100e6, 0);
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.StalePrice.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Check11_StaleReservePriceBlocksNonReserveSwap() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _swapAction(0.1e18, 0.11385e18);
+        a.tokenIn = address(wsteth);
+        a.tokenOut = address(weth);
+        a.quotedPriceUsd8 = 1840e8;
+
+        // Fresh reserve: the swap executes.
+        vm.prank(executor);
+        vault.execute(a);
+
+        // Only the reserve token is stale; tokenIn/tokenOut stay fresh.
+        oracle.setPriceAt(address(usdc), 1e8, block.timestamp - 601);
+        a.nonce = vault.actionNonce();
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.StalePrice.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Check11_MissingReservePriceRevertsStalePrice() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _swapAction(0.1e18, 0.11385e18);
+        a.tokenIn = address(wsteth);
+        a.tokenOut = address(weth);
+        a.quotedPriceUsd8 = 1840e8;
+
+        vm.mockCallRevert(
+            address(oracle),
+            abi.encodeWithSelector(MockOracle.getPrice.selector, address(usdc)),
+            abi.encodeWithSelector(MockOracle.UnknownToken.selector, address(usdc))
+        );
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.StalePrice.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Check11_MissingTokenInPriceRevertsStalePrice() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _swapAction(0.1e18, 0.11385e18);
+        a.tokenIn = address(wsteth);
+        a.tokenOut = address(weth);
+        a.quotedPriceUsd8 = 1840e8;
+
+        vm.mockCallRevert(
+            address(oracle),
+            abi.encodeWithSelector(MockOracle.getPrice.selector, address(wsteth)),
+            abi.encodeWithSelector(MockOracle.UnknownToken.selector, address(wsteth))
+        );
 
         vm.prank(executor);
         vm.expectRevert(MandateVault.StalePrice.selector);
@@ -882,6 +947,19 @@ contract MandateVaultTest is Test {
         MandateVault.Action memory a = _baseAction();
         a.tokenIn = address(weth);
         a.target = alice;
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.TargetNotAllowed.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Order07_SwapRoleBeforeAssetLocked() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _swapAction(0.1e18, 0);
+        a.target = address(sim);
+        a.tokenIn = address(weth); // locked, but the role error comes first
+        a.tokenOut = address(usdc);
+        a.quotedPriceUsd8 = 1600e8;
 
         vm.prank(executor);
         vm.expectRevert(MandateVault.TargetNotAllowed.selector);
