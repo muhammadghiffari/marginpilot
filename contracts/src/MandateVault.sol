@@ -53,7 +53,9 @@ contract MandateVault is EIP712 {
     bytes32 public constant MANDATE_TYPEHASH = keccak256(
         "Mandate(uint64 id,uint64 validFrom,uint64 validUntil,uint128 maxTotalSpendUsd,uint128 maxPerActionUsd,uint128 minLiquidReserveUsd,uint32 maxSlippageBps,uint32 maxPriceAgeSec,uint32 maxPriceDeviationBps,uint8 allowedActions,bool allowBorrow,address[] allowedTargets,address[] lockedTokens)"
     );
-    bytes32 public constant SET_MANDATE_TYPEHASH = keccak256("SetMandate(Mandate mandate,uint256 deadline)");
+    bytes32 public constant SET_MANDATE_TYPEHASH = keccak256(
+        "SetMandate(Mandate mandate,uint256 deadline)Mandate(uint64 id,uint64 validFrom,uint64 validUntil,uint128 maxTotalSpendUsd,uint128 maxPerActionUsd,uint128 minLiquidReserveUsd,uint32 maxSlippageBps,uint32 maxPriceAgeSec,uint32 maxPriceDeviationBps,uint8 allowedActions,bool allowBorrow,address[] allowedTargets,address[] lockedTokens)"
+    );
 
     address public owner;
     address public executor;
@@ -145,7 +147,7 @@ contract MandateVault is EIP712 {
         emit MandateSet(m.id, _mandateStructHash(m));
     }
 
-    function _mandateStructHash(Mandate calldata m) private pure returns (bytes32) {
+    function _mandateStructHash(Mandate calldata m) internal pure returns (bytes32) {
         return keccak256(
             abi.encode(
                 MANDATE_TYPEHASH,

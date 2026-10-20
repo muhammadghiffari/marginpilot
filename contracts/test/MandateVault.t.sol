@@ -6,6 +6,44 @@ import {MockERC20} from "../src/MockERC20.sol";
 import {MockOracle} from "../src/MockOracle.sol";
 import {MandateVault} from "../src/MandateVault.sol";
 
+/// @dev Test-only harness exposing the vault's EIP-712 digest and spend slot for cross-checks.
+contract MandateVaultHarness is MandateVault {
+    constructor(address owner_, address executor_, address oracle_, address reserveToken_)
+        MandateVault(owner_, executor_, oracle_, reserveToken_)
+    {}
+
+    function hashSetMandateActual(Mandate calldata m, uint256 deadline) external view returns (bytes32) {
+        return _hashTypedDataV4(keccak256(abi.encode(SET_MANDATE_TYPEHASH, _mandateStructHash(m), deadline)));
+    }
+
+    function hashSetMandateFor(Mandate calldata m, uint256 deadline, uint256 chainId, address verifyingContract)
+        external
+        pure
+        returns (bytes32)
+    {
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256("MarginPilotVault"),
+                keccak256("1"),
+                chainId,
+                verifyingContract
+            )
+        );
+        return keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                domainSeparator,
+                keccak256(abi.encode(SET_MANDATE_TYPEHASH, _mandateStructHash(m), deadline))
+            )
+        );
+    }
+
+    function setSpent(uint64 id, uint128 value) external {
+        spentUsd[id] = value;
+    }
+}
+
 /// @notice A-04 tests: auth, pause, owner withdrawal, then owner-signed mandates.
 contract MandateVaultTest is Test {
     MockERC20 private usdc;
@@ -23,7 +61,9 @@ contract MandateVaultTest is Test {
     bytes32 private constant MANDATE_TYPEHASH = keccak256(
         "Mandate(uint64 id,uint64 validFrom,uint64 validUntil,uint128 maxTotalSpendUsd,uint128 maxPerActionUsd,uint128 minLiquidReserveUsd,uint32 maxSlippageBps,uint32 maxPriceAgeSec,uint32 maxPriceDeviationBps,uint8 allowedActions,bool allowBorrow,address[] allowedTargets,address[] lockedTokens)"
     );
-    bytes32 private constant SET_MANDATE_TYPEHASH = keccak256("SetMandate(Mandate mandate,uint256 deadline)");
+    bytes32 private constant SET_MANDATE_TYPEHASH = keccak256(
+        "SetMandate(Mandate mandate,uint256 deadline)Mandate(uint64 id,uint64 validFrom,uint64 validUntil,uint128 maxTotalSpendUsd,uint128 maxPerActionUsd,uint128 minLiquidReserveUsd,uint32 maxSlippageBps,uint32 maxPriceAgeSec,uint32 maxPriceDeviationBps,uint8 allowedActions,bool allowBorrow,address[] allowedTargets,address[] lockedTokens)"
+    );
 
     function setUp() public {
         owner = vm.addr(OWNER_PK);
@@ -123,6 +163,30 @@ contract MandateVaultTest is Test {
     function test_Typehash_MatchesSpec() public view {
         assertEq(vault.MANDATE_TYPEHASH(), MANDATE_TYPEHASH);
         assertEq(vault.SET_MANDATE_TYPEHASH(), SET_MANDATE_TYPEHASH);
+        // Literal from viem keccak256 of the EIP-712 encodeType (full referenced Mandate type appended).
+        assertEq(vault.SET_MANDATE_TYPEHASH(), 0x5583d826a258142a6c4bd0b40783c1104bd5b39f2959c103664100ab596cb01c);
+    }
+
+    function test_Eip712Digest_MatchesViem_NonEmptyArrays() public {
+        MandateVaultHarness h = new MandateVaultHarness(owner, executor, address(oracle), address(usdc));
+        MandateVault.Mandate memory m = _viemMandate(true);
+        bytes32 expected = 0xdd69f17f30dae164906d98e21691e7b1884a369102fd85480ff28842a68c4eef;
+
+        assertEq(h.hashSetMandateFor(m, 1_700_003_600, 31337, 0x000000000000000000000000000000000000cafE), expected);
+        assertEq(
+            h.hashSetMandateActual(m, 1_700_003_600), h.hashSetMandateFor(m, 1_700_003_600, block.chainid, address(h))
+        );
+    }
+
+    function test_Eip712Digest_MatchesViem_EmptyArrays() public {
+        MandateVaultHarness h = new MandateVaultHarness(owner, executor, address(oracle), address(usdc));
+        MandateVault.Mandate memory m = _viemMandate(false);
+        bytes32 expected = 0xc136a547b79c32017f33f867e79c2201f1a6319307af3e626dc8d1712ccce28b;
+
+        assertEq(h.hashSetMandateFor(m, 1_700_003_600, 31337, 0x000000000000000000000000000000000000cafE), expected);
+        assertEq(
+            h.hashSetMandateActual(m, 1_700_003_600), h.hashSetMandateFor(m, 1_700_003_600, block.chainid, address(h))
+        );
     }
 
     function test_SetMandate_OwnerStoresAndActivates() public {
@@ -241,6 +305,31 @@ contract MandateVaultTest is Test {
         vm.prank(owner);
         vault.ownerWithdraw(address(usdc), 100e6, alice);
         assertEq(usdc.balanceOf(alice), 100e6);
+    }
+
+    function _viemMandate(bool nonEmpty) private pure returns (MandateVault.Mandate memory m) {
+        address[] memory targets = new address[](nonEmpty ? 1 : 0);
+        address[] memory locked = new address[](nonEmpty ? 1 : 0);
+        if (nonEmpty) {
+            targets[0] = 0x1111111111111111111111111111111111111111;
+            locked[0] = 0x2222222222222222222222222222222222222222;
+        }
+
+        m = MandateVault.Mandate({
+            id: 1,
+            validFrom: 1_700_000_000,
+            validUntil: 1_700_086_400,
+            maxTotalSpendUsd: 26_000_000_000,
+            maxPerActionUsd: 26_000_000_000,
+            minLiquidReserveUsd: 10_000_000_000,
+            maxSlippageBps: 100,
+            maxPriceAgeSec: 600,
+            maxPriceDeviationBps: 300,
+            allowedActions: 3,
+            allowBorrow: false,
+            allowedTargets: targets,
+            lockedTokens: locked
+        });
     }
 
     function _mandate(uint64 id) private view returns (MandateVault.Mandate memory m) {
