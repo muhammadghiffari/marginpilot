@@ -1,6 +1,6 @@
 # STATUS (update at the end of every task; agents load this each session)
 
-Last updated: 2026-10-20 by Dev B. Synced `origin/main` at `264cf63` (A-04.3). B-01..B-06 done (`packages/core`, 83 tests); D-025 merged; D-026..D-028 confirmed. Dev A has A-04 sub-steps 1–3 (auth/pause/withdraw, EIP-712 mandate, execute checks #1–#15); 98 Foundry tests green, effects/#16 and A-07 next. `docs/reviews/DEV-A-sync.md` records the cross-check and the mock SWAP fee/minAmountOut fix (`7cac091`). `main` and `feat/dev-b-foundations` were pushed successfully at Part 0.
+Last updated: 2026-10-20 by Dev B. Synced `origin/main` at `264cf63` (A-04.3). B-01..B-06 done (`packages/core`, 83 tests); D-025 and D-029 recorded; D-026..D-028 confirmed. Dev A has A-04 sub-steps 1–3 (auth/pause/withdraw, EIP-712 mandate, execute checks #1–#15); 98 Foundry tests green, effects/#16 and A-07 next. `docs/reviews/DEV-A-sync.md` records the cross-check and the mock SWAP fee/minAmountOut fix (`7cac091`). `main` and `feat/dev-b-foundations` were pushed successfully at Part 0.
 
 ## Milestones
 - [ ] M0 Setup done (both machines pass `scripts/preflight.sh`; repo pushed; keys funded) — Owner
