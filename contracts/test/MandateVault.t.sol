@@ -1606,4 +1606,50 @@ contract MandateVaultTest is Test {
         vm.expectRevert(MandateVault.TargetNotAllowed.selector);
         vault.execute(a);
     }
+
+    function test_T05_StalePriceReverts() public {
+        oracle.setPriceAt(address(usdc), 1e8, block.timestamp - 601);
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.StalePrice.selector);
+        vault.execute(a);
+    }
+
+    function test_T05b_PriceDeviationRevertsAfterQuoteMoves() public {
+        oracle.setPrice(address(usdc), 1.0301e8);
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.PriceDeviation.selector);
+        vault.execute(a);
+    }
+
+    function test_T06_SlippageExceeded() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _swapAction(100e6, 0.061875e18 - 1);
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.SlippageExceeded.selector);
+        vault.execute(a);
+    }
+
+    function test_T07_PoolPausedRevertsAndRollsBackNonceAndSpend() public {
+        _setExecMandate(false, 7);
+        sim.setPoolPaused(0, true);
+        MandateVault.Action memory a = _baseAction();
+        a.actionType = MandateVault.ActionType.SUPPLY_COLLATERAL;
+        a.tokenIn = address(weth);
+        a.amount = 0.01e18;
+        a.quotedPriceUsd8 = 1600e8;
+
+        vm.prank(executor);
+        vm.expectRevert(abi.encodeWithSelector(LendingSim.PoolPaused.selector, 0));
+        vault.execute(a);
+
+        assertEq(vault.actionNonce(), 0);
+        assertEq(uint256(vault.spentUsd(1)), 0);
+    }
 }
