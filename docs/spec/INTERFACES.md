@@ -106,6 +106,9 @@ export interface PolicyContext {
   executor: Address;
   tokenDecimals: Record<Address, number>;
   pools: Record<number, { collateralToken: Address; debtToken: Address }>;
+  reserveToken: Address;        // priced for every action (check #16 values the reserve with it)
+  lendingSim: Address;          // a lending action must target this address
+  swapTarget?: Address;         // a SWAP must target this address; undefined ⇒ SWAP is rejected
 }
 export interface PostConditionContext {
   action: Action;
@@ -121,6 +124,11 @@ checkPostConditions(ctx: PostConditionContext, before: PostConditionSnapshot, af
   { ok: true } | { ok: false; error: "PostConditionFailed" };
 ```
 Both functions are pure. `checkAction` retains its existing five arguments (mandate may be null), adds the explicit context, and mirrors checks #1–#15 in `CONTRACTS.md` §2.5. `checkPostConditions` mirrors #16. `MockChainPort` runs pre-checks, tentative target effects, then post-checks, committing state only if all succeed; failures preserve nonce and spend. Viem callers supply trusted deployment/pool metadata and compare fresh post-reads. Missing metadata must fail closed rather than assume decimals or pool tokens. Error names, monetary bigint fields, Solidity ABI, and `ChainPort` signatures are unchanged. Used for pre-flight, differential tests, and ablation config C. See D-025.
+
+Two rules are layered on top of the check list (D-030, D-031):
+
+- **Wrong-role target.** A lending action (`REPAY`/`SUPPLY_COLLATERAL`/`BORROW`) must address `ctx.lendingSim`; otherwise `TargetNotAllowed`. The vault raises this inside the check #11 pool-token read, so the mirror places it after #10 (`AssetLocked`) and before the freshness loop. A `SWAP` must address `ctx.swapTarget`; when `ctx.swapTarget` is undefined every `SWAP` is rejected. The vault has no `SWAP` role probe yet and fails at the target call instead, so the mirror is stricter there and names the reason.
+- **Reserve price.** The check #11 price set also contains `ctx.reserveToken` for every action, because check #16 values the liquid reserve with that price. A stale or missing reserve price therefore blocks every action, including `SWAP`.
 
 ## 6. State machines
 **Action machine**

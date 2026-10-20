@@ -33,6 +33,9 @@ const context: PolicyContext = {
     0: { collateralToken: TEST_ADDRESSES.mWETH, debtToken: TEST_ADDRESSES.mUSDC },
     1: { collateralToken: TEST_ADDRESSES.mWSTETH, debtToken: TEST_ADDRESSES.mUSDC },
   },
+  reserveToken: TEST_ADDRESSES.mUSDC,
+  lendingSim: TEST_ADDRESSES.lending,
+  swapTarget,
 };
 
 const baseAction: Action = {
@@ -158,6 +161,7 @@ describe('checkAction #7-#15 action limits', () => {
     const swap: Action = {
       ...baseAction,
       actionType: 'SWAP',
+      target: swapTarget,
       tokenOut: TEST_ADDRESSES.mWETH,
       amount: 100_000_000n,
       minAmountOut: 61_874_999_999_999_999n,
@@ -167,8 +171,43 @@ describe('checkAction #7-#15 action limits', () => {
   });
 });
 
-describe('checkPostConditions #16', () => {
-  const before: PostConditionSnapshot = { liquidReserveUsd8: 40_000_000_000n, healthFactor: 942_857_142_857_142_857n };
+describe('checkAction target roles and the reserve price (D-030, D-031)', () => {
+  const swapMandate = { ...baseMandate, allowedActions: 7 };
+  const swapAction: Action = {
+    ...baseAction,
+    actionType: 'SWAP',
+    target: swapTarget,
+    tokenIn: TEST_ADDRESSES.mWSTETH,
+    tokenOut: TEST_ADDRESSES.mWETH,
+    amount: 1_000_000n,
+    minAmountOut: 1_138_500n,
+    quotedPriceUsd8: 184_000_000_000n,
+  };
+
+  test('a lending action at the swap address is a wrong-role target', () => {
+    expect(policy(baseMandate, fixtureVault, fixturePrices, { ...baseAction, target: swapTarget })).toEqual({ ok: false, error: 'TargetNotAllowed' });
+  });
+
+  test('a SWAP at the lending address is a wrong-role target', () => {
+    expect(policy(swapMandate, fixtureVault, fixturePrices, { ...swapAction, target: TEST_ADDRESSES.lending })).toEqual({ ok: false, error: 'TargetNotAllowed' });
+  });
+
+  test('the role check runs after #10 and before the freshness loop', () => {
+    const lockedInput = { ...baseAction, target: swapTarget, tokenIn: TEST_ADDRESSES.mWETH, amount: 1_000_000_000_000_000_000n };
+    expect(policy(baseMandate, fixtureVault, fixturePrices, lockedInput)).toEqual({ ok: false, error: 'AssetLocked' });
+    const stale = fixturePrices.map((price) => price.token === TEST_ADDRESSES.mWETH ? { ...price, updatedAt: FIXTURE_NOW - 601n } : price);
+    expect(policy(baseMandate, fixtureVault, stale, { ...baseAction, target: swapTarget })).toEqual({ ok: false, error: 'TargetNotAllowed' });
+  });
+
+  test('#11 the reserve token belongs to every action price set', () => {
+    const staleReserve = fixturePrices.map((price) => price.token === TEST_ADDRESSES.mUSDC ? { ...price, updatedAt: FIXTURE_NOW - 601n } : price);
+    expect(policy(swapMandate, fixtureVault, staleReserve, swapAction)).toEqual({ ok: false, error: 'StalePrice' });
+    const missingReserve = fixturePrices.filter((price) => price.token !== TEST_ADDRESSES.mUSDC);
+    expect(policy(swapMandate, fixtureVault, missingReserve, swapAction)).toEqual({ ok: false, error: 'StalePrice' });
+  });
+});
+
+describe('checkPostConditions #16', () => {  const before: PostConditionSnapshot = { liquidReserveUsd8: 40_000_000_000n, healthFactor: 942_857_142_857_142_857n };
 
   test('rejects a reserve below the mandate floor', () => {
     expect(

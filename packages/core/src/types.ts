@@ -131,6 +131,12 @@ export interface PolicyContext {
   executor: Address;
   tokenDecimals: Record<Address, number>;
   pools: Record<number, { collateralToken: Address; debtToken: Address }>;
+  /** Reserve token (mUSDC). Priced for every action because check #16 values the reserve with it (D-031). */
+  reserveToken: Address;
+  /** The lending simulator a lending action (REPAY/SUPPLY_COLLATERAL/BORROW) must target (D-030). */
+  lendingSim: Address;
+  /** The swap target a SWAP must target. Undefined means the deployment has no swap target: SWAP is rejected (D-030). */
+  swapTarget?: Address;
 }
 
 export interface PostConditionContext {

@@ -21,3 +21,4 @@ evidence/audit.jsonl
 .DS_Store
 .secrets/
 submission-*.zip
+.playwright-mcp/
