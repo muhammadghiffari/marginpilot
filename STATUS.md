@@ -1,6 +1,6 @@
 # STATUS (update at the end of every task; agents load this each session)
 
-Last updated: 2026-10-20 by Dev A. A-01..A-03 done and pushed to `origin/main`: Foundry scaffold + mocks, `LendingSim` matches worked-example HF, `MockSwap` fee/slippage/broken; 23 tests green.
+Last updated: 2026-10-20 by Dev B. B-01..B-06 done (`packages/core`, 81 tests); D-025 merged with `PolicyContext` + `checkPostConditions`; D-026..D-028 confirmed from the official rules and mirrored in the submission checklist. Local `main` also contains A-01..A-03 from `origin/main`; `scripts/verify-all.sh` is GREEN locally. Push is pending owner credentials (see Blockers).
 
 ## Milestones
 - [ ] M0 Setup done (both machines pass `scripts/preflight.sh`; repo pushed; keys funded) — Owner
@@ -31,7 +31,7 @@ Last updated: 2026-10-20 by Dev A. A-01..A-03 done and pushed to `origin/main`: 
 | B-03 | Dev B | P0 | done | d82f8dd | 6/18-dec valuation, HF pinned 0.942857/1.051429; 18 tests green |
 | B-04 | Dev B | P0 | done | 250462e | pinned 86.57/163.59, 250.16 spend, 16.417875 loss, baseline 64.00; 11 optimizer tests |
 | B-05 | Dev B | P0 | done | 9284979 | ordered #1-#15 + pure #16; 21 policy tests, D-023 set; D-025 |
-| B-06 | Dev B | P0 | done | 43282e9 | 15 new tests: atomic rollback, UNKNOWN no-resubmit, event ledger, audit chain, redactor, state machines; 81 total |
+| B-06 | Dev B | P0 | done | 43282e9 | 31 new tests: atomic rollback, UNKNOWN no-resubmit, event ledger, audit chain, redactor, state machines; 81 total |
 | B-07 | Dev B | P0 | todo | | |
 | B-08 | Dev B | P0 | todo | | |
 | B-09 | Dev B | P0 | todo | | |
@@ -55,7 +55,7 @@ Last updated: 2026-10-20 by Dev A. A-01..A-03 done and pushed to `origin/main`: 
 - forge-std v1.17.0 (`f3dae6e`, `contracts/foundry.lock`)
 
 ## Blockers
-(none)
+- Push to `origin` blocked: the HTTPS remote has no credential helper and this WSL host has no usable SSH key. Owner must run the push commands once (see handover message); local `main` is verified and ready.
 
 ## Decisions needed from human
-See `docs/DECISIONS.md` rows with OPEN/VERIFY (D-003, D-006, D-013, D-016, D-018, D-020, D-021).
+See `docs/DECISIONS.md` rows with OPEN/VERIFY (D-003, D-006, D-013, D-016, D-020, D-021). D-018 is superseded by D-027.
