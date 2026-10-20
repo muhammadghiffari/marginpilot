@@ -1652,4 +1652,73 @@ contract MandateVaultTest is Test {
         assertEq(vault.actionNonce(), 0);
         assertEq(uint256(vault.spentUsd(1)), 0);
     }
+
+    function test_T09_SignatureReplayWrongSignerAndExpired() public {
+        uint256 deadline = block.timestamp + 1 hours;
+        MandateVault.Mandate memory m1 = _mandate(1);
+        bytes memory sig1 = _sign(OWNER_PK, m1, deadline);
+        vm.prank(alice);
+        vault.setMandateWithSig(m1, deadline, sig1);
+
+        vm.prank(alice);
+        vm.expectRevert(MandateVault.BadNonce.selector);
+        vault.setMandateWithSig(m1, deadline, sig1);
+
+        MandateVault.Mandate memory m2 = _mandate(2);
+        bytes memory wrong = _sign(OTHER_PK, m2, deadline);
+        vm.prank(alice);
+        vm.expectRevert(MandateVault.BadSignature.selector);
+        vault.setMandateWithSig(m2, deadline, wrong);
+
+        bytes memory expired = _sign(OWNER_PK, m2, block.timestamp - 1);
+        vm.prank(alice);
+        vm.expectRevert(MandateVault.SignatureExpired.selector);
+        vault.setMandateWithSig(m2, block.timestamp - 1, expired);
+    }
+
+    function test_T09b_StaleActionAfterNonceUsed() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+
+        vm.prank(executor);
+        vault.execute(a);
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.StaleAction.selector);
+        vault.execute(a);
+    }
+
+    function test_T10_NonOwnerCannotAdminister() public {
+        vm.startPrank(alice);
+        vm.expectRevert(MandateVault.NotOwner.selector);
+        vault.setMandate(_mandate(1));
+        vm.expectRevert(MandateVault.NotOwner.selector);
+        vault.revokeMandate();
+        vm.expectRevert(MandateVault.NotOwner.selector);
+        vault.setExecutor(alice);
+        vm.expectRevert(MandateVault.NotOwner.selector);
+        vault.ownerWithdraw(address(usdc), 1, alice);
+        vm.expectRevert(MandateVault.NotOwner.selector);
+        vault.unpause();
+        vm.stopPrank();
+    }
+
+    function test_T11_PauseMidRunBlocksNextExecuteButOwnerCanWithdraw() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory first = _baseAction();
+        vm.prank(executor);
+        vault.execute(first);
+
+        vm.prank(owner);
+        vault.pause();
+
+        MandateVault.Action memory second = _baseAction();
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.Paused.selector);
+        vault.execute(second);
+
+        vm.prank(owner);
+        vault.ownerWithdraw(address(usdc), 10e6, alice);
+        assertEq(usdc.balanceOf(alice), 10e6);
+    }
 }
