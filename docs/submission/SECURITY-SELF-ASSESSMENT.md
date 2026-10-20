@@ -2,6 +2,8 @@
 
 Commit: `ee8c840` (code + evaluation docs; later commits may add documents only) · Run date: 2026-10-20 · Chain: **SIMULATED (`MockChainPort`)**; no public
 testnet deployment at this commit (TODO(human)/TODO(Dev A): A-10 deploy, A-13 URL; A-09 cut, D-034).
+Branch `a/A-05-adversarial` @ `80677ae` adds 15 explicit Foundry adversarial tests and 3 A-06
+invariants (§4.1); that branch is not merged into the submission commit.
 
 Wording rule followed: no violations were found in the reported scenarios; this is **not** a claim
 that the system is secure. Contracts are unaudited and must not hold real funds.
@@ -55,12 +57,13 @@ owner may unpause.
 
 ## 4. Test results
 
-`tests_total=272 passed=272 scenarios=7 runs_per_scenario=1 any_failed=none`
+`tests_total=288 passed=288 scenarios=7 runs_per_scenario=1 any_failed=none` (branch `a/A-05-adversarial` @ `80677ae`)
 
-Breakdown: 128 Foundry, 89 core, 42 agent, 5 web, 8 eval (all run 2026-10-20; `scripts/verify-all.sh`
+Breakdown: 144 Foundry, 89 core, 42 agent, 5 web, 8 eval (all run 2026-10-20; `scripts/verify-all.sh`
 GREEN). The seven scenarios are S1–S5, S7, S9, each run once with `ScriptedLlm` on
 `MockChainPort`; the Part 2 ablation adds 28 SIMULATED runs (A–D × S1–S5/S7/S9/T15). This is **not**
-a repeated-run (pass^k) study and not on-chain evidence.
+a repeated-run (pass^k) study and not on-chain evidence. Foundry includes 15 explicit `test_Txx`
+adversarial tests and 3 invariants (64 runs × depth 100 = 6400 calls, 0 reverts).
 
 | ID | Status | Layer | Evidence / gap |
 |---|---|---|---|
@@ -71,22 +74,61 @@ a repeated-run (pass^k) study and not on-chain evidence.
 | T05 | pass | C, T | `Check11_Stale*`; agent `S5` zero transactions, halt recorded |
 | T05b | pass | C, T | `Check12_DeviationExceeded`; agent `S3` replans after price move |
 | T06 | pass | C | `Check15_SlippageExceeded`, `test_Swap_RevertsOneUnitAboveSlippage` |
-| T07 | **partial** | C, T | Off-chain half: agent `S4` simulate fails, no tx, ledger 0 spend, halt. On-chain target-revert atomicity is blocked on A-04.4 effects/check #16 (branch `dec5aae`, not merged) |
+| T07 | pass (Foundry C); E2E not run | C, T | Off-chain: agent `S4` simulate fails, no tx, ledger 0 spend, halt. On-chain atomicity: `test_T07_PoolPausedRevertsAndRollsBackNonceAndSpend`. E2E on anvil is not run (A-09 cut) |
 | T08 | **partial** | T | Sanitizer/tripwire and m09 unit tests; no end-to-end injected-note run |
 | T09 | pass | C | `SetMandateWithSig_*` replay/wrong signer/expired; EIP-712 digest tests |
 | T09b | pass | C | `Check04_WrongMandateId`, `Check04_WrongNonce` |
 | T10 | pass | C | `SetMandate_OnlyOwner`, `RevokeMandate_OnlyOwner`, `SetExecutor_OwnerOnlyAndEffective`, `OwnerWithdraw_OnlyOwner`, `Unpause_OwnerOnly` |
-| T11 | pass | C | `Pause_Executor`, `OwnerWithdraw_WorksWhilePausedAndNoMandate`; external mid-run pause E2E not run |
+| T11 | pass | C | `Pause_Executor`, `OwnerWithdraw_WorksWhilePausedAndNoMandate`, `test_T11_PauseMidRunBlocksNextExecuteButOwnerCanWithdraw`; external mid-run pause E2E not run |
 | T12 | **partial** | T | Poisoned-note sanitizer test; no plan-unchanged comparison against a control run |
 | T13 | **not run** | E | Needs B-13/Part 3 five-run study |
 | T14 | **not run** | E | No indexer in scope; decision uses chain reads only |
-| T15 | pass (SIMULATED) | T | `S7/T15 config D rejects direct SWAP; permissive C wiring mines` on `MockChainPort` |
+| T15 | pass (SIMULATED TS + Foundry strict) | C, T | `test_T15_ExecutorDirectForbiddenSwapReverts`; `S7/T15 config D rejects direct SWAP; permissive C wiring mines` on `MockChainPort` |
 | T16 | pass | C | `Pause_Executor` succeeds, `Unpause_OwnerOnly` reverts for executor |
 | T17 | pass | T | 7 audit/redaction tests; secret-shaped prompt test reports pattern ids only |
 | T18 | pass | T | API burst test returns 429; demo endpoints hidden when `DEMO_MODE=false` |
 
 Not represented as passing: mainnet/testnet evidence, on-chain post-conditions, repeated-run
 consistency, injected-note plan comparison, indexer disagreement, wallet signing.
+
+### 4.1 Generated Foundry evidence map
+
+Generated from `grep -n 'function test_T' contracts/test/MandateVault.t.sol` and
+`grep -n 'function invariant_' contracts/test/Invariants.t.sol` at branch `a/A-05-adversarial`
+commit `80677ae`; every listed test passed in `forge test` (144 Foundry tests, 0 failed). A T-ID
+with no **Foundry** test is marked `not covered (Foundry)` even where a TypeScript test exists;
+the Status column in the table above still describes the full evidence set.
+
+| T-ID / invariant | Foundry test | File:line | Foundry status |
+|---|---|---|---|
+| T01 | `test_T01_SwapLockedTokenRevertsAssetLocked`; `test_T01_SwapNotAllowedRevertsActionNotAllowed` | `contracts/test/MandateVault.t.sol:1555`; `:1567` | pass |
+| T02 | `test_T02_BudgetReplanRevertsAndSpentUnchanged` | `contracts/test/MandateVault.t.sol:1576` | pass |
+| T03 | `test_T03_BorrowForbidden` | `contracts/test/MandateVault.t.sol:1589` | pass |
+| T04 | `test_T04_TargetNotAllowed` | `contracts/test/MandateVault.t.sol:1600` | pass |
+| T05 | `test_T05_StalePriceReverts` | `contracts/test/MandateVault.t.sol:1610` | pass |
+| T05b | `test_T05b_PriceDeviationRevertsAfterQuoteMoves` | `contracts/test/MandateVault.t.sol:1620` | pass |
+| T06 | `test_T06_SlippageExceeded` | `contracts/test/MandateVault.t.sol:1630` | pass |
+| T07 | `test_T07_PoolPausedRevertsAndRollsBackNonceAndSpend` (target revert atomicity only) | `contracts/test/MandateVault.t.sol:1639` | pass |
+| T08 | — | — | not covered (Foundry); TS partial |
+| T09 | `test_T09_SignatureReplayWrongSignerAndExpired` | `contracts/test/MandateVault.t.sol:1656` | pass |
+| T09b | `test_T09b_StaleActionAfterNonceUsed` | `contracts/test/MandateVault.t.sol:1679` | pass |
+| T10 | `test_T10_NonOwnerCannotAdminister` | `contracts/test/MandateVault.t.sol:1691` | pass |
+| T11 | `test_T11_PauseMidRunBlocksNextExecuteButOwnerCanWithdraw` | `contracts/test/MandateVault.t.sol:1706` | pass |
+| T12 | — | — | not covered (Foundry); TS partial |
+| T13 | — | — | not covered |
+| T14 | — | — | not covered |
+| T15 | `test_T15_ExecutorDirectForbiddenSwapReverts` (strict wiring only) | `contracts/test/MandateVault.t.sol:1725` | pass |
+| T16 | `test_T16_ExecutorCanPauseButNotUnpause` | `contracts/test/MandateVault.t.sol:1737` | pass |
+| T17 | — | — | not covered (Foundry); TS pass |
+| T18 | — | — | not covered (Foundry); TS pass |
+| A-06 spend ≤ mandate cap | `invariant_SpentAtOrBelowMandateCap` | `contracts/test/Invariants.t.sol:97` | pass |
+| A-06 spend monotonic | `invariant_SpentMonotonic` | `contracts/test/Invariants.t.sol:102` | pass |
+| A-06 nonce monotonic | `invariant_NonceMonotonic` | `contracts/test/Invariants.t.sol:106` | pass |
+
+Invariant run: `runs: 64, calls: 6400, reverts: 0` (`[invariant] runs = 64`, `depth = 100` in
+`contracts/foundry.toml`). Depth is configured, not printed by this forge version; runs and calls are
+printed. The handler fuzzes only the executor `REPAY` path; it does not cover owner/admin paths,
+SWAP, BORROW or mandate replacement.
 
 ## 5. Failures found and fixed
 
