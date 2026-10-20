@@ -1721,4 +1721,26 @@ contract MandateVaultTest is Test {
         vault.ownerWithdraw(address(usdc), 10e6, alice);
         assertEq(usdc.balanceOf(alice), 10e6);
     }
+
+    function test_T15_ExecutorDirectForbiddenSwapReverts() public {
+        _setExecMandate(false, 3);
+        MandateVault.Action memory a = _swapAction(0.01e18, 0);
+        a.tokenIn = address(weth);
+        a.tokenOut = address(usdc);
+        a.quotedPriceUsd8 = 1600e8;
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.ActionNotAllowed.selector);
+        vault.execute(a);
+    }
+
+    function test_T16_ExecutorCanPauseButNotUnpause() public {
+        vm.prank(executor);
+        vault.pause();
+        assertTrue(vault.paused());
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.NotOwner.selector);
+        vault.unpause();
+    }
 }
