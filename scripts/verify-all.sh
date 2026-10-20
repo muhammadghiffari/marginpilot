@@ -12,7 +12,7 @@ step "opencode.json valid"; run jq -e . opencode.json >/dev/null
 step "worked example (reference numbers)"; run python3 -I eval/worked_example.py >/dev/null
 
 step "contracts"
-if [ -f contracts/src/MandateVault.sol ] && command -v forge >/dev/null 2>&1; then
+if [ -f contracts/foundry.toml ] && command -v forge >/dev/null 2>&1; then
   pushd contracts >/dev/null
   run forge build
   run forge test
@@ -31,11 +31,13 @@ import re, pathlib, sys
 root = pathlib.Path('.')
 bad = 0
 for p in root.rglob('*.md'):
-    if any(x in p.parts for x in ('node_modules', '.git', 'out')): continue
+    if any(x in p.parts for x in ('node_modules', '.git', 'out', 'lib')): continue
     for m in re.finditer(r'\]\(([^)#\s]+\.md)(#[^)]*)?\)', p.read_text(encoding='utf-8')):
-        t = (p.parent / m.group(1)).resolve()
+        link = m.group(1)
+        if '://' in link: continue
+        t = (p.parent / link).resolve()
         if not t.exists():
-            print(f'broken link in {p}: {m.group(1)}'); bad = 1
+            print(f'broken link in {p}: {link}'); bad = 1
 sys.exit(bad)
 PY
 

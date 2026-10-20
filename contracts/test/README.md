@@ -4,5 +4,3 @@
 **Owner:** Dev A (A-08 is paired with Dev B)
 **Tasks:** A-01 .. A-06, A-08, A-12
 **Spec:** `docs/spec/CONTRACTS.md` §4, `docs/security/ADVERSARIAL-TESTS.md` (test names map to IDs), `docs/spec/INTERFACES.md` §8.
-
-Empty on purpose: tests start with A-01. See `docs/spec/REPO-MAP.md`.

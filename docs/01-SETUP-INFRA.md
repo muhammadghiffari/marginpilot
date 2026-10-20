@@ -27,11 +27,11 @@ Semua pekerjaan repo dilakukan **di dalam WSL, di home Linux (`~/`)**, bukan di 
    ls -l scripts/*.sh                        # semua harus berbit executable (-rwx...)
    git update-index --chmod=+x scripts/*.sh  # hanya bila bit executable hilang (mis. zip lewat Windows), lalu commit
    ```
-
+<!--  -->
 ## B. Toolchain di KEDUA mesin (≈30 menit) — [M]
 | Tool | Perintah | Cek |
 |---|---|---|
-| Node 22 | `nvm install 22 && nvm use 22` | `node -v` ≥ 22 |
+| Node 22 | `nvm install 22 && nvm use 22` | `node -v` ≥ 22 | <!-- kalau udh di atas 22 gausah ya -->
 | pnpm | `corepack enable && corepack prepare pnpm@latest --activate` (cek) | `pnpm -v` |
 | Foundry | `curl -L https://foundry.paradigm.xyz \| bash` lalu `foundryup` | `forge --version`, `anvil --version`, `cast --version` |
 | jq, python3, git | paket manager OS | `jq --version` |

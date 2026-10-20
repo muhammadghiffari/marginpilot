@@ -8,7 +8,7 @@ Rubrik menilai task completion 40, security 30, innovation & interaction 30, bon
 
 ## Pembagian orang
 - **Owner/infra (Ghiffari)** = setup, akun, key, faucet, hosting, + **Dev A** (kontrak & chain).
-- **Dev B (teman)** = `packages/`, `apps/`, harness eval. Bisa mulai **sekarang** hanya dengan Node 22 + pnpm; tidak menunggu infra.
+- **Dev B (Radith)** = `packages/`, `apps/`, harness eval. Bisa mulai **sekarang** hanya dengan Node 22 + pnpm; tidak menunggu infra.
 (Kalau peran terbalik, tukar nama saja. Kepemilikan berdasarkan folder.)
 
 ## Hal yang HARUS dikonfirmasi pertama (manusia)
