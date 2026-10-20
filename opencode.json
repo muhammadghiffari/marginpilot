@@ -7,7 +7,11 @@
       "*.env": "deny",
       "*.env.*": "deny",
       "*.env.example": "allow",
-      "**/.secrets/**": "deny"
+      "**/.secrets/**": "deny",
+      "**/.git-credentials": "deny",
+      "**/.ssh/**": "deny",
+      "**/.config/gh/**": "deny",
+      "**/.netrc": "deny"
     },
     "edit": {
       "*": "allow",
@@ -33,6 +37,10 @@
       "git pull *": "allow",
       "git rebase *": "ask",
       "git push *": "ask",
+      "git fetch *": "allow",
+      "git merge *": "allow",
+      "git push origin *": "allow",
+      "git push -u origin *": "allow",
       "forge build": "allow",
       "forge build *": "allow",
       "forge test": "allow",
@@ -57,6 +65,8 @@
       "cast send *": "ask",
       "git push --force*": "deny",
       "git push * --force*": "deny",
+      "git push * -f*": "deny",
+      "git push * --delete*": "deny",
       "git reset --hard*": "deny",
       "rm -rf *": "deny",
       "sudo *": "deny",
