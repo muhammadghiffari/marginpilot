@@ -53,9 +53,17 @@ For the forbidden-SWAP row the expected and observed error names are exactly `Ac
 
 ## Screenshots / recordings
 
-`TODO(human)`: capture the final desktop and 390px screenshots and the optional ≤5-minute video
-from the served demo URL, then list the file names here. Local development screenshots were used
-during B-11 verification but are gitignored and not part of this submission.
+Captured from the served SIMULATED demo on 2026-10-20 (`docs/submission/screenshots/`):
+
+| File | What it shows |
+|---|---|
+| `console-desktop-1440.png` | Completed rescue run: plan with two REPAY actions, HF 0.943 → 1.005 and 1.051 → 1.117, cumulative spend $250.16 of $260 (96.21%), two SIMULATED ledger entries marked MINED |
+| `console-mobile-390.png` | The same console at 390px: no horizontal overflow, all three regions stacked |
+| `console-halt-budget-exhausted.png` | A second run after the first: `HALTED_NEEDS_OWNER — Budget insufficient: $113.43 needed, $9.84 available`, plan with 0 actions, no new ledger entry (the cumulative cap is not reset between runs) |
+| `console-halt-stale-oracle.png` | Fresh state with a stale oracle price: `HALTED_NEEDS_OWNER — STALE_OR_CONFLICTING_DATA: simulation rejected: StalePrice`, no transaction sent |
+
+`TODO(human)`: the optional ≤5-minute demo video and final public-URL screenshots are not attached
+yet.
 
 ## What must change before this can be called real
 
