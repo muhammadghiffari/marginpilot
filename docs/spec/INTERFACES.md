@@ -100,7 +100,27 @@ export type SubmitResult =
 `MockChainPort` must implement the **same math and the same ordered checks** as `CONTRACTS.md` (it is also the differential-test oracle, FR-16). It can throw the same `ErrorName`s.
 
 ## 5. Policy mirror (`packages/core/src/policy.ts`)
-`checkAction(mandate, vault, prices, action, now): { ok: true; valueUsd8: bigint } | { ok: false; error: ErrorName }` — pure, follows the check order table in `CONTRACTS.md` §2.5 exactly. Used for (a) pre-flight in the agent, (b) differential tests, (c) config C of the ablation.
+```ts
+export interface PolicyContext {
+  caller: Address;
+  executor: Address;
+  tokenDecimals: Record<Address, number>;
+  pools: Record<number, { collateralToken: Address; debtToken: Address }>;
+}
+export interface PostConditionContext {
+  action: Action;
+  mandate: Mandate;
+}
+export interface PostConditionSnapshot {
+  liquidReserveUsd8: bigint;
+  healthFactor: bigint; // affected lending pool; ignored for SWAP
+}
+checkAction(mandate, vault, prices, action, now, ctx: PolicyContext):
+  { ok: true; valueUsd8: bigint } | { ok: false; error: ErrorName };
+checkPostConditions(ctx: PostConditionContext, before: PostConditionSnapshot, after: PostConditionSnapshot):
+  { ok: true } | { ok: false; error: "PostConditionFailed" };
+```
+Both functions are pure. `checkAction` retains its existing five arguments (mandate may be null), adds the explicit context, and mirrors checks #1–#15 in `CONTRACTS.md` §2.5. `checkPostConditions` mirrors #16. `MockChainPort` runs pre-checks, tentative target effects, then post-checks, committing state only if all succeed; failures preserve nonce and spend. Viem callers supply trusted deployment/pool metadata and compare fresh post-reads. Missing metadata must fail closed rather than assume decimals or pool tokens. Error names, monetary bigint fields, Solidity ABI, and `ChainPort` signatures are unchanged. Used for pre-flight, differential tests, and ablation config C. See D-025.
 
 ## 6. State machines
 **Action machine**

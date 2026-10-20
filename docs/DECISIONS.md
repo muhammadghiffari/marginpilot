@@ -29,4 +29,6 @@ Status: `DECIDED` (follow it) · `OPEN` (needs a human) · `VERIFY` (assumption 
 | D-023 | `execute` check #11 (StalePrice) covers the action's **price set**: `tokenIn`, plus `tokenOut` for SWAP, plus the pool's collateral and debt tokens for lending actions. Check #12 (PriceDeviation) stays `tokenIn` only | DECIDED | Spec fix from the handover review: a REPAY has `tokenIn = mUSDC`, so without this a stale or moved collateral price (S3, S5, T05) could never revert on-chain. Owner may veto before A-04 starts; then S5/T05 must be rewritten |
 | D-024 | `TxStatus` type defined in INTERFACES §4 (it was used by `ChainPort.getTx` but never defined) | DECIDED | Minimal shape; refine through a spec PR if B-06 needs more |
 
+| D-025 | Extend `checkAction` with sixth argument `ctx: PolicyContext` (caller, executor, tokenDecimals, pool collateral/debt tokens); separate pure `checkPostConditions(ctx, before, after)` for check #16 | DECIDED | Explicit owner instruction on 2026-10-20. Existing five arguments retained; all monetary values bigint; error names unchanged. MockChainPort calls both around tentative effects in CONTRACTS §2.5 order and rolls back on failure. Dev A review note: `docs/reviews/D-025-dev-a.md`. No Solidity ABI change. |
+
 Add new rows at the bottom. Never edit a DECIDED row silently; strike it and add a new row.
