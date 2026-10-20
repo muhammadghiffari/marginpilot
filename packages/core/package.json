@@ -1,0 +1,9 @@
+{
+  "name": "@marginpilot/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": { "test": "vitest run --config ../../vitest.config.ts", "typecheck": "tsc -p tsconfig.json" },
+  "dependencies": { "viem": "2.38.5", "zod": "3.25.76" }
+}

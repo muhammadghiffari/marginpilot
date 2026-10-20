@@ -1,0 +1,8 @@
+{
+  "name": "@marginpilot/agent",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "vitest run --passWithNoTests --config ../../vitest.config.ts", "typecheck": "tsc -p tsconfig.json" },
+  "dependencies": { "@marginpilot/core": "workspace:*", "fastify": "5.6.1", "viem": "2.38.5", "zod": "3.25.76" }
+}

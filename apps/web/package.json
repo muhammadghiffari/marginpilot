@@ -1,0 +1,9 @@
+{
+  "name": "@marginpilot/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "vitest run --passWithNoTests --config ../../vitest.config.ts", "typecheck": "tsc -p tsconfig.json" },
+  "dependencies": { "react": "19.2.0", "react-dom": "19.2.0" },
+  "devDependencies": { "@types/react": "19.2.2", "@types/react-dom": "19.2.1" }
+}

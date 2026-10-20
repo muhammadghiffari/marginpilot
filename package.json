@@ -1,0 +1,17 @@
+{
+  "name": "marginpilot",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.34.4",
+  "engines": { "node": ">=22 <23" },
+  "scripts": {
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "eval:run": "python3 eval/worked_example.py"
+  },
+  "devDependencies": {
+    "@types/node": "22.19.0",
+    "typescript": "5.9.3",
+    "vitest": "3.2.4"
+  }
+}

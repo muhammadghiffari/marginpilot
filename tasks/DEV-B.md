@@ -5,7 +5,7 @@ You can start immediately: Node 22 + pnpm are enough. No chain needed until B-08
 
 | Task | Priority | Needs | Deliverable | Acceptance |
 |---|---|---|---|---|
-| B-01 | P0 | - | pnpm workspace scaffold (`packages/core`, `apps/agent`, `apps/web`), tsconfig strict, vitest, root scripts (`test`, `typecheck`, `eval:run`) | `pnpm -r test` and `typecheck` run; `scripts/verify-all.sh` picks them up |
+| B-01 | P0 | - | pnpm workspace scaffold (`packages/core`, `apps/agent`, `apps/web`), tsconfig strict, vitest, root scripts (`test`, `typecheck`, `eval:run`) | [x] `pnpm -r test` and `typecheck` run; `scripts/verify-all.sh` picks them up (2026-10-20: 1 test passed; 3 projects typechecked; VERIFY-ALL GREEN) |
 | B-02 | P0 | B-01 | `types.ts`, zod schemas, bigint (de)serialization, ErrorName | round-trip tests |
 | B-03 | P0 | B-02 | `valuation.ts` + `health.ts` (usd8, decimals, HF wad) | 6-dec vs 18-dec tests; HF values 0.942857 / 1.051429 |
 | B-04 | P0 | B-03 | `optimizer.ts` per OPTIMIZER.md | pinned fixture (86.57 / 163.59 / ≈16.4179; local baseline 64.00), determinism, brute-force cross-check |
