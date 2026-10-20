@@ -4,6 +4,8 @@ pragma solidity 0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {MockERC20} from "../src/MockERC20.sol";
 import {MockOracle} from "../src/MockOracle.sol";
+import {MockSwap} from "../src/MockSwap.sol";
+import {LendingSim} from "../src/LendingSim.sol";
 import {MandateVault} from "../src/MandateVault.sol";
 
 /// @dev Test-only harness exposing the vault's EIP-712 digest and spend slot for cross-checks.
@@ -47,8 +49,12 @@ contract MandateVaultHarness is MandateVault {
 /// @notice A-04 tests: auth, pause, owner withdrawal, then owner-signed mandates.
 contract MandateVaultTest is Test {
     MockERC20 private usdc;
+    MockERC20 private weth;
+    MockERC20 private wsteth;
     MockOracle private oracle;
-    MandateVault private vault;
+    LendingSim private sim;
+    MockSwap private swap;
+    MandateVaultHarness private vault;
 
     address private owner;
     address private executor = makeAddr("executor");
@@ -66,11 +72,25 @@ contract MandateVaultTest is Test {
     );
 
     function setUp() public {
+        vm.warp(1_700_000_000);
         owner = vm.addr(OWNER_PK);
         usdc = new MockERC20("Mock USD Coin", "mUSDC", 6);
+        weth = new MockERC20("Mock Wrapped Ether", "mWETH", 18);
+        wsteth = new MockERC20("Mock Wrapped stETH", "mWSTETH", 18);
         oracle = new MockOracle();
-        vault = new MandateVault(owner, executor, address(oracle), address(usdc));
+        sim = new LendingSim(address(oracle));
+        sim.setPool(0, address(weth), address(usdc), 8250, 500, 5000);
+        sim.setPool(1, address(wsteth), address(usdc), 8000, 700, 5000);
+        swap = new MockSwap(address(oracle));
+        vault = new MandateVaultHarness(owner, executor, address(oracle), address(usdc));
+
+        oracle.setPrice(address(usdc), 1e8);
+        oracle.setPrice(address(weth), 1600e8);
+        oracle.setPrice(address(wsteth), 1840e8);
+
         usdc.mint(address(vault), 1_000e6);
+        weth.mint(address(vault), 1e18);
+        wsteth.mint(address(vault), 1e18);
     }
 
     function test_Constructor_SetsRoles() public view {
@@ -305,6 +325,627 @@ contract MandateVaultTest is Test {
         vm.prank(owner);
         vault.ownerWithdraw(address(usdc), 100e6, alice);
         assertEq(usdc.balanceOf(alice), 100e6);
+    }
+
+    // ---------------------------------------------------------------------
+    // A-04.3: execute checks #1-#15 (effects intentionally not implemented)
+    // ---------------------------------------------------------------------
+
+    function test_Execute_Check01_NotExecutor() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+
+        vm.prank(alice);
+        vm.expectRevert(MandateVault.NotExecutor.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Check01_ExecutorPasses() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+
+        vm.prank(executor);
+        assertEq(vault.execute(a), 100e8);
+    }
+
+    function test_Execute_Check02_Paused() public {
+        _setExecMandate(false, 7);
+        vm.prank(owner);
+        vault.pause();
+        MandateVault.Action memory a = _baseAction();
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.Paused.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Check02_UnpausedPasses() public {
+        _setExecMandate(false, 7);
+        vm.prank(executor);
+        vault.pause();
+        vm.prank(owner);
+        vault.unpause();
+        MandateVault.Action memory a = _baseAction();
+
+        vm.prank(executor);
+        assertEq(vault.execute(a), 100e8);
+    }
+
+    function test_Execute_Check03_NoMandate() public {
+        MandateVault.Action memory a = _baseAction();
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.MandateInactive.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Check03_ActiveMandatePasses() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+
+        vm.prank(executor);
+        assertEq(vault.execute(a), 100e8);
+    }
+
+    function test_RevokeMandate_OnlyOwner() public {
+        _setExecMandate(false, 7);
+
+        vm.prank(alice);
+        vm.expectRevert(MandateVault.NotOwner.selector);
+        vault.revokeMandate();
+    }
+
+    function test_RevokeMandate_ClearsAndBlocksExecution() public {
+        _setExecMandate(false, 7);
+
+        vm.expectEmit(false, false, false, true, address(vault));
+        emit MandateVault.MandateRevoked(1);
+        vm.prank(owner);
+        vault.revokeMandate();
+
+        assertEq(vault.activeMandateId(), 0);
+        assertEq(vault.mandate().id, 0);
+        MandateVault.Action memory a = _baseAction();
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.MandateInactive.selector);
+        vault.execute(a);
+    }
+
+    function test_RevokeMandate_NoActiveReverts() public {
+        vm.prank(owner);
+        vm.expectRevert(MandateVault.MandateInactive.selector);
+        vault.revokeMandate();
+    }
+
+    function test_Execute_Check04_WrongMandateId() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+        a.mandateId = 99;
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.StaleAction.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Check04_WrongNonce() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+        a.nonce = 1;
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.StaleAction.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Check04_CurrentIdAndNoncePasses() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+
+        vm.prank(executor);
+        assertEq(vault.execute(a), 100e8);
+    }
+
+    function test_Execute_Check05_DeadlineExpired() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+        a.deadline = uint64(block.timestamp - 1);
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.DeadlineExpired.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Check05_DeadlineNowPasses() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+        a.deadline = uint64(block.timestamp);
+
+        vm.prank(executor);
+        assertEq(vault.execute(a), 100e8);
+    }
+
+    function test_Execute_Check06_MandateExpiredAfter() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+        vm.warp(block.timestamp + 2 days);
+        a.deadline = uint64(block.timestamp + 1 hours);
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.MandateExpired.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Check06_MandateNotYetValid() public {
+        _setMandateFull(false, 7, 260e8, 260e8, uint64(block.timestamp + 1 hours), uint64(block.timestamp + 1 days));
+        MandateVault.Action memory a = _baseAction();
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.MandateExpired.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Check06_ValidUntilBoundaryPasses() public {
+        _setExecMandate(false, 7);
+        uint256 validUntil = vault.mandate().validUntil;
+        vm.warp(validUntil);
+        oracle.setPrice(address(usdc), 1e8);
+        oracle.setPrice(address(weth), 1600e8);
+        oracle.setPrice(address(wsteth), 1840e8);
+
+        MandateVault.Action memory a = _baseAction();
+        a.deadline = uint64(block.timestamp);
+        vm.prank(executor);
+        assertEq(vault.execute(a), 100e8);
+    }
+
+    function test_Execute_Check07_ZeroAmount() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+        a.amount = 0;
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.ZeroAmount.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Check07_OneUnitPasses() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+        a.amount = 1;
+
+        vm.prank(executor);
+        assertEq(vault.execute(a), 100); // 1 raw mUSDC unit = 100 usd8
+    }
+
+    function test_Execute_Check08_BorrowForbidden() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+        a.actionType = MandateVault.ActionType.BORROW;
+        a.amount = 1e6;
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.BorrowForbidden.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Check08_ActionNotAllowed() public {
+        _setExecMandate(false, 3); // REPAY | SUPPLY_COLLATERAL, SWAP off
+        MandateVault.Action memory a = _swapAction(100e6, 0);
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.ActionNotAllowed.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Check08_BorrowAllowedPasses() public {
+        _setExecMandate(true, 7);
+        MandateVault.Action memory a = _baseAction();
+        a.actionType = MandateVault.ActionType.BORROW;
+        a.amount = 1e6;
+
+        vm.prank(executor);
+        assertEq(vault.execute(a), 0);
+    }
+
+    function test_Execute_Check08_SwapAllowedPasses() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _swapAction(100e6, 0.061875e18);
+
+        vm.prank(executor);
+        assertEq(vault.execute(a), 100e8);
+    }
+
+    function test_Execute_Check08_SupplyAllowedPasses() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+        a.actionType = MandateVault.ActionType.SUPPLY_COLLATERAL;
+        a.tokenIn = address(weth);
+        a.amount = 0.01e18;
+        a.quotedPriceUsd8 = 1600e8;
+
+        vm.prank(executor);
+        assertEq(vault.execute(a), 16e8);
+    }
+
+    function test_Execute_Check09_TargetNotAllowed() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+        a.target = alice;
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.TargetNotAllowed.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Check09_AllowedTargetPasses() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+
+        vm.prank(executor);
+        assertEq(vault.execute(a), 100e8);
+    }
+
+    function test_Execute_Check10_RepayLockedToken() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+        a.tokenIn = address(weth);
+        a.quotedPriceUsd8 = 1600e8;
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.AssetLocked.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Check10_SwapLockedToken() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _swapAction(0.01e18, 0);
+        a.tokenIn = address(weth);
+        a.quotedPriceUsd8 = 1600e8;
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.AssetLocked.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Check10_UnlockedTokenPasses() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+
+        vm.prank(executor);
+        assertEq(vault.execute(a), 100e8);
+    }
+
+    function test_Execute_Check10_SupplyLockedTokenPasses() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+        a.actionType = MandateVault.ActionType.SUPPLY_COLLATERAL;
+        a.tokenIn = address(weth);
+        a.amount = 0.01e18;
+        a.quotedPriceUsd8 = 1600e8;
+
+        vm.prank(executor);
+        assertEq(vault.execute(a), 16e8);
+    }
+
+    function test_Execute_Check11_StaleTokenIn() public {
+        oracle.setPriceAt(address(usdc), 1e8, block.timestamp - 601);
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.StalePrice.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Check11_StalePoolCollateral() public {
+        oracle.setPriceAt(address(weth), 1600e8, block.timestamp - 601);
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.StalePrice.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Check11_StaleTokenOut() public {
+        oracle.setPriceAt(address(weth), 1600e8, block.timestamp - 601);
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _swapAction(100e6, 0);
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.StalePrice.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Check11_OtherPoolCollateralUnaffected() public {
+        oracle.setPriceAt(address(weth), 1600e8, block.timestamp - 601);
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+        a.poolId = 1;
+
+        vm.prank(executor);
+        assertEq(vault.execute(a), 100e8);
+    }
+
+    function test_Execute_Check11_PriceAgeBoundary() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+        oracle.setPriceAt(address(usdc), 1e8, block.timestamp - 600);
+        vm.prank(executor);
+        assertEq(vault.execute(a), 100e8);
+
+        oracle.setPriceAt(address(usdc), 1e8, block.timestamp - 601);
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.StalePrice.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Check12_DeviationExceeded() public {
+        oracle.setPrice(address(usdc), 1.0301e8);
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.PriceDeviation.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Check12_DeviationBoundaryPasses() public {
+        oracle.setPrice(address(usdc), 1.03e8);
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+
+        vm.prank(executor);
+        assertEq(vault.execute(a), 103e8);
+    }
+
+    function test_Execute_Check13_PerActionCapExceeded() public {
+        _setExecMandate(false, 7, 260e8, 1_000e8);
+        MandateVault.Action memory a = _baseAction();
+        a.amount = 260e6 + 1;
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.PerActionCapExceeded.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Check13_AtCapPasses() public {
+        _setExecMandate(false, 7, 260e8, 1_000e8);
+        MandateVault.Action memory a = _baseAction();
+        a.amount = 260e6;
+
+        vm.prank(executor);
+        assertEq(vault.execute(a), 260e8);
+    }
+
+    function test_Execute_Check14_BudgetExceeded() public {
+        uint64 id = _setExecMandate(false, 7, 260e8, 260e8);
+        vault.setSpent(id, 100e8);
+        MandateVault.Action memory a = _baseAction();
+        a.amount = 160e6 + 1;
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.BudgetExceeded.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Check14_AtBudgetPasses() public {
+        uint64 id = _setExecMandate(false, 7, 260e8, 260e8);
+        vault.setSpent(id, 100e8);
+        MandateVault.Action memory a = _baseAction();
+        a.amount = 160e6;
+
+        vm.prank(executor);
+        assertEq(vault.execute(a), 160e8);
+    }
+
+    function test_Execute_Check15_SlippageExceeded() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _swapAction(100e6, 0.061875e18 - 1);
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.SlippageExceeded.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Check15_AtSlippageBoundaryPasses() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _swapAction(100e6, 0.061875e18);
+
+        vm.prank(executor);
+        assertEq(vault.execute(a), 100e8);
+    }
+
+    // Order proofs: two violations at once, the earlier check's error must win.
+
+    function test_Execute_Order01_NotExecutorBeforePaused() public {
+        vm.prank(owner);
+        vault.pause();
+        MandateVault.Action memory a = _baseAction();
+
+        vm.prank(alice);
+        vm.expectRevert(MandateVault.NotExecutor.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Order02_PausedBeforeMandateInactive() public {
+        vm.prank(owner);
+        vault.pause();
+        MandateVault.Action memory a = _baseAction();
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.Paused.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Order03_StaleActionBeforeDeadlineExpired() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+        a.nonce = 1;
+        a.deadline = uint64(block.timestamp - 1);
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.StaleAction.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Order04_DeadlineBeforeMandateExpired() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+        vm.warp(block.timestamp + 2 days); // both the action deadline and the mandate have expired
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.DeadlineExpired.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Order05_ZeroAmountBeforeActionNotAllowed() public {
+        _setExecMandate(false, 3);
+        MandateVault.Action memory a = _swapAction(0, 0);
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.ZeroAmount.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Order06_ActionNotAllowedBeforeTarget() public {
+        _setExecMandate(false, 3);
+        MandateVault.Action memory a = _swapAction(100e6, 0);
+        a.target = alice;
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.ActionNotAllowed.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Order07_TargetBeforeAssetLocked() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+        a.tokenIn = address(weth);
+        a.target = alice;
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.TargetNotAllowed.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Order08_StalePriceBeforeDeviation() public {
+        oracle.setPriceAt(address(weth), 1600e8, block.timestamp - 601);
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+        a.quotedPriceUsd8 = 1;
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.StalePrice.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Order09_DeviationBeforePerActionCap() public {
+        oracle.setPrice(address(usdc), 1.1e8);
+        _setExecMandate(false, 7, 1, 1);
+        MandateVault.Action memory a = _baseAction();
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.PriceDeviation.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Order10_PerActionCapBeforeBudget() public {
+        _setExecMandate(false, 7, 10e8, 10e8);
+        MandateVault.Action memory a = _baseAction();
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.PerActionCapExceeded.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Order11_BudgetBeforeSlippage() public {
+        uint64 id = _setExecMandate(false, 7, 1_000e8, 100e8);
+        vault.setSpent(id, 100e8);
+        MandateVault.Action memory a = _swapAction(100e6, 0);
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.BudgetExceeded.selector);
+        vault.execute(a);
+    }
+
+    function _setExecMandate(bool allowBorrow, uint8 allowedActions) private returns (uint64) {
+        return _setExecMandate(allowBorrow, allowedActions, 260e8, 260e8);
+    }
+
+    function _setExecMandate(bool allowBorrow, uint8 allowedActions, uint256 maxPerActionUsd, uint256 maxTotalSpendUsd)
+        private
+        returns (uint64)
+    {
+        return _setMandateFull(
+            allowBorrow,
+            allowedActions,
+            maxPerActionUsd,
+            maxTotalSpendUsd,
+            uint64(block.timestamp),
+            uint64(block.timestamp + 1 days)
+        );
+    }
+
+    function _setMandateFull(
+        bool allowBorrow,
+        uint8 allowedActions,
+        uint256 maxPerActionUsd,
+        uint256 maxTotalSpendUsd,
+        uint64 validFrom,
+        uint64 validUntil
+    ) private returns (uint64 id) {
+        id = vault.nextMandateId();
+        address[] memory targets = new address[](2);
+        targets[0] = address(sim);
+        targets[1] = address(swap);
+        address[] memory locked = new address[](1);
+        locked[0] = address(weth);
+
+        MandateVault.Mandate memory m = MandateVault.Mandate({
+            id: id,
+            validFrom: validFrom,
+            validUntil: validUntil,
+            maxTotalSpendUsd: uint128(maxTotalSpendUsd),
+            maxPerActionUsd: uint128(maxPerActionUsd),
+            minLiquidReserveUsd: 100e8,
+            maxSlippageBps: 100,
+            maxPriceAgeSec: 600,
+            maxPriceDeviationBps: 300,
+            allowedActions: allowedActions,
+            allowBorrow: allowBorrow,
+            allowedTargets: targets,
+            lockedTokens: locked
+        });
+        vm.prank(owner);
+        vault.setMandate(m);
+    }
+
+    function _baseAction() private view returns (MandateVault.Action memory a) {
+        a = MandateVault.Action({
+            mandateId: vault.activeMandateId(),
+            nonce: vault.actionNonce(),
+            actionType: MandateVault.ActionType.REPAY,
+            target: address(sim),
+            poolId: 0,
+            tokenIn: address(usdc),
+            tokenOut: address(0),
+            amount: 100e6,
+            minAmountOut: 0,
+            quotedPriceUsd8: 1e8,
+            deadline: uint64(block.timestamp + 1 hours)
+        });
+    }
+
+    function _swapAction(uint256 amount, uint256 minAmountOut) private view returns (MandateVault.Action memory a) {
+        a = _baseAction();
+        a.actionType = MandateVault.ActionType.SWAP;
+        a.target = address(swap);
+        a.tokenIn = address(usdc);
+        a.tokenOut = address(weth);
+        a.amount = amount;
+        a.minAmountOut = minAmountOut;
     }
 
     function _viemMandate(bool nonEmpty) private pure returns (MandateVault.Mandate memory m) {

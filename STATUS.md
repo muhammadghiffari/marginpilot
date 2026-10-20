@@ -1,6 +1,6 @@
 # STATUS (update at the end of every task; agents load this each session)
 
-Last updated: 2026-10-20 by Dev B. Synced `origin/main` at `52cece8` (A-04.2). B-01..B-06 done (`packages/core`, 83 tests); D-025 merged; D-026..D-028 confirmed. `docs/reviews/DEV-A-sync.md` records the cross-check: 44 Foundry tests pass, LendingSim HFs match the pinned values, EIP-712 mandate set verified against viem, execute/ABIs still missing, and the mock SWAP fee/minAmountOut mismatch was fixed (`7cac091`). `opencode.json` allows non-force `origin` pushes and denies credential files; `git ls-remote origin` succeeded. Local push is blocked by missing git credentials (see Blockers).
+Last updated: 2026-10-20 by Dev B. Synced `origin/main` at `264cf63` (A-04.3). B-01..B-06 done (`packages/core`, 83 tests); D-025 merged; D-026..D-028 confirmed. Dev A has A-04 sub-steps 1–3 (auth/pause/withdraw, EIP-712 mandate, execute checks #1–#15); 98 Foundry tests green, effects/#16 and A-07 next. `docs/reviews/DEV-A-sync.md` records the cross-check and the mock SWAP fee/minAmountOut fix (`7cac091`). Local push is blocked by missing git credentials (see Blockers).
 
 ## Milestones
 - [ ] M0 Setup done (both machines pass `scripts/preflight.sh`; repo pushed; keys funded) — Owner
@@ -16,7 +16,7 @@ Last updated: 2026-10-20 by Dev B. Synced `origin/main` at `52cece8` (A-04.2). B
 | A-01 | Dev A | P0 | done | b6b5a7f | Foundry scaffold, MockERC20 + MockOracle, 7 tests |
 | A-02 | Dev A | P0 | done | f1d41c1 | LendingSim; HF 0.942857/1.051429, 11 tests |
 | A-03 | Dev A | P0 | done | a7893aa | MockSwap; 30 bps fee, slippage, setBroken, 5 tests |
-| A-04 | Dev A | P0 | doing | 52cece8 | A-04.1 auth/pause/withdraw; A-04.2 mandate set + EIP-712; execute/views/ABIs still missing |
+| A-04 | Dev A | P0 | doing | 264cf63 | Sub-steps 1-3: auth/pause/withdraw; EIP-712 mandate; `execute` checks #1-#15. Effects/#16 and ABIs next |
 | A-05 | Dev A | P0 | todo | | |
 | A-06 | Dev A | P0 | todo | | |
 | A-07 | Dev A | P0 | todo | | |
