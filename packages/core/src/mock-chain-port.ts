@@ -328,6 +328,9 @@ export class MockChainPort implements ChainPort {
       executor: this.executor,
       tokenDecimals: this.tokenDecimals,
       pools,
+      reserveToken: this.reserveToken,
+      lendingSim: this.lendingSim,
+      swapTarget: this.swapTarget,
     };
   }
 
