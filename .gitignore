@@ -1,0 +1,23 @@
+.env
+.env.*
+!.env.example
+node_modules/
+dist/
+.worktrees/
+worktrees/
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+# eval runs: keep README/.gitkeep and each run's summary.md; results.json etc. stay local
+# (scripts/package-submission.sh bundles the newest run directory into the submission zip)
+eval/results/*
+!eval/results/README.md
+!eval/results/.gitkeep
+!eval/results/*/
+eval/results/*/*
+!eval/results/*/summary.md
+evidence/audit.jsonl
+*.log
+.DS_Store
+.secrets/
+submission-*.zip

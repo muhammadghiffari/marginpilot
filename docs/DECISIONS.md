@@ -1,0 +1,32 @@
+# DECISIONS (append-only log; agents load this every session)
+
+Status: `DECIDED` (follow it) · `OPEN` (needs a human) · `VERIFY` (assumption to confirm with an organizer or source).
+
+| ID | Decision | Status | Notes |
+|---|---|---|---|
+| D-001 | Topic F (Agent Wallet). Product = mandate-bound portfolio rescue. Name working title **MarginPilot** | DECIDED | Check brand clash before final submission name |
+| D-002 | Lending market is a **self-deployed simulator** (`LendingSim`) with an admin-controlled oracle; enforcement (`MandateVault`) is real. We never claim to have rescued real DeFi positions | DECIDED | Real Aave positions can't be pushed toward liquidation on demand on a testnet |
+| D-003 | Chain: local anvil for dev/eval; **Ethereum Sepolia (11155111)** for evidence | VERIFY | Rules text does not state which network is accepted → email organizers (docs/submission/EMAIL-TO-ORGANIZERS.md). Base Sepolia (84532) is the fallback; only `.env` changes |
+| D-004 | Budget is measured in USD at execution-time oracle price, **cumulative per mandate id**, gas excluded and reported separately | DECIDED | |
+| D-005 | Only an owner signature (EIP-712) creates/changes a mandate. The agent has no tool for it | DECIDED | |
+| D-006 | LLM provider/model | OPEN | Owner picks via `.env` (`LLM_PROVIDER`, `LLM_MODEL`); everything goes through `LlmClient` |
+| D-007 | Session memory is P1 and treated as untrusted data | DECIDED | |
+| D-008 | One deployable server (API + static web) for the public link | DECIDED | Hosting provider OPEN (human) |
+| D-009 | Ablation configs A–D as in `ARCHITECTURE.md`; C/A are weak by construction and reported as such | DECIDED | |
+| D-010 | Optimizer = exhaustive search; not claimed as novelty | DECIDED | |
+| ~~D-011~~ | ~~Submission deadline~~ | ~~VERIFY~~ | Superseded by D-014 (2026-10-20) |
+| ~~D-012~~ | ~~Brand/team name, demo video requirement, submission channel (email vs portal)~~ | ~~OPEN~~ | Split into D-015, D-016, D-017 (2026-10-20) |
+| D-013 | Project license | OPEN | `LICENSE` is a placeholder; owners choose. Not chosen by an agent. Check whether the organizers' rules say anything about IP/ownership of submissions (not verified). |
+| D-014 | Submission deadline = **20 Oct 2026, 22:59 WIB** (supersedes D-011) | DECIDED | Per owner instruction. The technical-meeting transcript says registration and submission close on 20 Oct but gives no clock time; the 22:59 WIB time is not confirmed from a primary source in the files we hold |
+| D-015 | Demo video is **optional, max 5 minutes** (replaces the "demo video requirement" part of D-012) | DECIDED | Per owner instruction; the exact rule text in Attachment 2 / site is not verified by us. `docs/submission/DEMO-SCRIPT.md` stays a 5-minute script |
+| D-016 | Brand/team name (replaces the name part of D-012) | OPEN | Human task. Check brand clash (see D-001) |
+| D-017 | Submission/contact channel = email to `fintechathon@ican-x.com`, CC `info@ican-x.com` (replaces the channel part of D-012) | DECIDED | Per owner instruction. Whether the final submission itself also goes through a portal is not verified |
+| D-018 | Team rule: **at least 60% of members are non-WNC** | VERIFY | Per owner instruction; "WNC" is not defined in our files and we have not seen the source text. Owner must write out the exact wording and source here before the team list is submitted |
+| D-019 | Code lives in a **GitHub** repo (`marginpilot`), created **empty** (see `docs/01-SETUP-INFRA.md` A) | DECIDED | Visibility (private/public) and the submission-time access for judges are not stated; owner decides together with D-013 |
+| D-020 | "Defensive learning" is in scope as a feature/claim | OPEN | The instruction gives no definition. Owner must state scope in one paragraph. Do not implement or claim it until then; existing specs (`AGENT-DESIGN` §7 session memory = untrusted data, P1) are not changed by this row |
+| D-021 | "Multi-agent" is in scope as a feature/claim | OPEN | The instruction gives no definition. The approved design is a single orchestrator with a fixed tool set (`AGENT-DESIGN` §2-§3); a multi-agent design would be a spec change and needs an explicit request plus a spec PR first |
+| D-022 | Vault events are named `VaultPaused(address by)` / `VaultUnpaused(address by)`; the custom error `Paused` keeps its name | DECIDED | Solidity rejects an event and an error with the same name in one contract (`Identifier already declared`); verified by compiling with solc 0.8.24 in the handover review (2026-10-20). Error names in INTERFACES §2 are unchanged |
+| D-023 | `execute` check #11 (StalePrice) covers the action's **price set**: `tokenIn`, plus `tokenOut` for SWAP, plus the pool's collateral and debt tokens for lending actions. Check #12 (PriceDeviation) stays `tokenIn` only | DECIDED | Spec fix from the handover review: a REPAY has `tokenIn = mUSDC`, so without this a stale or moved collateral price (S3, S5, T05) could never revert on-chain. Owner may veto before A-04 starts; then S5/T05 must be rewritten |
+| D-024 | `TxStatus` type defined in INTERFACES §4 (it was used by `ChainPort.getTx` but never defined) | DECIDED | Minimal shape; refine through a spec PR if B-06 needs more |
+
+Add new rows at the bottom. Never edit a DECIDED row silently; strike it and add a new row.
