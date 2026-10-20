@@ -238,6 +238,10 @@ export class MockChainPort implements ChainPort {
     if (index >= 0) this.prices[index] = next;
     else this.prices.push(next);
     this.vault.liquidReserveUsd8 = this.liquidReserveUsd8(this.vault);
+    this.positions = this.positions.map((position) => ({
+      ...position,
+      healthFactor: this.health(position),
+    }));
     const txHash = this.nextTxHash(keccak256(stringToHex(`price:${token}:${priceUsd8}`)));
     this.transactions.set(txHash, {
       status: 'mined',
@@ -454,6 +458,8 @@ export class MockChainPort implements ChainPort {
       { liquidReserveUsd8: afterLiquidReserve, healthFactor: afterHealth },
     );
     if (!post.ok) return { result: post };
+
+    if (lending && position !== undefined) position.healthFactor = afterHealth;
 
     vault.actionNonce += 1n;
     vault.spentUsd8 += verdict.valueUsd8;

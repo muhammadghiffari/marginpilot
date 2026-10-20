@@ -5,7 +5,14 @@ export interface ScriptedTrace {
   /** Selects the trace by substring/regex against the last user message. Omit for strict order. */
   when?: string | RegExp;
   text?: string;
-  toolCalls?: readonly LlmToolCall[];
+  /**
+   * A recorded list, or a deterministic function of the request history. The
+   * function exists so scenario traces can reference the plan id returned by an
+   * earlier tool without hard-coding it.
+   */
+  toolCalls?:
+    | readonly LlmToolCall[]
+    | ((request: LlmRequest<unknown>) => readonly LlmToolCall[]);
   structured?: unknown;
   usage?: Partial<LlmUsage>;
   model?: string;
@@ -64,9 +71,13 @@ export class ScriptedLlm implements LlmClient {
 
     this.used.add(selected);
     const trace = this.traces[selected] as ScriptedTrace;
+    const toolCalls =
+      typeof trace.toolCalls === 'function'
+        ? trace.toolCalls(request as LlmRequest<unknown>)
+        : (trace.toolCalls ?? []);
     return {
       text: trace.text ?? '',
-      toolCalls: trace.toolCalls ?? [],
+      toolCalls,
       structured: trace.structured as T | undefined,
       usage: usageOf(trace.usage),
       model: trace.model ?? this.defaults.model ?? 'scripted-local',
