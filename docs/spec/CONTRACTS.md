@@ -37,6 +37,7 @@ healthFactor(uint8 pool, address user) view returns (uint256 wad)   // type(uint
 positionOf(uint8 pool, address user) view returns (uint256 collateral, uint256 debt)
 liquidate(uint8 pool, address user, uint256 repayAmount) returns (uint256 collateralSeized)
 setPoolPaused(uint8 pool, bool paused)      // admin; repay/supply/borrow revert PoolPaused (failure injection, scenario S4)
+pools(uint8 pool) view returns (address collateralToken, address debtToken, uint32 ltBps, uint32 liqBonusBps, uint32 closeFactorBps, bool paused)
 ```
 Math (all via oracle prices; document rounding direction in code comments):
 - `HF = collateralUsd * ltBps / 10000 / debtUsd` (as wad). Liquidatable iff `HF < 1e18`.
@@ -132,13 +133,15 @@ Setting a new mandate sets `activeMandateId = id`, `nextMandateId = id + 1`, and
 | 8 | BORROW and `!allowBorrow` → `BorrowForbidden`; else action bit not set → `ActionNotAllowed` | as stated |
 | 9 | `a.target ∈ allowedTargets` | `TargetNotAllowed` |
 | 10 | (REPAY or SWAP) and `a.tokenIn ∈ lockedTokens` | `AssetLocked` |
-| 11 | oracle age of **every token in the action's price set** `<= maxPriceAgeSec`. Price set = `tokenIn`; plus `tokenOut` for SWAP; plus the pool's collateral and debt tokens for lending actions (REPAY/SUPPLY_COLLATERAL/BORROW), because check #16 reads their prices through `LendingSim.healthFactor` (D-023) | `StalePrice` |
+| 11 | oracle age of **every token in the action's price set** `<= maxPriceAgeSec`. Price set = `tokenIn`; plus `tokenOut` for SWAP; plus the pool's collateral and debt tokens for lending actions (REPAY/SUPPLY_COLLATERAL/BORROW), because check #16 reads their prices through `LendingSim.healthFactor`; plus the vault's **reserve token for every action**, because check #16 values the liquid reserve with it (D-023, D-031). A price the oracle does not know is treated as stale | `StalePrice` |
 | 12 | `|price - quoted| * 10000 <= maxPriceDeviationBps * quoted`, where `price` is the oracle price of `tokenIn` only (`quotedPriceUsd8` quotes `tokenIn`; for REPAY that is mUSDC) | `PriceDeviation` |
 | 13 | `valueUsd8 <= maxPerActionUsd` (BORROW counts 0) | `PerActionCapExceeded` |
 | 14 | `spentUsd + valueUsd8 <= maxTotalSpendUsd` | `BudgetExceeded` |
 | 15 | SWAP: `minAmountOut >= fairOut * (10000 - maxSlippageBps) / 10000` where `fairOut` comes from oracle prices | `SlippageExceeded` |
 | — | effects: `actionNonce++`, `spentUsd += valueUsd8`; record HF before (lending actions); approve exact `amount`; call target; reset approval to 0 | |
 | 16 | after: `liquidReserveUsd8() >= minLiquidReserveUsd`; lending actions: `HF after >= HF before` | `PostConditionFailed` |
+
+Wrong-role target (D-030): a lending action (REPAY/SUPPLY_COLLATERAL/BORROW) at an allowed target that does not expose `LendingSim.pools(uint8)` is rejected with `TargetNotAllowed`; the pool-token read at the start of #11 maps any failure to that error, so it follows #10. A SWAP at an allowed target that exposes `LendingSim.pools(uint8)` is rejected with `TargetNotAllowed` immediately after #9, before #10 (D-032); `MockSwap` exposes no such probe, so a SWAP at the swap target passes the role check.
 
 Revert of the whole tx (including a failed target call) leaves nonce and spend unchanged — the ledger never records spend for a reverted action.
 
@@ -161,6 +164,8 @@ Revert of the whole tx (including a failed target call) leaves nonce and spend u
 - Mandate replay: old signature after `setMandateWithSig` → `BadNonce`; expired deadline → `SignatureExpired`; wrong signer → `BadSignature`; signature from another chain/vault domain fails.
 - Pause by executor works; unpause by executor reverts `NotOwner`; `ownerWithdraw` works while paused.
 - Freshness covers the whole price set: REPAY on pool 0 with a stale mWETH price (collateral) but a fresh mUSDC price reverts `StalePrice`; the same action on pool 1 is unaffected.
+- Reserve price: a SWAP between two non-reserve tokens with a stale or missing mUSDC price reverts `StalePrice`; a missing token price is `StalePrice`, not `UnknownToken`.
+- Wrong-role targets: a SWAP at the LendingSim address reverts `TargetNotAllowed` before `AssetLocked`; a lending action at the MockSwap address reverts `TargetNotAllowed`.
 - Decimals: 100 mUSDC (6 dec) and 0.05 mWETH (18 dec) produce the expected `usd8`.
 - Liquidation math vs `eval/worked_example.py` numbers (A: HF 0.942857, B: HF 1.051429 at the shock prices).
 - Fuzz: for random valid actions, `spentUsd` is monotonic and never exceeds `maxTotalSpendUsd`.

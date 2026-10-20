@@ -9,6 +9,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {MockERC20} from "./MockERC20.sol";
 import {MockOracle} from "./MockOracle.sol";
 import {LendingSim} from "./LendingSim.sol";
+import {MockSwap} from "./MockSwap.sol";
 
 /// @notice Owner-mandated vault; the agent only holds the executor hot key (CONTRACTS §2.5).
 contract MandateVault is EIP712, ReentrancyGuard {
@@ -98,6 +99,16 @@ contract MandateVault is EIP712, ReentrancyGuard {
     event ExecutorChanged(address indexed executor);
     event MandateSet(uint64 id, bytes32 mandateHash);
     event MandateRevoked(uint64 id);
+    event ActionExecuted(
+        uint64 mandateId,
+        uint64 nonce,
+        uint8 actionType,
+        address target,
+        address tokenIn,
+        uint256 amount,
+        uint256 valueUsd8,
+        uint256 spentUsd8After
+    );
 
     constructor(address owner_, address executor_, address oracle_, address reserveToken_)
         EIP712("MarginPilotVault", "1")
@@ -147,6 +158,12 @@ contract MandateVault is EIP712, ReentrancyGuard {
         return _mandate;
     }
 
+    /// @notice USD value (usd8, floored) of the vault's reserve-token balance. Check #16 reads this.
+    function liquidReserveUsd8() public view returns (uint256) {
+        uint256 balance = reserveToken.balanceOf(address(this));
+        return balance * _price(address(reserveToken)) / (10 ** uint256(reserveToken.decimals()));
+    }
+
     /// @notice Installs a mandate signed directly by the owner. Owner only.
     function setMandate(Mandate calldata m) external onlyOwner {
         _activateMandate(m);
@@ -172,7 +189,7 @@ contract MandateVault is EIP712, ReentrancyGuard {
         emit MandateRevoked(id);
     }
 
-    /// @notice Runs checks #1-#15 from CONTRACTS §2.5. Effects land in A-04.4.
+    /// @notice Runs the mandated action: checks #1-#15, effects, then the A-04.4 post-condition.
     function execute(Action calldata a) external onlyExecutor nonReentrant returns (uint256 valueUsd8) {
         // 2
         if (paused) revert Paused();
@@ -203,16 +220,22 @@ contract MandateVault is EIP712, ReentrancyGuard {
         // 9
         if (!_isAllowedTarget(m, a.target)) revert TargetNotAllowed();
 
+        // 9b (D-030, D-032): a SWAP must not target the lending simulator.
+        if (a.actionType == ActionType.SWAP) {
+            (bool isLendingSim,,) = _probePool(a.target, a.poolId);
+            if (isLendingSim) revert TargetNotAllowed();
+        }
+
         // 10
         if ((a.actionType == ActionType.REPAY || a.actionType == ActionType.SWAP) && _isLocked(m, a.tokenIn)) {
             revert AssetLocked();
         }
 
-        // 11 (D-023 price set)
-        (uint256 priceIn,) = oracle.getPrice(a.tokenIn);
+        // 11 (D-023, D-031 price set; a missing price counts as stale)
         address[] memory priceSet = _priceSet(a);
+        (uint256 priceIn,) = _readPrice(a.tokenIn);
         for (uint256 i; i < priceSet.length; ++i) {
-            (, uint256 updatedAt) = oracle.getPrice(priceSet[i]);
+            (, uint256 updatedAt) = _readPrice(priceSet[i]);
             if (updatedAt + m.maxPriceAgeSec < block.timestamp) revert StalePrice();
         }
 
@@ -232,6 +255,49 @@ contract MandateVault is EIP712, ReentrancyGuard {
             uint256 fairOut = _fairOut(a.amount, a.tokenIn, a.tokenOut, priceIn);
             if (a.minAmountOut < fairOut * (10_000 - m.maxSlippageBps) / 10_000) revert SlippageExceeded();
         }
+
+        uint256 hfBefore;
+        if (_isLending(a.actionType)) {
+            hfBefore = LendingSim(a.target).healthFactor(a.poolId, address(this));
+        }
+
+        _executeEffects(a, valueUsd8);
+
+        // 16
+        if (liquidReserveUsd8() < m.minLiquidReserveUsd) revert PostConditionFailed();
+        if (_isLending(a.actionType) && LendingSim(a.target).healthFactor(a.poolId, address(this)) < hfBefore) {
+            revert PostConditionFailed();
+        }
+
+        _emitActionExecuted(a, valueUsd8);
+    }
+
+    function _emitActionExecuted(Action calldata a, uint256 valueUsd8) private {
+        emit ActionExecuted(
+            a.mandateId, a.nonce, uint8(a.actionType), a.target, a.tokenIn, a.amount, valueUsd8, spentUsd[a.mandateId]
+        );
+    }
+
+    /// @dev Effects in CONTRACTS §2.5 order: nonce, spend, exact approval, target call, reset.
+    function _executeEffects(Action calldata a, uint256 valueUsd8) private {
+        actionNonce++;
+        spentUsd[a.mandateId] += uint128(valueUsd8);
+
+        // BORROW pulls no token from the vault: no approval, and #13 already values it at 0.
+        if (a.actionType == ActionType.BORROW) {
+            LendingSim(a.target).borrow(a.poolId, a.amount);
+            return;
+        }
+
+        IERC20(a.tokenIn).forceApprove(a.target, a.amount);
+        if (a.actionType == ActionType.REPAY) {
+            LendingSim(a.target).repay(a.poolId, a.amount);
+        } else if (a.actionType == ActionType.SUPPLY_COLLATERAL) {
+            LendingSim(a.target).supply(a.poolId, a.amount);
+        } else {
+            MockSwap(a.target).swap(a.tokenIn, a.tokenOut, a.amount, a.minAmountOut);
+        }
+        IERC20(a.tokenIn).forceApprove(a.target, 0);
     }
 
     function _activateMandate(Mandate calldata m) private {
@@ -289,27 +355,40 @@ contract MandateVault is EIP712, ReentrancyGuard {
         return false;
     }
 
-    /// @dev D-023: tokenIn, plus tokenOut for SWAP, plus the pool's collateral/debt for lending actions.
+    function _isLending(ActionType actionType) private pure returns (bool) {
+        return
+            actionType == ActionType.REPAY || actionType == ActionType.SUPPLY_COLLATERAL
+                || actionType == ActionType.BORROW;
+    }
+
+    /// @dev D-023/D-031: tokenIn, tokenOut for SWAP, the pool's collateral/debt for lending actions, plus the reserve.
     function _priceSet(Action calldata a) private view returns (address[] memory tokens) {
         if (a.actionType == ActionType.SWAP) {
-            tokens = new address[](2);
+            tokens = new address[](3);
             tokens[0] = a.tokenIn;
             tokens[1] = a.tokenOut;
+            tokens[2] = address(reserveToken);
         } else {
-            (address collateralToken, address debtToken) = _poolTokens(a.target, a.poolId);
-            tokens = new address[](3);
+            (bool isLendingSim, address collateralToken, address debtToken) = _probePool(a.target, a.poolId);
+            if (!isLendingSim) revert TargetNotAllowed();
+            tokens = new address[](4);
             tokens[0] = a.tokenIn;
             tokens[1] = collateralToken;
             tokens[2] = debtToken;
+            tokens[3] = address(reserveToken);
         }
     }
 
-    function _poolTokens(address target, uint8 poolId)
+    /// @dev A failed `pools()` read means the target is not a LendingSim (D-030). A flag is required:
+    /// a revert inside the try body is caught by its own catch.
+    function _probePool(address target, uint8 poolId)
         private
         view
-        returns (address collateralToken, address debtToken)
+        returns (bool isLendingSim, address collateralToken, address debtToken)
     {
-        (collateralToken, debtToken,,,,) = LendingSim(target).pools(poolId);
+        try LendingSim(target).pools(poolId) returns (address collateral, address debt, uint32, uint32, uint32, bool) {
+            return (true, collateral, debt);
+        } catch {}
     }
 
     function _usd8Up(uint256 amount, address token, uint256 priceUsd8) private view returns (uint256) {
@@ -325,6 +404,15 @@ contract MandateVault is EIP712, ReentrancyGuard {
         uint256 scaleIn = 10 ** uint256(MockERC20(tokenIn).decimals());
         uint256 scaleOut = 10 ** uint256(MockERC20(tokenOut).decimals());
         return amountIn * priceIn * scaleOut / (scaleIn * _price(tokenOut));
+    }
+
+    /// @dev A missing oracle price is stale for policy purposes (D-032); #11 never leaks UnknownToken.
+    function _readPrice(address token) private view returns (uint256 priceUsd8, uint256 updatedAt) {
+        try oracle.getPrice(token) returns (uint256 price, uint256 updated) {
+            return (price, updated);
+        } catch {
+            revert StalePrice();
+        }
     }
 
     function _price(address token) private view returns (uint256 priceUsd8) {
