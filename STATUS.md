@@ -1,6 +1,6 @@
 # STATUS (update at the end of every task; agents load this each session)
 
-Last updated: 2026-10-20 (handover package) by owner. No task has been started; the repo contains design, specs and tooling only.
+Last updated: 2026-10-20 by Dev A. A-01 done: Foundry scaffold, `MockERC20`/`MockOracle`, 7 tests green.
 
 ## Milestones
 - [ ] M0 Setup done (both machines pass `scripts/preflight.sh`; repo pushed; keys funded) — Owner
@@ -13,7 +13,7 @@ Last updated: 2026-10-20 (handover package) by owner. No task has been started; 
 ## Task board (ids and deliverables in tasks/*.md; states: todo / doing / blocked / done)
 | Task | Owner | Pri | State | PR/commit | Notes |
 |---|---|---|---|---|---|
-| A-01 | Dev A | P0 | todo | | |
+| A-01 | Dev A | P0 | done | b6b5a7f | Foundry scaffold, MockERC20 + MockOracle, 7 tests |
 | A-02 | Dev A | P0 | todo | | |
 | A-03 | Dev A | P0 | todo | | |
 | A-04 | Dev A | P0 | todo | | |
@@ -51,7 +51,8 @@ Last updated: 2026-10-20 (handover package) by owner. No task has been started; 
 | I-6 | both | - | todo | | |
 
 ## Pinned versions (fill when installed: forge-std, OpenZeppelin if used, solc, viem, zod, vitest, Fastify/Express, Vite)
-(none yet)
+- solc 0.8.24 (`contracts/foundry.toml`)
+- forge-std v1.17.0 (`f3dae6e`, `contracts/foundry.lock`)
 
 ## Blockers
 (none)
