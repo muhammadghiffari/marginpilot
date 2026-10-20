@@ -17,6 +17,8 @@ import type {
 } from './types.js';
 import { mulDivFloor } from './valuation.js';
 
+const SWAP_FEE_BPS = 30n;
+
 export interface MockActionEvent {
   txHash: Hex;
   mandateId: bigint;
@@ -425,13 +427,22 @@ export class MockChainPort implements ChainPort {
       if (inPrice === undefined || outPrice === undefined) {
         return { result: { ok: false, error: 'Unknown', raw: 'UnknownPrice' } };
       }
-      const fairOut = mulDivFloor(
-        action.amount * inPrice.priceUsd8,
-        10n ** BigInt(this.decimalsOf(action.tokenOut)),
-        10n ** BigInt(this.decimalsOf(action.tokenIn)) * outPrice.priceUsd8,
+      const amountInUsd8 = mulDivFloor(
+        action.amount,
+        inPrice.priceUsd8,
+        10n ** BigInt(this.decimalsOf(action.tokenIn)),
       );
+      const outUsd8 = mulDivFloor(amountInUsd8, 10_000n - SWAP_FEE_BPS, 10_000n);
+      const amountOut = mulDivFloor(
+        outUsd8,
+        10n ** BigInt(this.decimalsOf(action.tokenOut)),
+        outPrice.priceUsd8,
+      );
+      if (amountOut < action.minAmountOut) {
+        return { result: { ok: false, error: 'SlippageExceeded' } };
+      }
       this.setBalance(vault, action.tokenIn, inBalance - action.amount);
-      this.setBalance(vault, action.tokenOut, this.balanceOf(vault, action.tokenOut) + fairOut);
+      this.setBalance(vault, action.tokenOut, this.balanceOf(vault, action.tokenOut) + amountOut);
       beforeHealth = 0n;
     }
 

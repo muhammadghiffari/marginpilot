@@ -120,6 +120,42 @@ describe('MockChainPort atomic execution', () => {
   });
 });
 
+describe('MockChainPort SWAP mirrors MockSwap', () => {
+  const swapMandate: Mandate = {
+    ...fixtureMandate,
+    allowedActions: 7,
+    allowedTargets: [TEST_ADDRESSES.lending, TEST_ADDRESSES.swap],
+  };
+  const swapAction: Action = {
+    ...repayAction,
+    actionType: 'SWAP',
+    target: TEST_ADDRESSES.swap,
+    tokenIn: TEST_ADDRESSES.mUSDC,
+    tokenOut: TEST_ADDRESSES.mWETH,
+    amount: 100_000_000n,
+    minAmountOut: 62_312_500_000_000_000n,
+    quotedPriceUsd8: 100_000_000n,
+  };
+
+  test('charges the 30 bps fee', async () => {
+    const chain = new MockChainPort(config({ mandate: swapMandate, swapTarget: TEST_ADDRESSES.swap }));
+    const result = await chain.submit(swapAction);
+
+    expect(result.status).toBe('mined');
+    const vault = await chain.getVault();
+    expect(vault.balances[TEST_ADDRESSES.mWETH]).toBe(62_312_500_000_000_000n);
+    expect(vault.spentUsd8).toBe(10_000_000_000n);
+  });
+
+  test('enforces minAmountOut at the target', async () => {
+    const chain = new MockChainPort(config({ mandate: swapMandate, swapTarget: TEST_ADDRESSES.swap }));
+    const result = await chain.submit({ ...swapAction, minAmountOut: 62_312_500_000_000_001n });
+
+    expect(result).toMatchObject({ status: 'reverted', error: 'SlippageExceeded' });
+    expect((await chain.getVault()).balances[TEST_ADDRESSES.mWETH]).toBeUndefined();
+  });
+});
+
 describe('MockChainPort UNKNOWN reconciliation', () => {
   test('returns UNKNOWN after mining, never resubmits, and exposes the mined tx', async () => {
     const chain = new MockChainPort(config({ unknownSubmitOnce: true }));
