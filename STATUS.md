@@ -7,6 +7,7 @@ Last updated: 2026-10-20 by Dev A. A-04 merged (`7039146`); A-07 merged (`c7000f
 - B-11 (`99ecd55`): one Vite/React page served by the API — compile/clarify/sign, plan, live state, ledger, audit, demo-only scenario lab, 390px layout; 5 web tests; browser click-through observed run→2 actions→ledger, stale-oracle halt and budget-exhausted halt; screenshots in `docs/submission/screenshots/`.
 - B-12 Part 1 (`4c4da28`, summary `eval/results/2026-10-20T09-44-04-427Z/summary.md`): realized-loss mean B−A −$13.9234, win/tie/loss 118/158/224, bootstrap 95% CI [−$17.6227, −$10.3966]; B loses some cases because A may choose partial-target amounts outside B's discrete candidates — no per-case dominance claim.
 - Part 8: root `README.md` (setup in 8 commands), `docs/submission/TECH-DOC.md`, `SECURITY-SELF-ASSESSMENT.md`, `EXECUTION-EVIDENCE.md`, `DECK-OUTLINE.md` (≤10 min, source per slide), `REGISTRATION-EMAIL.md`; `scripts/check-secrets.sh` clean and `scripts/verify-all.sh` GREEN (98 Forge + 83 core + 36 agent + 5 web + 6 eval = 228 tests, 7 scenarios × 1 run).
+- **A-10 rehearsal path**: `OWNER_ACCOUNT`/`EXECUTOR_ACCOUNT` select Foundry keystore signing on chain 31337 too (no `--unlocked`); `scripts/deploy.sh` derives and checks the signer/owner/executor addresses; non-31337 deploys write `eval/fixtures/testnet-<chainId>.json` and never touch `eval/fixtures/base.json`. Fresh-anvil rehearsal commands in PR #3.
 - B-08 and B-12 Part 2 now have the A-07 artifacts; B-12 Part 2 still needs A-09's chain runner. A-04 is merged (`7039146`). D-025/D-029 recorded; D-026..D-028 confirmed.
 
 ## Milestones
@@ -29,7 +30,7 @@ Last updated: 2026-10-20 by Dev A. A-04 merged (`7039146`); A-07 merged (`c7000f
 | A-07 | Dev A | P0 | done | #2 / c7000f0 | `Deploy.s.sol` + `scripts/deploy.sh`; `deployments/31337.json`, `eval/fixtures/base.json`, 5 ABIs; fresh-anvil evidence; 128 Forge tests |
 | A-08 | Dev A | P0 | todo | | |
 | A-09 | Dev A | P0 | todo | | |
-| A-10 | Dev A | P0 | partial | a/A-10-testnet | `scripts/testnet-evidence.sh` + `evidence/testnet-31337.json` / `TESTNET-EVIDENCE.md`: 15 txs, H1 success + R1–R6 expected reverts; public-testnet run pending funded keystores/RPC/human |
+| A-10 | Dev A | P0 | partial | a/A-10-testnet | `scripts/testnet-evidence.sh` + `evidence/testnet-31337.json` / `TESTNET-EVIDENCE.md`: 15 txs, H1 success + R1–R6 expected reverts; keystore mode via `OWNER_ACCOUNT`/`EXECUTOR_ACCOUNT` works on 31337 too (rehearsal); testnet deploys write `eval/fixtures/testnet-<chainId>.json` (never `base.json`); public-testnet run pending funded keystores/RPC/human |
 | A-11 | Dev A | P1 | todo | | |
 | A-12 | Dev A | P1 | todo | | |
 | A-13 | Dev A | P0 | todo | | |

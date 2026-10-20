@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # A-07: deploy + seed the demo market on anvil, patch deployment metadata, export ABIs.
-# Local (chain 31337) uses anvil's unlocked account 0; it never reads a private key.
-# Non-anvil: set SENDER and pass a signer via EXTRA_FORGE_ARGS (e.g. --account deployer).
+# OWNER_ACCOUNT/EXECUTOR_ACCOUNT set -> sign with the owner Foundry keystore on any chain,
+# including 31337 (no --unlocked). Otherwise chain 31337 uses anvil's unlocked account 0.
+# Other chains without accounts: set SENDER and pass a signer via EXTRA_FORGE_ARGS.
+# Fixture: chain 31337 -> eval/fixtures/base.json; other chains -> eval/fixtures/testnet-<chainId>.json.
 set -eu
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 RPC_URL="${RPC_URL:-http://127.0.0.1:8545}"
@@ -15,14 +17,31 @@ command -v jq >/dev/null || fail "jq not found"
 CHAIN_ID="${CHAIN_ID:-$(cast chain-id --rpc-url "$RPC_URL" 2>/dev/null)}" || fail "no chain at $RPC_URL (run scripts/dev-anvil.sh)"
 [ "$(cast chain-id --rpc-url "$RPC_URL")" = "$CHAIN_ID" ] || fail "RPC chain id does not match CHAIN_ID=$CHAIN_ID"
 
-if [ "$CHAIN_ID" = "31337" ]; then
+if [ -n "${OWNER_ACCOUNT:-}" ] || [ -n "${EXECUTOR_ACCOUNT:-}" ]; then
+  [ -n "${OWNER_ACCOUNT:-}" ] && [ -n "${EXECUTOR_ACCOUNT:-}" ] \
+    || fail "set both OWNER_ACCOUNT and EXECUTOR_ACCOUNT (Foundry keystore names), or neither"
+  case " ${EXTRA_FORGE_ARGS:-} " in
+    *" --account "* | *" --account="*) fail "OWNER_ACCOUNT is set; drop --account from EXTRA_FORGE_ARGS" ;;
+  esac
+  OWNER_SIGNER="$(cast wallet address --account "$OWNER_ACCOUNT")"
+  EXECUTOR_SIGNER="$(cast wallet address --account "$EXECUTOR_ACCOUNT")"
+  if [ -n "${SENDER:-}" ] && [ "${SENDER,,}" != "${OWNER_SIGNER,,}" ]; then
+    fail "SENDER $SENDER != OWNER_ACCOUNT address $OWNER_SIGNER"
+  fi
+  SENDER="$OWNER_SIGNER"
+  export OWNER_ADDRESS="${OWNER_ADDRESS:-$SENDER}"
+  export EXECUTOR_ADDRESS="${EXECUTOR_ADDRESS:-$EXECUTOR_SIGNER}"
+  [ "${OWNER_ADDRESS,,}" = "${SENDER,,}" ] || fail "OWNER_ADDRESS must match OWNER_ACCOUNT"
+  [ "${EXECUTOR_ADDRESS,,}" = "${EXECUTOR_SIGNER,,}" ] || fail "EXECUTOR_ADDRESS must match EXECUTOR_ACCOUNT"
+  SIGNER_FLAGS=(--sender "$SENDER" --account "$OWNER_ACCOUNT")
+elif [ "$CHAIN_ID" = "31337" ]; then
   SENDER="${SENDER:-$(cast rpc eth_accounts --rpc-url "$RPC_URL" | jq -r '.[0]')}"
   [ -n "$SENDER" ] || fail "no unlocked account on anvil"
   SIGNER_FLAGS=(--sender "$SENDER" --unlocked)
   export OWNER_ADDRESS="${OWNER_ADDRESS:-$SENDER}"
   export EXECUTOR_ADDRESS="${EXECUTOR_ADDRESS:-0x70997970C51812dc3A010C7d01b50e0d17dc79C8}"
 else
-  [ -n "${SENDER:-}" ] || fail "set SENDER for chain $CHAIN_ID"
+  [ -n "${SENDER:-}" ] || fail "set SENDER for chain $CHAIN_ID (or OWNER_ACCOUNT/EXECUTOR_ACCOUNT)"
   SIGNER_FLAGS=(--sender "$SENDER")
 fi
 
@@ -36,7 +55,11 @@ forge script script/Deploy.s.sol:Deploy \
   --broadcast -vv
 
 DEPLOYMENT="$ROOT/deployments/$CHAIN_ID.json"
-FIXTURE="$ROOT/eval/fixtures/base.json"
+if [ "$CHAIN_ID" = "31337" ]; then
+  FIXTURE="$ROOT/eval/fixtures/base.json"
+else
+  FIXTURE="$ROOT/eval/fixtures/testnet-$CHAIN_ID.json"
+fi
 BROADCAST="$ROOT/contracts/broadcast/Deploy.s.sol/$CHAIN_ID/run-latest.json"
 [ -s "$DEPLOYMENT" ] || fail "missing $DEPLOYMENT"
 [ -s "$FIXTURE" ] || fail "missing $FIXTURE"

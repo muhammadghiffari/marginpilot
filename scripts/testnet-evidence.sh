@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # A-10: testnet execution evidence. Chain-agnostic via RPC_URL / EXPLORER_BASE.
-# Local dry-run (chain 31337) uses anvil's unlocked accounts from the deployment record.
-# Testnet uses Foundry keystore accounts by NAME; no key value is read or printed.
+# OWNER_ACCOUNT/EXECUTOR_ACCOUNT set -> Foundry keystore accounts by NAME on any chain,
+# including 31337 (no --unlocked). Otherwise chain 31337 uses anvil's unlocked accounts.
+# Testnet requires the keystore names. No key value is read or printed.
 # Outputs: evidence/testnet-<chainId>.json and evidence/TESTNET-EVIDENCE.md
 set -euo pipefail
 
@@ -39,7 +40,17 @@ done
 EXPLORER_BASE="${EXPLORER_BASE:-${EXPLORER_BASE_URL:-$(jq -r '.explorerBase // empty' "$DEPLOYMENT")}}"
 EXPLORER_BASE="${EXPLORER_BASE%/}"
 
-if [ "$CHAIN_ID" = "31337" ]; then
+if [ -n "${OWNER_ACCOUNT:-}" ] || [ -n "${EXECUTOR_ACCOUNT:-}" ]; then
+  [ -n "${OWNER_ACCOUNT:-}" ] && [ -n "${EXECUTOR_ACCOUNT:-}" ] \
+    || fail "set both OWNER_ACCOUNT and EXECUTOR_ACCOUNT (Foundry keystore names), or neither"
+  OWNER_SIGNER="$(cast wallet address --account "$OWNER_ACCOUNT")"
+  EXECUTOR_SIGNER="$(cast wallet address --account "$EXECUTOR_ACCOUNT")"
+  [ "${OWNER_SIGNER,,}" = "${OWNER,,}" ] || fail "OWNER_ACCOUNT address $OWNER_SIGNER != deployment owner $OWNER"
+  [ "${EXECUTOR_SIGNER,,}" = "${EXECUTOR,,}" ] || fail "EXECUTOR_ACCOUNT address $EXECUTOR_SIGNER != deployment executor $EXECUTOR"
+  OWNER_FLAGS=(--account "$OWNER_ACCOUNT")
+  EXECUTOR_FLAGS=(--account "$EXECUTOR_ACCOUNT")
+  if [ "$CHAIN_ID" = "31337" ]; then LABEL="LOCAL ANVIL (SIMULATED)"; else LABEL="PUBLIC TESTNET"; fi
+elif [ "$CHAIN_ID" = "31337" ]; then
   ACCOUNTS="$(cast rpc eth_accounts --rpc-url "$RPC_URL")"
   printf '%s' "$ACCOUNTS" | jq -e --arg a "$OWNER" 'map(ascii_downcase) | index($a | ascii_downcase)' >/dev/null \
     || fail "owner $OWNER is not an unlocked anvil account"
@@ -49,15 +60,7 @@ if [ "$CHAIN_ID" = "31337" ]; then
   EXECUTOR_FLAGS=(--unlocked --from "$EXECUTOR")
   LABEL="LOCAL ANVIL (SIMULATED)"
 else
-  : "${OWNER_ACCOUNT:?set OWNER_ACCOUNT to a Foundry keystore account name}"
-  : "${EXECUTOR_ACCOUNT:?set EXECUTOR_ACCOUNT to a Foundry keystore account name}"
-  OWNER_SIGNER="$(cast wallet address --account "$OWNER_ACCOUNT")"
-  EXECUTOR_SIGNER="$(cast wallet address --account "$EXECUTOR_ACCOUNT")"
-  [ "${OWNER_SIGNER,,}" = "${OWNER,,}" ] || fail "OWNER_ACCOUNT address $OWNER_SIGNER != deployment owner $OWNER"
-  [ "${EXECUTOR_SIGNER,,}" = "${EXECUTOR,,}" ] || fail "EXECUTOR_ACCOUNT address $EXECUTOR_SIGNER != deployment executor $EXECUTOR"
-  OWNER_FLAGS=(--account "$OWNER_ACCOUNT")
-  EXECUTOR_FLAGS=(--account "$EXECUTOR_ACCOUNT")
-  LABEL="PUBLIC TESTNET"
+  fail "set OWNER_ACCOUNT and EXECUTOR_ACCOUNT (Foundry keystore names) for chain $CHAIN_ID"
 fi
 
 read_call() {

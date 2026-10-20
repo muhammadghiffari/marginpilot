@@ -160,7 +160,10 @@ contract Deploy is Script {
     }
 
     function _writeFixture(Deployment memory d) private {
-        string memory path = "../eval/fixtures/base.json";
+        // Local anvil keeps the shared fixture path; other chains must never overwrite it.
+        string memory path = block.chainid == 31337
+            ? "../eval/fixtures/base.json"
+            : string.concat("../eval/fixtures/testnet-", vm.toString(block.chainid), ".json");
         string memory prices = string.concat(
             _priceJson("mUSDC", address(d.usdc), USDC_PRICE, d.timestamp),
             ",",

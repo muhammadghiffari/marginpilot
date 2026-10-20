@@ -156,7 +156,7 @@ Revert of the whole tx (including a failed target call) leaves nonce and spend u
 1. Deploy 3 tokens, oracle, LendingSim (+ pools), MockSwap, MandateVault(owner, executor, oracle, mUSDC).
 2. Set initial prices: mUSDC 1.00, mWETH 2,000, mWSTETH 2,300 (fresh `updatedAt` for all three; D-031).
 3. Seed: LendingSim and MockSwap liquidity; mint test tokens to the vault; create the two demo positions from the SCENARIOS base state (before the shock). Positions use the admin-only `LendingSim.seedPosition`; the vault's #16 forbids borrowing.
-4. Write `deployments/<chainId>.json` (schema in `INTERFACES.md` §9) and `eval/fixtures/base.json` (same section). **Never commit private keys.**
+4. Write `deployments/<chainId>.json` (schema in `INTERFACES.md` §9) and `eval/fixtures/base.json` (same section). On chains other than 31337 the fixture goes to `eval/fixtures/testnet-<chainId>.json`, so a testnet deploy never overwrites the local base fixture. **Never commit private keys.**
 5. Local run: `scripts/dev-anvil.sh` in one shell, then `scripts/deploy.sh`. The wrapper patches `deployedAt` to ISO-8601, `blocks.vault` from the broadcast receipt, and exports `packages/core/src/abi/*.json`. Optional: verify sources on the block explorer.
 
 ## 4. Required tests (`contracts/test/`) — see `ADVERSARIAL-TESTS.md` for IDs
