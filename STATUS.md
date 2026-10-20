@@ -1,13 +1,14 @@
 # STATUS (update at the end of every task; agents load this each session)
 
-Last updated: 2026-10-20 19:55 WIB by Dev B. PR #1 merged into `main` with the D-032 probe commit; B-01..B-07, B-09, B-10, B-11 done; B-12 Part 1 done; B-08 blocked on A-07; Part 8 submission package done (`3adcbe1`, `a612d22` on `main`); mirror now mirrors D-032.
-- **A-04 PR #1 merged** (`7039146`): checks #1–#16, effects, `liquidReserveUsd8`, `ActionExecuted`, the SWAP role probe at #9b (D-032), the reserve token in the #11 price set (D-031), missing price → `StalePrice`; `forge test` = 125 passed, 0 failed per Dev A (this worktree re-runs the full verify gate below).
-- **Mirror synced to D-032** (`packages/core/src/policy.ts`): SWAP-role check at #9b (equality vs `ctx.lendingSim` + trusted `ctx.swapTarget`), lending-role after #10, reserve token priced for every action; ordering tests assert the precedence both ways. Reply thread: `docs/reviews/A04-PR1-REVIEW.md`, `docs/reviews/MESSAGE-TO-DEV-A.md`, D-030/D-031/D-032 in `docs/DECISIONS.md`.
+Last updated: 2026-10-20 20:40 WIB by Dev B. **PR #1 and PR #2 are both merged into `main`**; mirror mirrors D-032; B-08 unblocked.
+- **A-04 PR #1 merged** (`7039146` + `b01a970`): checks #1–#16, effects, `liquidReserveUsd8`, `ActionExecuted`, SWAP role probe at #9b (D-032), reserve token in the #11 price set (D-031), missing price → `StalePrice`; 125 Forge tests.
+- **A-07 PR #2 merged** (`c7000f0`, branch `a/A-07-deploy`): fresh anvil + `scripts/deploy.sh` → `deployments/31337.json` (vault `0x0165...`, block 7), `eval/fixtures/base.json` (fresh `updatedAt` per price incl. mUSDC, `blockTimestamp`, `timestampUnit: "seconds"`, reserve + lockedToken, both positions, post-shock prices), 5 ABIs in `packages/core/src/abi/`; `forge test` = 128 passed (3 new `seedPosition` tests). `cast call` confirmed pool 0 = 1e18 / 1400e6, pool 1 = 2e18 / 2800e6, reserve 400e6.
+- **Mirror synced to D-032** (`packages/core/src/policy.ts`): SWAP-role check at #9b, lending-role after #10, reserve token priced for every action; ordering tests assert the precedence both ways. Thread: `docs/reviews/A04-PR1-REVIEW.md`, `docs/reviews/MESSAGE-TO-DEV-A.md`, D-030/D-031/D-032.
 
 - B-11 (`99ecd55`): one Vite/React page served by the API — compile/clarify/sign, plan, live state, ledger, audit, demo-only scenario lab, 390px layout; 5 web tests; browser click-through observed run→2 actions→ledger, stale-oracle halt and budget-exhausted halt; screenshots in `docs/submission/screenshots/`.
 - B-12 Part 1 (`4c4da28`, summary `eval/results/2026-10-20T09-44-04-427Z/summary.md`): realized-loss mean B−A −$13.9234, win/tie/loss 118/158/224, bootstrap 95% CI [−$17.6227, −$10.3966]; B loses some cases because A may choose partial-target amounts outside B's discrete candidates — no per-case dominance claim.
 - Part 8: root `README.md` (setup in 8 commands), `docs/submission/TECH-DOC.md`, `SECURITY-SELF-ASSESSMENT.md`, `EXECUTION-EVIDENCE.md`, `DECK-OUTLINE.md` (≤10 min, source per slide), `REGISTRATION-EMAIL.md`; `scripts/check-secrets.sh` clean and `scripts/verify-all.sh` GREEN (98 Forge + 83 core + 36 agent + 5 web + 6 eval = 228 tests, 7 scenarios × 1 run).
-- B-12 Part 2 and B-08 blocked on A-07/A-09 artifacts; A-04.4 (`e1f90f3`, `dec5aae`) exists on `a/A-04-vault` but is not merged. D-025/D-029 recorded; D-026..D-028 confirmed.
+- B-08 and B-12 Part 2 now have the A-07 artifacts; B-12 Part 2 still needs A-09's chain runner. A-04 is merged (`7039146`). D-025/D-029 recorded; D-026..D-028 confirmed.
 
 ## Milestones
 - [ ] M0 Setup done (both machines pass `scripts/preflight.sh`; repo pushed; keys funded) — Owner
@@ -26,7 +27,7 @@ Last updated: 2026-10-20 19:55 WIB by Dev B. PR #1 merged into `main` with the D
 | A-04 | Dev A | P0 | done | #1 / a/A-04-vault | Auth/pause/withdraw; EIP-712 mandate; checks #1–#16; effects + `ActionExecuted`; D-030/D-031/D-032 role + reserve-price parity; 125 Forge tests; PR pending merge |
 | A-05 | Dev A | P0 | todo | | |
 | A-06 | Dev A | P0 | todo | | |
-| A-07 | Dev A | P0 | todo | | |
+| A-07 | Dev A | P0 | done | a/A-07-deploy | `Deploy.s.sol` + `scripts/deploy.sh`; `deployments/31337.json`, `eval/fixtures/base.json`, 5 ABIs; fresh-anvil evidence; 128 Forge tests; PR pending |
 | A-08 | Dev A | P0 | todo | | |
 | A-09 | Dev A | P0 | todo | | |
 | A-10 | Dev A | P0 | todo | | |
@@ -70,10 +71,9 @@ Last updated: 2026-10-20 19:55 WIB by Dev B. PR #1 merged into `main` with the D
 - **Missing price (D-032):** the vault maps a missing oracle price in the #11 price set (including the reserve token) to `StalePrice`; it no longer leaks `MockOracle.UnknownToken`.
 
 ## Blockers
-- **Push partially resolved (2026-10-20 20:31 WIB)**: the human re-authenticated in an interactive terminal and pushed `feat/dev-b-foundations` to `origin` (`b2182e4..6e81935`) — the agent's pushes still fail (`could not read Username`): the WSL credential cache is not served to agent processes, so **`push main` is the one remaining auth step** (`main` is locally fast-forwarded to `6e81935` and `verify-all` GREEN, 261 tests). Worktree-local merge is complete; the shared remote `main` still points at `7039146`. Never share or paste credentials to agents; the token exposed in chat earlier must be revoked. B-08 is blocked on A-07 (`Deploy.s.sol`, `scripts/deploy.sh`, `deployments/<chainId>.json`, `packages/core/src/abi/`, `eval/fixtures/base.json`) — the A-04.4 contract rules themselves are merged (PR #1 `7039146` + `b01a970`). See `docs/reviews/MESSAGE-TO-DEV-A.md`.
-- B-08 remains blocked on A-07 (`Deploy.s.sol`, `scripts/deploy.sh`, `deployments/<chainId>.json`, `packages/core/src/abi/`, `eval/fixtures/base.json`) — the A-04.4 contract rules themselves are merged (PR #1 `7039146`). See `docs/reviews/MESSAGE-TO-DEV-A.md`.
-- PR #1 is **merged into `main`** (with `b01a970`: SWAP role probe at #9b, reserve token in #11, missing price → `StalePrice`; 125 Forge tests per Dev A). The mirror carries the same rules at the same positions; the differential test (B-15) will prove the two sides agree once `ViemChainPort` exists (B-08).
-- B-12 Part 2 (anvil configs A–D) is blocked on the same A-07 artifacts and A-09 chain runner; Part 1 is independent and generated.
+- **Push partially resolved (20:31 WIB) — feat pushed by the human (`b2182e4..6e81935`), agent-side cache still empty**: pushes from agent processes fail with `could not read Username`; the human's interactive terminal works. **Remaining: two pushes by the human — `main` and `feat/dev-b-foundations` — now carrying additionally the A-07-sync merge commit.** The token exposed in chat must still be revoked. 
+- **B-08 is UNBLOCKED**: all A-07 artifacts exist on `main` (`c7000f0`): `contracts/script/Deploy.s.sol`, `scripts/deploy.sh`, `deployments/31337.json`, `packages/core/src/abi/*`, `eval/fixtures/base.json`. Dev B starts `ViemChainPort` (simulate-before-submit, `getTx` reconciliation, D-029 mapping) against them now.
+- **B-12 Part 2** remains blocked only on A-09's chain runner (the A-07 fixture/ABIs are present).
 
 ## Decisions needed from human
 See `docs/DECISIONS.md` rows with OPEN/VERIFY (D-003, D-006, D-013, D-016, D-020, D-021). D-018 is superseded by D-027.

@@ -163,4 +163,22 @@ contract LendingSimTest is Test {
         vm.expectRevert(LendingSim.NotAdmin.selector);
         sim.setPoolPaused(0, true);
     }
+
+    function test_SeedPosition_AdminOnly() public {
+        vm.prank(alice);
+        vm.expectRevert(LendingSim.NotAdmin.selector);
+        sim.seedPosition(0, bob, 1e18, 1_000e6);
+    }
+
+    function test_SeedPosition_WritesPosition() public {
+        sim.seedPosition(0, bob, 2e18, 500e6);
+        (uint256 collateral, uint256 debt) = sim.positionOf(0, bob);
+        assertEq(collateral, 2e18);
+        assertEq(debt, 500e6);
+    }
+
+    function test_SeedPosition_RejectsUnknownPool() public {
+        vm.expectRevert(abi.encodeWithSelector(LendingSim.InvalidPool.selector, 2));
+        sim.seedPosition(2, bob, 1e18, 1);
+    }
 }
