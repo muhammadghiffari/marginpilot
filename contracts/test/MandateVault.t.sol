@@ -1547,4 +1547,63 @@ contract MandateVaultTest is Test {
         }
         return keccak256(abi.encodePacked(words));
     }
+
+    // ---------------------------------------------------------------------
+    // A-05 adversarial T-ID tests (Foundry layer)
+    // ---------------------------------------------------------------------
+
+    function test_T01_SwapLockedTokenRevertsAssetLocked() public {
+        _setExecMandate(false, 15);
+        MandateVault.Action memory a = _swapAction(0.01e18, 0);
+        a.tokenIn = address(weth);
+        a.tokenOut = address(usdc);
+        a.quotedPriceUsd8 = 1600e8;
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.AssetLocked.selector);
+        vault.execute(a);
+    }
+
+    function test_T01_SwapNotAllowedRevertsActionNotAllowed() public {
+        _setExecMandate(false, 3);
+        MandateVault.Action memory a = _swapAction(100e6, 0);
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.ActionNotAllowed.selector);
+        vault.execute(a);
+    }
+
+    function test_T02_BudgetReplanRevertsAndSpentUnchanged() public {
+        uint64 id = _setExecMandate(false, 7, 260e8, 260e8);
+        vault.setSpent(id, 150e8);
+        MandateVault.Action memory a = _baseAction();
+        a.amount = 150e6 + 1;
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.BudgetExceeded.selector);
+        vault.execute(a);
+        assertEq(uint256(vault.spentUsd(id)), 150e8);
+        assertEq(vault.actionNonce(), 0);
+    }
+
+    function test_T03_BorrowForbidden() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+        a.actionType = MandateVault.ActionType.BORROW;
+        a.amount = 1e6;
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.BorrowForbidden.selector);
+        vault.execute(a);
+    }
+
+    function test_T04_TargetNotAllowed() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+        a.target = address(swap);
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.TargetNotAllowed.selector);
+        vault.execute(a);
+    }
 }
