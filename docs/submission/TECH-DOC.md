@@ -115,7 +115,8 @@ open clarifications. `ScriptedLlm` replays deterministic traces in tests and rem
 default. `OpenAICompatLlm` (D-036) implements the same `LlmClient` against any OpenAI-compatible
 `/chat/completions` endpoint: tools first, a JSON-schema retry when the endpoint rejects tools, a
 primary→fallback chain, temperature 0, model/usage recorded in the response, and the API key read
-only from the environment and never logged. It was tested against a local mock HTTP server only; **no
+only from the environment and never logged. The orchestrator appends a hash-chained `llm.response`
+audit entry with `model`, `temperature`, `usage` and `toolCalls` (never prompt text or keys). It was tested against a local mock HTTP server only; **no
 live model call was made**, so no live-provider result is claimed.
 
 The API (`apps/agent/src/api/server.ts`) validates every request with zod, streams typed

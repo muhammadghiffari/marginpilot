@@ -317,10 +317,19 @@ describe('B-09 scenarios on MockChainPort (SIMULATED)', () => {
       'action.validated',
       'action.submitted',
       'action.mined',
+      'llm.response',
       'report',
     ]) {
       expect(kinds.has(kind), kind).toBe(true);
     }
+    const llmEntries = result.audit.filter((entry) => entry.kind === 'llm.response');
+    expect(llmEntries.length).toBeGreaterThan(0);
+    expect(llmEntries[0]?.data).toMatchObject({
+      model: 'scripted-local',
+      temperature: 0,
+      usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      toolCalls: 1,
+    });
     const explained = result.audit.find((entry) => entry.kind === 'plan.explained');
     const explanation = (explained?.data as { text?: string } | undefined)?.text ?? '';
     expect(explanation).toContain('pool 0');

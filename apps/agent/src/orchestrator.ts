@@ -255,6 +255,14 @@ export class RescueOrchestrator {
         break;
       }
 
+      // D-036: record provider metadata for audit; never prompts or keys.
+      this.auditLog.append('llm.response', {
+        model: response.model,
+        temperature: response.temperature,
+        usage: response.usage,
+        toolCalls: response.toolCalls.length,
+      });
+
       if (response.toolCalls.length === 0) {
         this.abort('model returned no tool call');
         break;
