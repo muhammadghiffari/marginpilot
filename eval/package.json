@@ -1,0 +1,13 @@
+{
+  "name": "@marginpilot/eval",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run --config ../vitest.config.ts --root . --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json",
+    "eval": "tsx src/cli.ts"
+  },
+  "dependencies": { "@marginpilot/core": "workspace:*", "zod": "3.25.76" },
+  "devDependencies": { "tsx": "4.20.6" }
+}

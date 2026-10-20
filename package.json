@@ -7,7 +7,7 @@
   "scripts": {
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "eval:run": "python3 eval/worked_example.py"
+    "eval:run": "pnpm --filter @marginpilot/eval eval"
   },
   "devDependencies": {
     "@types/node": "22.19.0",

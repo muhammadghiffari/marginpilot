@@ -9,4 +9,6 @@ B-07 is implemented as a lean, deterministic slice: `llm/client.ts`, `llm/script
 
 B-09 adds the fixed tool set (`tools.ts`), template-only `explain_plan` (`explain.ts`) and `RescueOrchestrator` (`orchestrator.ts`): plan binding, `MAX_PLAN_AGE_BLOCKS`, remaining-budget replans (`MAX_REPLANS`), `MAX_TOOL_CALLS`, simulate-before-submit, post-condition verification, UNKNOWN reconciliation via `getTx` only, and the pause kill switch. S1/S2/S3/S4/S5/S7/S9 run deterministically with `ScriptedLlm` on `MockChainPort` (SIMULATED); the same suite is the acceptance gate before wiring `ViemChainPort` in B-08.
 
+B-10 adds Fastify (`api/server.ts`, `api/events.ts`), the SSE `RunEvent` stream, zod validation on every route, demo-mode gating, a token-bucket 429 limiter, the `DEMO_MODE`-only demo shock/inject routes, static serving of `apps/web/dist`, and `chain/factory.ts` selecting `MockChainPort` only in the explicit demo mode. `POST /api/mandate/confirm` signs with `DEMO_OWNER_PRIVATE_KEY` server-side and never logs it; the mock mandate activation is labeled `simulated: true`. `pnpm --filter @marginpilot/agent start` serves the demo on `PORT` (default 8787).
+
 Keys never appear in prompts, tool results or logs. See `docs/spec/AGENT-DESIGN.md` §4, §5, §8 and `docs/spec/REPO-MAP.md`.

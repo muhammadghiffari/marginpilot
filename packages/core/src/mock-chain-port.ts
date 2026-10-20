@@ -275,6 +275,29 @@ export class MockChainPort implements ChainPort {
     return this.nextTxHash(keccak256(stringToHex(`swap:${broken}`)));
   }
 
+  /**
+   * SIMULATED owner confirmation: installs a mandate in the in-memory chain.
+   * The real vault path is `setMandateWithSig` in `ViemChainPort`/B-08.
+   */
+  async demoSetMandate(mandate: Mandate): Promise<Hex> {
+    this.requireDemo();
+    if (mandate.id <= this.vault.activeMandateId) {
+      throw new Error('demo mandate id must be greater than the active mandate id');
+    }
+    this.mandate = clone(mandate);
+    this.vault.activeMandateId = mandate.id;
+    this.advance(1n, 12n);
+    const txHash = this.nextTxHash(keccak256(stringToHex(`mandate:${mandate.id}`)));
+    this.transactions.set(txHash, {
+      status: 'mined',
+      success: true,
+      blockNumber: this.vault.blockNumber,
+      gasUsed: this.gasUsed,
+      effectiveGasPrice: this.effectiveGasPrice,
+    });
+    return txHash;
+  }
+
   advance(blocks: bigint, seconds: bigint): void {
     this.vault.blockNumber += blocks;
     this.vault.blockTimestamp += seconds;
