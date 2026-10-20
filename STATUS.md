@@ -1,6 +1,6 @@
 # STATUS (update at the end of every task; agents load this each session)
 
-Last updated: 2026-10-20 by Dev B. B-01..B-06 done (`packages/core`, 81 tests); D-025 merged with `PolicyContext` + `checkPostConditions`; D-026..D-028 confirmed from the official rules and mirrored in the submission checklist. `opencode.json` now allows non-force `origin` pushes and denies credential files; `git ls-remote origin` succeeded. Local `main` also contains A-01..A-03 from `origin/main`; `scripts/verify-all.sh` GREEN.
+Last updated: 2026-10-20 by Dev B. Synced `origin/main` at `9d19d70` (A-04.1). B-01..B-06 done (`packages/core`, 83 tests); D-025 merged; D-026..D-028 confirmed. `docs/reviews/DEV-A-sync.md` records the cross-check: 32 Foundry tests pass, LendingSim HFs match the pinned values, and the mock SWAP fee/minAmountOut mismatch was fixed (`7cac091`). `opencode.json` allows non-force `origin` pushes and denies credential files; `git ls-remote origin` succeeded. `scripts/verify-all.sh` GREEN with Foundry on `PATH`.
 
 ## Milestones
 - [ ] M0 Setup done (both machines pass `scripts/preflight.sh`; repo pushed; keys funded) — Owner
@@ -16,7 +16,7 @@ Last updated: 2026-10-20 by Dev B. B-01..B-06 done (`packages/core`, 81 tests); 
 | A-01 | Dev A | P0 | done | b6b5a7f | Foundry scaffold, MockERC20 + MockOracle, 7 tests |
 | A-02 | Dev A | P0 | done | f1d41c1 | LendingSim; HF 0.942857/1.051429, 11 tests |
 | A-03 | Dev A | P0 | done | a7893aa | MockSwap; 30 bps fee, slippage, setBroken, 5 tests |
-| A-04 | Dev A | P0 | todo | | |
+| A-04 | Dev A | P0 | doing | 9d19d70 | A-04.1 auth/pause/withdraw only; mandate/action structs, EIP-712, execute and ABIs still missing |
 | A-05 | Dev A | P0 | todo | | |
 | A-06 | Dev A | P0 | todo | | |
 | A-07 | Dev A | P0 | todo | | |
@@ -55,7 +55,7 @@ Last updated: 2026-10-20 by Dev B. B-01..B-06 done (`packages/core`, 81 tests); 
 - forge-std v1.17.0 (`f3dae6e`, `contracts/foundry.lock`)
 
 ## Blockers
-(none)
+- B-08 is blocked on A-04 (full execute/EIP-712/ABI) and A-07 (`Deploy.s.sol`, `deployments/<chainId>.json`, `packages/core/src/abi/`, `eval/fixtures/base.json`). See `docs/reviews/DEV-A-sync.md`.
 
 ## Decisions needed from human
 See `docs/DECISIONS.md` rows with OPEN/VERIFY (D-003, D-006, D-013, D-016, D-020, D-021). D-018 is superseded by D-027.
