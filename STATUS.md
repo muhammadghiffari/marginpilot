@@ -1,12 +1,13 @@
 # STATUS (update at the end of every task; agents load this each session)
 
-Last updated: 2026-10-20 by Dev A. A-04 complete on `a/A-04-vault` (PR #1, 125 Forge tests); D-030/D-031/D-032 closed on the contract side. B-01..B-07, B-09, B-10, B-11 done; B-12 Part 1 done; B-08 blocked on A-07; Part 8 submission package done (`3adcbe1`, `a612d22` on `main`).
-- **A-04 PR #1**: `a/A-04-vault` now carries checks #1–#16, effects, `liquidReserveUsd8`, `ActionExecuted`, the SWAP role probe (D-032), the reserve token in the #11 price set (D-031), and missing-price → `StalePrice`; `forge test` = 125 passed, 0 failed.
+Last updated: 2026-10-20 by Dev A. A-04 merged (`7039146`); A-07 complete on `a/A-07-deploy` (PR pending). D-030/D-031/D-032 closed on the contract side. B-01..B-07, B-09, B-10, B-11 done; B-12 Part 1 done; B-08 unblocked by A-07; Part 8 submission package done (`3adcbe1`, `a612d22` on `main`).
+- **A-04 PR #1**: merged at `7039146`; checks #1–#16, effects, `liquidReserveUsd8`, `ActionExecuted`, the SWAP role probe (D-032), the reserve token in the #11 price set (D-031), and missing-price → `StalePrice`; `forge test` = 125 passed at merge.
+- **A-07 local deploy**: fresh anvil + `scripts/deploy.sh` → `deployments/31337.json` (vault `0x0165...`, block 7), `eval/fixtures/base.json` (fresh `updatedAt` per price including mUSDC, `blockTimestamp`, `timestampUnit: "seconds"`, reserve + lockedToken, both positions, post-shock prices), and 5 ABIs in `packages/core/src/abi/`; `cast call` confirms pool 0 1e18/1400e6, pool 1 2e18/2800e6, reserve 400e6. `forge test` = 128 passed (3 new `seedPosition` tests).
 - **Mirror updated for the PR**: `PolicyContext` gains `reserveToken`, `lendingSim`, `swapTarget`; wrong-role targets and the reserve price are now enforced in `packages/core/src/policy.ts` (D-030, D-031); 88 core tests green, all workspaces green (235 tests). Reply: `docs/reviews/A04-PR1-REVIEW.md`; Dev A asks: `docs/reviews/MESSAGE-TO-DEV-A.md`. Pending on the mirror side: move the SWAP role check from after #15 to after #9 (D-032).
 - B-11 (`99ecd55`): one Vite/React page served by the API — compile/clarify/sign, plan, live state, ledger, audit, demo-only scenario lab, 390px layout; 5 web tests; browser click-through observed run→2 actions→ledger, stale-oracle halt and budget-exhausted halt; screenshots in `docs/submission/screenshots/`.
 - B-12 Part 1 (`4c4da28`, summary `eval/results/2026-10-20T09-44-04-427Z/summary.md`): realized-loss mean B−A −$13.9234, win/tie/loss 118/158/224, bootstrap 95% CI [−$17.6227, −$10.3966]; B loses some cases because A may choose partial-target amounts outside B's discrete candidates — no per-case dominance claim.
 - Part 8: root `README.md` (setup in 8 commands), `docs/submission/TECH-DOC.md`, `SECURITY-SELF-ASSESSMENT.md`, `EXECUTION-EVIDENCE.md`, `DECK-OUTLINE.md` (≤10 min, source per slide), `REGISTRATION-EMAIL.md`; `scripts/check-secrets.sh` clean and `scripts/verify-all.sh` GREEN (98 Forge + 83 core + 36 agent + 5 web + 6 eval = 228 tests, 7 scenarios × 1 run).
-- B-12 Part 2 and B-08 blocked on A-07/A-09 artifacts; A-04.4 (`e1f90f3`, `dec5aae`) exists on `a/A-04-vault` but is not merged. D-025/D-029 recorded; D-026..D-028 confirmed.
+- B-08 and B-12 Part 2 now have the A-07 artifacts; B-12 Part 2 still needs A-09's chain runner. A-04 is merged (`7039146`). D-025/D-029 recorded; D-026..D-028 confirmed.
 
 ## Milestones
 - [ ] M0 Setup done (both machines pass `scripts/preflight.sh`; repo pushed; keys funded) — Owner
@@ -25,7 +26,7 @@ Last updated: 2026-10-20 by Dev A. A-04 complete on `a/A-04-vault` (PR #1, 125 F
 | A-04 | Dev A | P0 | done | #1 / a/A-04-vault | Auth/pause/withdraw; EIP-712 mandate; checks #1–#16; effects + `ActionExecuted`; D-030/D-031/D-032 role + reserve-price parity; 125 Forge tests; PR pending merge |
 | A-05 | Dev A | P0 | todo | | |
 | A-06 | Dev A | P0 | todo | | |
-| A-07 | Dev A | P0 | todo | | |
+| A-07 | Dev A | P0 | done | a/A-07-deploy | `Deploy.s.sol` + `scripts/deploy.sh`; `deployments/31337.json`, `eval/fixtures/base.json`, 5 ABIs; fresh-anvil evidence; 128 Forge tests; PR pending |
 | A-08 | Dev A | P0 | todo | | |
 | A-09 | Dev A | P0 | todo | | |
 | A-10 | Dev A | P0 | todo | | |
@@ -69,9 +70,9 @@ Last updated: 2026-10-20 by Dev A. A-04 complete on `a/A-04-vault` (PR #1, 125 F
 - **Missing price (D-032):** the vault maps a missing oracle price in the #11 price set (including the reserve token) to `StalePrice`; it no longer leaks `MockOracle.UnknownToken`.
 
 ## Blockers
-- B-08 is blocked on A-07 (`Deploy.s.sol`, `scripts/deploy.sh`, `deployments/<chainId>.json`, `packages/core/src/abi/`, `eval/fixtures/base.json`); A-04.4 effects/post-condition commits `e1f90f3`/`dec5aae` exist on `a/A-04-vault` but are not merged into `main`. See `docs/reviews/DEV-A-sync.md` and `docs/reviews/MESSAGE-TO-DEV-A.md`.
-- `main` does not yet contain the A-04.4 contract rules; `a/A-04-vault` now implements D-030/D-031/D-032 (SWAP role after #9, reserve token in #11, missing price → `StalePrice`). The mirror still places the SWAP role check after #15; it must move to after #9. PR #1 is green (125 Forge tests) and pending merge; B-15 proves the two sides agree.
-- B-12 Part 2 (anvil configs A–D) is blocked on the same A-07 artifacts and A-09 chain runner; Part 1 is independent and generated.
+- A-07 is done on `a/A-07-deploy` (PR pending). B-08 can read `deployments/31337.json`, `packages/core/src/abi/` and `eval/fixtures/base.json` as soon as it merges; B-12 Part 2 still needs A-09's chain runner. See `docs/reviews/DEV-A-sync.md` and `docs/reviews/MESSAGE-TO-DEV-A.md`.
+- A-04 is merged on `main` (`7039146`) with D-030/D-031/D-032 (SWAP role after #9, reserve token in #11, missing price → `StalePrice`). The mirror still places the SWAP role check after #15; it must move to after #9. B-15 proves the two sides agree.
+- B-12 Part 2 (anvil configs A–D) is blocked on the A-09 chain runner; the A-07 fixture/ABIs are present. Part 1 is independent and generated.
 
 ## Decisions needed from human
 See `docs/DECISIONS.md` rows with OPEN/VERIFY (D-003, D-006, D-013, D-016, D-020, D-021). D-018 is superseded by D-027.

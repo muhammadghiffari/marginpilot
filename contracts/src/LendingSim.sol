@@ -102,6 +102,13 @@ contract LendingSim {
         return (pos.collateral, pos.debt);
     }
 
+    /// @notice Deploy/test-only seeding of a position. Admin only; writes accounting, moves no tokens.
+    function seedPosition(uint8 poolId, address user, uint256 collateral, uint256 debt) external {
+        if (msg.sender != admin) revert NotAdmin();
+        _pool(poolId);
+        _positions[poolId][user] = Position(collateral, debt);
+    }
+
     /// @notice Liquidates an unhealthy user; pays debt in and takes collateral plus bonus out.
     function liquidate(uint8 poolId, address user, uint256 repayAmount) external returns (uint256 collateralSeized) {
         Pool storage p = _pool(poolId);

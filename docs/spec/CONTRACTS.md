@@ -38,6 +38,7 @@ positionOf(uint8 pool, address user) view returns (uint256 collateral, uint256 d
 liquidate(uint8 pool, address user, uint256 repayAmount) returns (uint256 collateralSeized)
 setPoolPaused(uint8 pool, bool paused)      // admin; repay/supply/borrow revert PoolPaused (failure injection, scenario S4)
 pools(uint8 pool) view returns (address collateralToken, address debtToken, uint32 ltBps, uint32 liqBonusBps, uint32 closeFactorBps, bool paused)
+seedPosition(uint8 pool, address user, uint256 collateral, uint256 debt) // admin; deploy/test-only seeding, moves no tokens
 ```
 Math (all via oracle prices; document rounding direction in code comments):
 - `HF = collateralUsd * ltBps / 10000 / debtUsd` (as wad). Liquidatable iff `HF < 1e18`.
@@ -153,10 +154,10 @@ Revert of the whole tx (including a failed target call) leaves nonce and spend u
 
 ## 3. Deployment (`contracts/script/Deploy.s.sol`)
 1. Deploy 3 tokens, oracle, LendingSim (+ pools), MockSwap, MandateVault(owner, executor, oracle, mUSDC).
-2. Set initial prices: mUSDC 1.00, mWETH 2,000, mWSTETH 2,300.
-3. Seed: LendingSim and MockSwap liquidity; mint test tokens to the vault; create the two demo positions from the `eval/fixtures/` scenario base (before the shock).
-4. Write `deployments/<chainId>.json` (schema in `INTERFACES.md` §Deployments) including addresses, block numbers and deployer. **Never commit private keys.**
-5. Optional: verify sources on the block explorer.
+2. Set initial prices: mUSDC 1.00, mWETH 2,000, mWSTETH 2,300 (fresh `updatedAt` for all three; D-031).
+3. Seed: LendingSim and MockSwap liquidity; mint test tokens to the vault; create the two demo positions from the SCENARIOS base state (before the shock). Positions use the admin-only `LendingSim.seedPosition`; the vault's #16 forbids borrowing.
+4. Write `deployments/<chainId>.json` (schema in `INTERFACES.md` §9) and `eval/fixtures/base.json` (same section). **Never commit private keys.**
+5. Local run: `scripts/dev-anvil.sh` in one shell, then `scripts/deploy.sh`. The wrapper patches `deployedAt` to ISO-8601, `blocks.vault` from the broadcast receipt, and exports `packages/core/src/abi/*.json`. Optional: verify sources on the block explorer.
 
 ## 4. Required tests (`contracts/test/`) — see `ADVERSARIAL-TESTS.md` for IDs
 - One Foundry test per `execute` check #1–#16 (each reverts with the exact custom error, and a "just inside the limit" positive case).
