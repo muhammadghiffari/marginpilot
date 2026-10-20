@@ -26,12 +26,12 @@ Last updated: 2026-10-20 (handover package) by owner. No task has been started; 
 | A-11 | Dev A | P1 | todo | | |
 | A-12 | Dev A | P1 | todo | | |
 | A-13 | Dev A | P0 | todo | | |
-| B-01 | Dev B | P0 | done | pending commit | workspace scaffold; `pnpm -r typecheck`, `pnpm -r test`, verify-all green |
+| B-01 | Dev B | P0 | done | 5c1a119 | workspace scaffold; `pnpm -r typecheck`, `pnpm -r test`, verify-all green |
 | B-02 | Dev B | P0 | done | 16f58e7 | strict types/schemas; 10 tests pass, typecheck green |
 | B-03 | Dev B | P0 | done | f088ad7 | 6/18-dec valuation, HF pinned 0.942857/1.051429; 18 tests green |
 | B-04 | Dev B | P0 | done | 8b7327c | pinned 86.57/163.59, 250.16 spend, 16.417875 loss, baseline 64.00; 11 optimizer tests |
-| B-05 | Dev B | P0 | done | feat/policy | ordered #1-#15 + pure #16; 21 policy tests, D-023 set; D-025 |
-| B-06 | Dev B | P0 | todo | | |
+| B-05 | Dev B | P0 | done | a00581b | ordered #1-#15 + pure #16; 21 policy tests, D-023 set; D-025 |
+| B-06 | Dev B | P0 | done | feat/core-ports | 15 new tests: atomic rollback, UNKNOWN no-resubmit, event ledger, audit chain, redactor, state machines; 81 total |
 | B-07 | Dev B | P0 | todo | | |
 | B-08 | Dev B | P0 | todo | | |
 | B-09 | Dev B | P0 | todo | | |
