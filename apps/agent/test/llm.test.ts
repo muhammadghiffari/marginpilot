@@ -58,10 +58,10 @@ describe('LlmClient seam', () => {
     await expect(llm.complete(request('hi'))).rejects.toThrow(/not configured/i);
   });
 
-  test('configured live stub is typed and performs no network call', async () => {
+  test('LiveLlmClient without LLM_BASE_URL is typed and performs no network call', async () => {
     const llm = new LiveLlmClient({ provider: 'openai', model: 'test-model' });
     await expect(llm.complete(request('hi'))).rejects.toBeInstanceOf(LlmProviderUnavailableError);
-    await expect(llm.complete(request('hi'))).rejects.toThrow(/not implemented/i);
+    await expect(llm.complete(request('hi'))).rejects.toThrow(/not configured/i);
   });
 });
 
