@@ -7,7 +7,7 @@ Question: does global allocation reduce liquidation loss vs independent threshol
 - Generator (seeded, e.g. seeds 1…500): 2–4 positions with random collateral/debt/LT/bonus within documented ranges, a random initial shock, random budget and reserve; stress shock realized with probability `lambda` (Bernoulli, seeded).
 - Systems: **A** per-position threshold rule (trigger HF < 1.05 → repay to 1.10, ascending HF), **B** global exhaustive optimizer. (LLM not involved; D's allocation = B by construction.)
 - Metrics: model expected loss, **realized** loss (under the sampled stress outcome), funds spent, positions with HF ≥ 1.005 after. Report mean, median, p90, **win/tie/loss counts** (B vs A), and a bootstrap 95% CI of the mean difference.
-- Expectation: B ≤ A in expected loss by construction (B is exact for the model); the interesting number is *how often and by how much*; do not oversell.
+- Original expectation: B ≤ A in expected loss by construction. **Correction after running the harness:** `optimizeRescue` exhaustively searches its discrete repay *levels*, while A can choose a partial-target amount outside those candidates. The generated report shows cases where A wins even on modeled expected loss. Preserve wins, ties and losses; never claim per-case dominance. See the generated `eval/results/<timestamp>/summary.md` for measured values.
 
 ## Part 2 — Workflow & enforcement (anvil, scenarios S1–S9, `eval/`)
 Configs A–D (`ARCHITECTURE.md`). For each scenario run the config on a fresh anvil snapshot (`anvil_snapshot`/`evm_revert`), then run the liquidator bot to realize losses.

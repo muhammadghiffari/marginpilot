@@ -53,6 +53,19 @@ importers:
         specifier: 19.2.1
         version: 19.2.1(@types/react@19.2.2)
 
+  eval:
+    dependencies:
+      '@marginpilot/core':
+        specifier: workspace:*
+        version: link:../packages/core
+      zod:
+        specifier: 3.25.76
+        version: 3.25.76
+    devDependencies:
+      tsx:
+        specifier: 4.20.6
+        version: 4.20.6
+
   packages/core:
     dependencies:
       viem:
