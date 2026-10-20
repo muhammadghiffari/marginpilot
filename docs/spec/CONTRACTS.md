@@ -75,12 +75,13 @@ struct Mandate {
 }
 ```
 EIP-712 domain: `name="MarginPilotVault"`, `version="1"`, `chainId`, `verifyingContract=<vault>`.
-Typehash strings (must match `INTERFACES.md` §EIP-712 byte for byte):
+Type definitions (must match `INTERFACES.md` §8 field for field):
 ```
 Mandate(uint64 id,uint64 validFrom,uint64 validUntil,uint128 maxTotalSpendUsd,uint128 maxPerActionUsd,uint128 minLiquidReserveUsd,uint32 maxSlippageBps,uint32 maxPriceAgeSec,uint32 maxPriceDeviationBps,uint8 allowedActions,bool allowBorrow,address[] allowedTargets,address[] lockedTokens)
-SetMandate(Mandate mandate,uint256 deadline)Mandate(uint64 id,uint64 validFrom,uint64 validUntil,uint128 maxTotalSpendUsd,uint128 maxPerActionUsd,uint128 minLiquidReserveUsd,uint32 maxSlippageBps,uint32 maxPriceAgeSec,uint32 maxPriceDeviationBps,uint8 allowedActions,bool allowBorrow,address[] allowedTargets,address[] lockedTokens)
+SetMandate(Mandate mandate,uint256 deadline)
 ```
-Arrays are hashed as `keccak256(abi.encodePacked(array))` per EIP-712.
+`MANDATE_TYPEHASH = keccak256("Mandate(...)")`. `SET_MANDATE_TYPEHASH` is the EIP-712 type hash of the primary type, so it includes the referenced `Mandate` type string: `keccak256("SetMandate(Mandate mandate,uint256 deadline)Mandate(uint64 id,uint64 validFrom,uint64 validUntil,uint128 maxTotalSpendUsd,uint128 maxPerActionUsd,uint128 minLiquidReserveUsd,uint32 maxSlippageBps,uint32 maxPriceAgeSec,uint32 maxPriceDeviationBps,uint8 allowedActions,bool allowBorrow,address[] allowedTargets,address[] lockedTokens)")` (that concatenation is EIP-712 `encodeType`, not two separate hashes).
+Arrays are hashed per **standard EIP-712**: each `address` is padded to 32 bytes, the padded elements are concatenated, then `keccak256` is applied. Do **not** use `abi.encodePacked(address[])`, which emits 20-byte elements and does not match viem.
 
 #### Action (submitted by the executor)
 ```
@@ -113,7 +114,7 @@ ownerWithdraw(address token, uint256 amount, address to)// onlyOwner, works even
 execute(Action a) returns (uint256 valueUsd8)           // onlyExecutor
 views: owner, executor, paused, nextMandateId, activeMandateId, mandate(), spentUsd(mandateId), actionNonce, liquidReserveUsd8()
 ```
-> Event names `VaultPaused`/`VaultUnpaused` are deliberate: Solidity rejects an event and a custom error that share a name (`error Paused` is required by the table below). Verified by compiling with solc 0.8.24 (D-022).
+> Event names are `VaultPaused`/`VaultUnpaused`; there are no events named `Paused`/`Unpaused`. Solidity rejects an event and a custom error with the same name (`error Paused` is required by the check table), so the events are deliberately prefixed (D-022, verified by compiling with solc 0.8.24).
 
 Events: `MandateSet(uint64 id, bytes32 mandateHash)`, `MandateRevoked(uint64 id)`, `VaultPaused(address by)`, `VaultUnpaused(address by)`, `ExecutorChanged(address)`, `ActionExecuted(uint64 mandateId, uint64 nonce, uint8 actionType, address target, address tokenIn, uint256 amount, uint256 valueUsd8, uint256 spentUsd8After)`.
 Setting a new mandate sets `activeMandateId = id`, `nextMandateId = id + 1`, and starts a fresh `spentUsd(id) = 0`. **Only an owner signature can create a fresh budget.**

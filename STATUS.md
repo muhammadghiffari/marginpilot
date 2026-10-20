@@ -1,6 +1,6 @@
 # STATUS (update at the end of every task; agents load this each session)
 
-Last updated: 2026-10-20 by Dev B. Synced `origin/main` at `9d19d70` (A-04.1). B-01..B-06 done (`packages/core`, 83 tests); D-025 merged; D-026..D-028 confirmed. `docs/reviews/DEV-A-sync.md` records the cross-check: 32 Foundry tests pass, LendingSim HFs match the pinned values, and the mock SWAP fee/minAmountOut mismatch was fixed (`7cac091`). `opencode.json` allows non-force `origin` pushes and denies credential files; `git ls-remote origin` succeeded. `scripts/verify-all.sh` GREEN with Foundry on `PATH`.
+Last updated: 2026-10-20 by Dev B. Synced `origin/main` at `52cece8` (A-04.2). B-01..B-06 done (`packages/core`, 83 tests); D-025 merged; D-026..D-028 confirmed. `docs/reviews/DEV-A-sync.md` records the cross-check: Foundry suite green, LendingSim HFs match the pinned values, EIP-712 mandate set present, execute/ABIs still missing, and the mock SWAP fee/minAmountOut mismatch was fixed (`7cac091`). `opencode.json` allows non-force `origin` pushes and denies credential files; `git ls-remote origin` succeeded. Local push is blocked by missing git credentials (see Blockers).
 
 ## Milestones
 - [ ] M0 Setup done (both machines pass `scripts/preflight.sh`; repo pushed; keys funded) — Owner
@@ -16,7 +16,7 @@ Last updated: 2026-10-20 by Dev B. Synced `origin/main` at `9d19d70` (A-04.1). B
 | A-01 | Dev A | P0 | done | b6b5a7f | Foundry scaffold, MockERC20 + MockOracle, 7 tests |
 | A-02 | Dev A | P0 | done | f1d41c1 | LendingSim; HF 0.942857/1.051429, 11 tests |
 | A-03 | Dev A | P0 | done | a7893aa | MockSwap; 30 bps fee, slippage, setBroken, 5 tests |
-| A-04 | Dev A | P0 | doing | 9d19d70 | A-04.1 auth/pause/withdraw only; mandate/action structs, EIP-712, execute and ABIs still missing |
+| A-04 | Dev A | P0 | doing | 52cece8 | A-04.1 auth/pause/withdraw; A-04.2 mandate set + EIP-712; execute/views/ABIs still missing |
 | A-05 | Dev A | P0 | todo | | |
 | A-06 | Dev A | P0 | todo | | |
 | A-07 | Dev A | P0 | todo | | |
@@ -53,6 +53,11 @@ Last updated: 2026-10-20 by Dev B. Synced `origin/main` at `9d19d70` (A-04.1). B
 ## Pinned versions (fill when installed: forge-std, OpenZeppelin if used, solc, viem, zod, vitest, Fastify/Express, Vite)
 - solc 0.8.24 (`contracts/foundry.toml`)
 - forge-std v1.17.0 (`f3dae6e`, `contracts/foundry.lock`)
+- OpenZeppelin v5.0.2 (`dbb6104`, `contracts/foundry.lock`)
+
+## Spec notes for Dev B (2026-10-20)
+- **EIP-712:** arrays use standard encoding (each address padded to 32 bytes, concatenated, `keccak256`), not `abi.encodePacked(address[])`. `SET_MANDATE_TYPEHASH` is the full EIP-712 `encodeType` hash, including the referenced `Mandate` type string. viem's `hashTypedData` already does both; `INTERFACES.md` §8 types are unchanged.
+- **Events:** vault pause events are `VaultPaused` / `VaultUnpaused`; the error remains `Paused` (D-022). Update any ABI/event usage accordingly.
 
 ## Blockers
 - B-08 is blocked on A-04 (full execute/EIP-712/ABI) and A-07 (`Deploy.s.sol`, `deployments/<chainId>.json`, `packages/core/src/abi/`, `eval/fixtures/base.json`). See `docs/reviews/DEV-A-sync.md`.
