@@ -192,7 +192,16 @@ describe('checkAction target roles and the reserve price (D-030, D-031)', () => 
     expect(policy(swapMandate, fixtureVault, fixturePrices, { ...swapAction, target: TEST_ADDRESSES.lending })).toEqual({ ok: false, error: 'TargetNotAllowed' });
   });
 
-  test('the role check runs after #10 and before the freshness loop', () => {
+  test('the SWAP role check is symmetric with the lending one: after #10, before freshness and #15', () => {
+    const wrongTarget = { ...swapAction, target: TEST_ADDRESSES.lending };
+    const staleTokenIn = fixturePrices.map((price) => price.token === TEST_ADDRESSES.mWSTETH ? { ...price, updatedAt: FIXTURE_NOW - 601n } : price);
+    expect(policy(swapMandate, fixtureVault, staleTokenIn, wrongTarget)).toEqual({ ok: false, error: 'TargetNotAllowed' });
+    expect(policy(swapMandate, fixtureVault, fixturePrices, { ...wrongTarget, minAmountOut: 0n })).toEqual({ ok: false, error: 'TargetNotAllowed' });
+    const rightTarget = { ...swapAction, minAmountOut: 0n };
+    expect(policy(swapMandate, fixtureVault, fixturePrices, rightTarget)).toEqual({ ok: false, error: 'SlippageExceeded' });
+  });
+
+  test('the lending role check runs after #10 and before the freshness loop', () => {
     const lockedInput = { ...baseAction, target: swapTarget, tokenIn: TEST_ADDRESSES.mWETH, amount: 1_000_000_000_000_000_000n };
     expect(policy(baseMandate, fixtureVault, fixturePrices, lockedInput)).toEqual({ ok: false, error: 'AssetLocked' });
     const stale = fixturePrices.map((price) => price.token === TEST_ADDRESSES.mWETH ? { ...price, updatedAt: FIXTURE_NOW - 601n } : price);

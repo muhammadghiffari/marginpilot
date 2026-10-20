@@ -127,8 +127,8 @@ Both functions are pure. `checkAction` retains its existing five arguments (mand
 
 Two rules are layered on top of the check list (D-030, D-031):
 
-- **Wrong-role target.** A lending action (`REPAY`/`SUPPLY_COLLATERAL`/`BORROW`) must address `ctx.lendingSim`; otherwise `TargetNotAllowed`. The vault raises this inside the check #11 pool-token read, so the mirror places it after #10 (`AssetLocked`) and before the freshness loop. A `SWAP` must address `ctx.swapTarget`; when `ctx.swapTarget` is undefined every `SWAP` is rejected. The vault has no `SWAP` role probe yet and fails at the target call instead, so the mirror is stricter there and names the reason.
-- **Reserve price.** The check #11 price set also contains `ctx.reserveToken` for every action, because check #16 values the liquid reserve with that price. A stale or missing reserve price therefore blocks every action, including `SWAP`.
+- **Wrong-role target (D-030, agreed 2026-10-20).** Probes are **positive and symmetric** and run right after #10 (`AssetLocked`) and before the price-freshness loop: a lending action's target must answer `pools(poolId)`, and a `SWAP`'s target must answer `MockSwap.feeBps()` (public constant). Both probes are low-level `staticcall`s validated by **returndata length** — try/catch with return decoding would not catch decode failures on EOAs and empty-fallback contracts, and an EOA answers a staticcall with success + empty returndata. The pure mirror approximates each probe with equality against the trusted context addresses (`lendingSim`, `swapTarget`) at the same position; when `ctx.swapTarget` is undefined every `SWAP` is rejected. Error: `TargetNotAllowed`.
+- **Reserve price (D-031).** The check #11 price set also contains `ctx.reserveToken` for every action, because check #16 values the liquid reserve with that price. A stale or missing reserve price therefore blocks every action, including `SWAP`. The vault maps an **oracle read failure on any price-set token** (including an unpriced reserve token) to `StalePrice` — parity with the mirror, which already reported `StalePrice` for missing prices.
 
 ## 6. State machines
 **Action machine**

@@ -70,6 +70,16 @@ Tell me which option you take and where you put the check (I mirrored it after #
 currently fails at the target call). If you prefer the probe directly after #9, I will move the
 mirror check up by one position — it is a one-line change plus one test.
 
+**Resolution (Dev A, 2026-10-20).** Probes will be **positive and symmetric**: a lending target
+must answer `pools(poolId)`, a SWAP target must answer `feeBps()` (public constant on `MockSwap`).
+Both are low-level `staticcall`s validated by **returndata length** — try/catch with return
+decoding does not catch decode failures on EOAs / empty-fallback contracts, and an EOA answers a
+staticcall with success + empty returndata, so the length check is what makes the probe honest.
+Position for **both** checks: right after #10, before the price-freshness loop. My mirror moved to
+the same position for the SWAP direction (commit below); one new ordering test asserts the SWAP
+role error now wins over staleness and slippage, while a valid-role SWAP still reports
+`SlippageExceeded`. Contract PR pending — Dev A will ping.
+
 While mirroring, I also fixed a stale fixture: the old "#15 slippage" test built a `SWAP` whose
 target was the **lending** address, which was never a legal swap. It now targets the swap target.
 
@@ -106,6 +116,10 @@ Two implementation notes for `CONTRACTS.md` and the vault:
    error is not in `ErrorName`, so D-029 maps it to `Unknown`. This gap already exists for `tokenIn`
    and the pool tokens; the reserve token makes it reachable in every action. If you want the named
    error, wrap the #11 read in `try/catch` and map a failed `getPrice` to `StalePrice`.
+   **Resolved:** Dev A accepted this mapped behaviour — the vault will implement the `try/catch`
+   so an oracle read failure on **any** price-set token (including an unpriced reserve) reverts
+   `StalePrice`, and D-031's note in `docs/DECISIONS.md` records the parity.
+
 2. **Spec wording** (I did not edit `CONTRACTS.md` — you are editing it; this is the text to use):
 
    > #11 (StalePrice) covers the action's **price set**: `tokenIn`, plus `tokenOut` for SWAP, plus

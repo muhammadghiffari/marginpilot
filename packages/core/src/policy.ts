@@ -124,9 +124,15 @@ export function checkAction(
   if ((action.actionType === 'REPAY' || action.actionType === 'SWAP') && includesAddress(mandate.lockedTokens, action.tokenIn)) {
     return { ok: false, error: 'AssetLocked' };
   }
-  // #11 (D-030) wrong-role target: a lending action must address the lending simulator.
-  // The vault raises this inside the #11 pool-token read, so it lands after #10 and before the freshness loop.
+  // #11 (D-030, agreed 2026-10-20) wrong-role targets, positive and symmetric. The vault probes
+  // both roles with a staticcall validated by returndata length — a lending target must answer
+  // pools(poolId), a SWAP target must answer MockSwap.feeBps() — right after #10 and before this
+  // freshness loop. This pure mirror approximates both probes with equality against the trusted
+  // context addresses, at the same position.
   if (lendingAction(action) && !sameAddress(action.target, ctx.lendingSim)) {
+    return { ok: false, error: 'TargetNotAllowed' };
+  }
+  if (action.actionType === 'SWAP' && (ctx.swapTarget === undefined || !sameAddress(action.target, ctx.swapTarget))) {
     return { ok: false, error: 'TargetNotAllowed' };
   }
 
@@ -182,15 +188,6 @@ export function checkAction(
     );
     const minimumFairOut = mulDivFloor(fairOut, BPS - BigInt(mandate.maxSlippageBps), BPS);
     if (action.minAmountOut < minimumFairOut) return { ok: false, error: 'SlippageExceeded' };
-  }
-
-  // #15.5 (D-030) wrong-role target: a SWAP must address the swap target. The vault has no
-  // role probe for SWAP yet, so it fails at the target call instead; the mirror is stricter and
-  // names the reason. See docs/reviews/A04-PR1-REVIEW.md.
-  if (action.actionType === 'SWAP') {
-    if (ctx.swapTarget === undefined || !sameAddress(action.target, ctx.swapTarget)) {
-      return { ok: false, error: 'TargetNotAllowed' };
-    }
   }
 
   return { ok: true, valueUsd8: value };
