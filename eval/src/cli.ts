@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { simulatePart1 } from './part1-simulation.js';
+import { runPart2 } from './part2-runner.js';
 import { writePart1Report } from './report.js';
 
 const ArgsSchema = z.object({
@@ -29,30 +30,43 @@ export function parseEvalArgs(argv: string[]): EvalArgs {
     return Number(value);
   };
   return ArgsSchema.parse({
-    part: values['--part'] ?? 'all',
+    part: values['--part'] ?? '1',
     seed: decimal(values['--seed'] ?? '1'),
     count: decimal(values['--count'] ?? '500'),
   });
 }
 
-export async function runEval(argv: string[]): Promise<{ directory: string; sampleCount: number }> {
+export interface EvalRunResult {
+  directories: string[];
+  runs: number;
+}
+
+export async function runEval(argv: string[]): Promise<EvalRunResult> {
   const args = parseEvalArgs(argv);
-  if (args.part !== '1') {
-    throw new Error('Part 2 blocked: requires deployments/<chainId>.json, packages/core/src/abi/, eval/fixtures/base.json and A-09 chain runner; no chain results were generated');
-  }
   const sourceDir = dirname(fileURLToPath(import.meta.url));
   const root = resolve(sourceDir, '../..');
   const outputRoot = resolve(root, 'eval/results');
   const commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
-  const cases = simulatePart1({ firstSeed: args.seed, count: args.count });
-  const output = await writePart1Report({ cases, outputRoot, firstSeed: args.seed, commit });
-  return { directory: output.directory, sampleCount: cases.length };
+  const directories: string[] = [];
+  let runs = 0;
+  if (args.part === '1' || args.part === 'all') {
+    const cases = simulatePart1({ firstSeed: args.seed, count: args.count });
+    const output = await writePart1Report({ cases, outputRoot, firstSeed: args.seed, commit });
+    directories.push(output.directory);
+    runs += cases.length;
+  }
+  if (args.part === '2' || args.part === 'all') {
+    const output = await runPart2({ seed: args.seed, outputRoot, commit });
+    directories.push(output.directory);
+    runs += output.rows.length;
+  }
+  return { directories, runs };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   runEval(process.argv.slice(2)).then(
-    ({ directory, sampleCount }) => {
-      console.log(`SIMULATED Part 1: ${sampleCount} seeded cases; generated ${directory}`);
+    ({ directories, runs }) => {
+      console.log(`SIMULATED evaluation: ${runs} run(s); generated ${directories.join(', ')}`);
     },
     (error: unknown) => {
       console.error(error instanceof Error ? error.message : 'evaluation failed');
