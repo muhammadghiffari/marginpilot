@@ -1,6 +1,6 @@
 # STATUS (update at the end of every task; agents load this each session)
 
-Last updated: 2026-10-20 by Dev B. B-01..B-07, B-09, B-10 done; B-12 Part 1 done (`4c4da28`, 500 seeded two-pool SIMULATED cases, 6 eval tests, `verify-all` GREEN: 98 Forge + 83 core + 36 agent + 6 eval). Generated `eval/results/2026-10-20T09-44-04-427Z/summary.md`: realized-loss mean B−A −$13.9234; win/tie/loss 118/158/224; bootstrap 95% CI [−$17.6227, −$10.3966]. Model expected loss includes B losses (discrete candidate levels vs A partial-target); no per-case dominance claim. B-12 Part 2 and B-08 blocked on A-07/A-09 artifacts. D-025/D-029 recorded; D-026..D-028 confirmed. Dev A A-04 sub-steps 1–3 verified earlier (98 Forge); effects/#16 and A-07 next.
+Last updated: 2026-10-20 by Dev B. B-01..B-07, B-09, B-10, B-11, B-12 Part 1 done. B-11 (`99ecd55`): one Vite/React page served by the API — compile/clarify/sign, plan, live state, ledger, audit, demo-only scenario lab, 390px layout; 5 web tests; browser click-through observed run→2 actions→ledger and stale-oracle halt; `verify-all` GREEN (98 Forge + 83 core + 36 agent + 5 web + 6 eval). B-12 Part 1 (`4c4da28`, summary `eval/results/2026-10-20T09-44-04-427Z/summary.md`): realized-loss mean B−A −$13.9234, win/tie/loss 118/158/224, bootstrap 95% CI [−$17.6227, −$10.3966]; B loses some cases because A may choose partial-target amounts outside B's discrete candidates — no per-case dominance claim. B-12 Part 2 and B-08 blocked on A-07/A-09 artifacts. D-025/D-029 recorded; D-026..D-028 confirmed. Dev A A-04 sub-steps 1–3 verified earlier; effects/#16 and A-07 next.
 
 ## Milestones
 - [ ] M0 Setup done (both machines pass `scripts/preflight.sh`; repo pushed; keys funded) — Owner
@@ -36,7 +36,7 @@ Last updated: 2026-10-20 by Dev B. B-01..B-07, B-09, B-10 done; B-12 Part 1 done
 | B-08 | Dev B | P0 | todo | | |
 | B-09 | Dev B | P0 | done | d8b0701 | fixed tool set + orchestrator; S1–S5/S7/S9 green with `ScriptedLlm` on `MockChainPort` (SIMULATED); 12 tests; verify-all GREEN |
 | B-10 | Dev B | P0 | done | 81c5794 | Fastify API + SSE + zod + demo gating + 429 + static serving + demo signing; 8 contract tests; verify-all GREEN |
-| B-11 | Dev B | P0 | todo | | |
+| B-11 | Dev B | P0 | done | 99ecd55 | Vite/React console served with the API: compile/sign/run/SSE/audit/scenario lab; 5 web tests; 1440px + 390px browser check; all labels SIMULATED |
 | B-12 | Dev B | P0 | doing | 4c4da28 | Part 1 generated 500 SIMULATED cases, 6 eval tests and summary; Part 2 blocked on A-07/A-09; `--part all` fails closed |
 | B-13 | Dev B | P1 | todo | | |
 | B-14 | Dev B | P1 | todo | | |
