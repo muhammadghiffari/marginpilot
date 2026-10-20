@@ -10,11 +10,14 @@ Short version:
 
 1. **Target roles (D-030)** — done on my side: `PolicyContext` now has `lendingSim`, `swapTarget`
    and `reserveToken`; a lending action at a non-lending target and a SWAP at a non-swap target are
-   both `TargetNotAllowed`; 5 new core tests, 88 core tests green. The lending direction is exact
-   parity with your PR. **Resolved**: probes will be positive and symmetric (lending → `pools(poolId)`,
-   SWAP → `MockSwap.feeBps()`, both `staticcall` + returndata-length validated), both placed right
-   after #10 before the freshness loop; my SWAP mirror check has moved from after #15 to that
-   position (commit below).
+   both `TargetNotAllowed` initially; then **resolved via your `b01a970` (D-032), which supersedes
+   the interim "positive feeBps, both after #10" wording from the chat**: shipped truth is the SWAP
+   role probe at **#9b (after #9, before #10)** with no `feeBps()` probe (`MockSwap` unchanged —
+   non-`LendingSim`/non-`MockSwap` SWAP targets still fail untyped at the target call), lending role
+   at #11 (after #10), missing oracle price → `StalePrice`. The code is the source of truth, so my
+   mirror now matches D-032 exactly: SWAP-role at #9b (trusted `ctx.swapTarget` equality — stricter
+   than the vault for other allowed targets, documented residual), lending-role after #10; ordering
+   tests assert the precedence both ways.
 2. **D-029 reserve token in the #11 price set** — **no SCENARIOS outcome changes**; S5 stays
    `StalePrice` with 0 txs and a recorded halt, because the set only grows and the stale token in
    S5 is mWETH. A stale/missing reserve price now blocks every action, which is what #16 needs.

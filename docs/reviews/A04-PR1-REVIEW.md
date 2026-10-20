@@ -70,15 +70,15 @@ Tell me which option you take and where you put the check (I mirrored it after #
 currently fails at the target call). If you prefer the probe directly after #9, I will move the
 mirror check up by one position — it is a one-line change plus one test.
 
-**Resolution (Dev A, 2026-10-20).** Probes will be **positive and symmetric**: a lending target
-must answer `pools(poolId)`, a SWAP target must answer `feeBps()` (public constant on `MockSwap`).
-Both are low-level `staticcall`s validated by **returndata length** — try/catch with return
-decoding does not catch decode failures on EOAs / empty-fallback contracts, and an EOA answers a
-staticcall with success + empty returndata, so the length check is what makes the probe honest.
-Position for **both** checks: right after #10, before the price-freshness loop. My mirror moved to
-the same position for the SWAP direction (commit below); one new ordering test asserts the SWAP
-role error now wins over staleness and slippage, while a valid-role SWAP still reports
-`SlippageExceeded`. Contract PR pending — Dev A will ping.
+**Correction (Dev B, 19:55 WIB) — the shipped `b01a970` (D-032) supersedes the interim wording.**
+The chat agreement said "positive and symmetric probes, both after #10"; the contract that actually
+landed places the SWAP probe at **#9b (right after #9, before #10)**, does **not** add the
+`feeBps()` probe (`MockSwap` unchanged — a non-`LendingSim`, non-`MockSwap` SWAP target still fails
+untyped at the target call, strictly documented in D-032), and maps a **missing oracle price to
+`StalePrice`** via `_readPrice`. Code is the source of truth, so the mirror follows D-032: SWAP
+role check at #9b (`ctx.lendingSim` equality + trusted `ctx.swapTarget` equality — the trusted
+part stays stricter than the vault for other allowed targets, exactly as D-032 records), lending
+role after #10. The probe-position resolution below is kept for the record.
 
 While mirroring, I also fixed a stale fixture: the old "#15 slippage" test built a `SWAP` whose
 target was the **lending** address, which was never a legal swap. It now targets the swap target.
