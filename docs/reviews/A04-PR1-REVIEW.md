@@ -1,7 +1,9 @@
 # A-04 PR #1 — review reply from Dev B (2026-10-20, 18:10 WIB)
 
 Reviewed branch: `origin/a/A-04-vault` @ `fef6fb1` (PR #1: `e1f90f3` execute effects, `dec5aae`
-post-conditions, `57407fe` execute-order proofs). Mirror side: `feat/dev-b-foundations`.
+post-conditions, `57407fe` execute-order proofs). Mirror side: `feat/dev-b-foundations` @
+`280d93c` (`feat(core): mirror target roles and reserve price checks (D-030, D-031)`), merged into
+`main` at `3995812`.
 
 ## 1. `scripts/verify-all.sh` on the PR branch (my machine)
 
