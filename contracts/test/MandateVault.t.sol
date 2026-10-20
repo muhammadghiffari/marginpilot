@@ -17,6 +17,13 @@ contract MandateVaultTest is Test {
     address private alice = makeAddr("alice");
 
     uint256 private constant OWNER_PK = 0xA11CE;
+    uint256 private constant OTHER_PK = 0xB0B;
+
+    // Literal EIP-712 type strings copied from CONTRACTS §2.5; independent of the contract constants.
+    bytes32 private constant MANDATE_TYPEHASH = keccak256(
+        "Mandate(uint64 id,uint64 validFrom,uint64 validUntil,uint128 maxTotalSpendUsd,uint128 maxPerActionUsd,uint128 minLiquidReserveUsd,uint32 maxSlippageBps,uint32 maxPriceAgeSec,uint32 maxPriceDeviationBps,uint8 allowedActions,bool allowBorrow,address[] allowedTargets,address[] lockedTokens)"
+    );
+    bytes32 private constant SET_MANDATE_TYPEHASH = keccak256("SetMandate(Mandate mandate,uint256 deadline)");
 
     function setUp() public {
         owner = vm.addr(OWNER_PK);
@@ -111,5 +118,199 @@ contract MandateVaultTest is Test {
         vm.prank(newExecutor);
         vault.pause();
         assertTrue(vault.paused());
+    }
+
+    function test_Typehash_MatchesSpec() public view {
+        assertEq(vault.MANDATE_TYPEHASH(), MANDATE_TYPEHASH);
+        assertEq(vault.SET_MANDATE_TYPEHASH(), SET_MANDATE_TYPEHASH);
+    }
+
+    function test_SetMandate_OwnerStoresAndActivates() public {
+        MandateVault.Mandate memory m = _mandate(1);
+        bytes32 expectedHash = _mandateStructHash(m);
+
+        vm.expectEmit(false, false, false, true, address(vault));
+        emit MandateVault.MandateSet(1, expectedHash);
+        vm.prank(owner);
+        vault.setMandate(m);
+
+        MandateVault.Mandate memory stored = vault.mandate();
+        assertEq(stored.id, 1);
+        assertEq(stored.maxTotalSpendUsd, 260e8);
+        assertEq(stored.allowedActions, 3);
+        assertEq(stored.allowedTargets.length, 1);
+        assertEq(stored.allowedTargets[0], address(0x1234));
+        assertEq(stored.lockedTokens[0], address(0xBEEF));
+        assertEq(vault.activeMandateId(), 1);
+        assertEq(vault.nextMandateId(), 2);
+        assertEq(vault.spentUsd(1), 0);
+    }
+
+    function test_SetMandate_OnlyOwner() public {
+        vm.prank(alice);
+        vm.expectRevert(MandateVault.NotOwner.selector);
+        vault.setMandate(_mandate(1));
+    }
+
+    function test_SetMandate_IdMustBeNext() public {
+        vm.prank(owner);
+        vault.setMandate(_mandate(1));
+
+        vm.prank(owner);
+        vm.expectRevert(MandateVault.BadNonce.selector);
+        vault.setMandate(_mandate(1));
+
+        vm.prank(owner);
+        vm.expectRevert(MandateVault.BadNonce.selector);
+        vault.setMandate(_mandate(3));
+
+        vm.prank(owner);
+        vault.setMandate(_mandate(2));
+        assertEq(vault.activeMandateId(), 2);
+        assertEq(vault.nextMandateId(), 3);
+    }
+
+    function test_SetMandateWithSig_ValidFromRelayer() public {
+        MandateVault.Mandate memory m = _mandate(1);
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes memory sig = _sign(OWNER_PK, m, deadline);
+
+        vm.prank(alice);
+        vault.setMandateWithSig(m, deadline, sig);
+
+        MandateVault.Mandate memory stored = vault.mandate();
+        assertEq(stored.id, 1);
+        assertEq(stored.lockedTokens[0], address(0xBEEF));
+        assertEq(vault.activeMandateId(), 1);
+        assertEq(vault.nextMandateId(), 2);
+    }
+
+    function test_SetMandateWithSig_WrongSigner() public {
+        MandateVault.Mandate memory m = _mandate(1);
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes memory sig = _sign(OTHER_PK, m, deadline);
+
+        vm.prank(alice);
+        vm.expectRevert(MandateVault.BadSignature.selector);
+        vault.setMandateWithSig(m, deadline, sig);
+    }
+
+    function test_SetMandateWithSig_ReplayRevertsBadNonce() public {
+        MandateVault.Mandate memory m = _mandate(1);
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes memory sig = _sign(OWNER_PK, m, deadline);
+
+        vm.prank(alice);
+        vault.setMandateWithSig(m, deadline, sig);
+
+        vm.prank(alice);
+        vm.expectRevert(MandateVault.BadNonce.selector);
+        vault.setMandateWithSig(m, deadline, sig);
+    }
+
+    function test_SetMandateWithSig_ExpiredDeadline() public {
+        vm.warp(1_700_000_000);
+        MandateVault.Mandate memory m = _mandate(1);
+        uint256 deadline = block.timestamp - 1;
+        bytes memory sig = _sign(OWNER_PK, m, deadline);
+
+        vm.prank(alice);
+        vm.expectRevert(MandateVault.SignatureExpired.selector);
+        vault.setMandateWithSig(m, deadline, sig);
+    }
+
+    function test_SetMandateWithSig_IdMustBeNext() public {
+        MandateVault.Mandate memory m = _mandate(2);
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes memory sig = _sign(OWNER_PK, m, deadline);
+
+        vm.prank(alice);
+        vm.expectRevert(MandateVault.BadNonce.selector);
+        vault.setMandateWithSig(m, deadline, sig);
+    }
+
+    function test_OwnerWithdraw_WorksWithExpiredMandate() public {
+        vm.warp(1_700_000_000);
+        MandateVault.Mandate memory m = _mandate(1);
+        m.validFrom = uint64(block.timestamp - 2 days);
+        m.validUntil = uint64(block.timestamp - 1 days);
+
+        vm.prank(owner);
+        vault.setMandate(m);
+
+        vm.prank(owner);
+        vault.ownerWithdraw(address(usdc), 100e6, alice);
+        assertEq(usdc.balanceOf(alice), 100e6);
+    }
+
+    function _mandate(uint64 id) private view returns (MandateVault.Mandate memory m) {
+        address[] memory targets = new address[](1);
+        targets[0] = address(0x1234);
+        address[] memory locked = new address[](1);
+        locked[0] = address(0xBEEF);
+
+        m = MandateVault.Mandate({
+            id: id,
+            validFrom: uint64(block.timestamp),
+            validUntil: uint64(block.timestamp + 1 days),
+            maxTotalSpendUsd: 260e8,
+            maxPerActionUsd: 260e8,
+            minLiquidReserveUsd: 100e8,
+            maxSlippageBps: 100,
+            maxPriceAgeSec: 600,
+            maxPriceDeviationBps: 300,
+            allowedActions: 3,
+            allowBorrow: false,
+            allowedTargets: targets,
+            lockedTokens: locked
+        });
+    }
+
+    function _sign(uint256 pk, MandateVault.Mandate memory m, uint256 deadline) private view returns (bytes memory) {
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, _digest(m, deadline));
+        return abi.encodePacked(r, s, v);
+    }
+
+    function _digest(MandateVault.Mandate memory m, uint256 deadline) private view returns (bytes32) {
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256("MarginPilotVault"),
+                keccak256("1"),
+                block.chainid,
+                address(vault)
+            )
+        );
+        bytes32 structHash = keccak256(abi.encode(SET_MANDATE_TYPEHASH, _mandateStructHash(m), deadline));
+        return keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
+    }
+
+    function _mandateStructHash(MandateVault.Mandate memory m) private pure returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                MANDATE_TYPEHASH,
+                m.id,
+                m.validFrom,
+                m.validUntil,
+                m.maxTotalSpendUsd,
+                m.maxPerActionUsd,
+                m.minLiquidReserveUsd,
+                m.maxSlippageBps,
+                m.maxPriceAgeSec,
+                m.maxPriceDeviationBps,
+                m.allowedActions,
+                m.allowBorrow,
+                _hashAddressArray(m.allowedTargets),
+                _hashAddressArray(m.lockedTokens)
+            )
+        );
+    }
+
+    function _hashAddressArray(address[] memory arr) private pure returns (bytes32) {
+        bytes32[] memory words = new bytes32[](arr.length);
+        for (uint256 i; i < arr.length; ++i) {
+            words[i] = bytes32(uint256(uint160(arr[i])));
+        }
+        return keccak256(abi.encodePacked(words));
     }
 }

@@ -1,6 +1,6 @@
 # STATUS (update at the end of every task; agents load this each session)
 
-Last updated: 2026-10-20 by Dev A. A-01..A-03 done and pushed to `origin/main`: Foundry scaffold + mocks, `LendingSim` matches worked-example HF, `MockSwap` fee/slippage/broken; 23 tests green.
+Last updated: 2026-10-20 by Dev A. A-01..A-03 done and pushed; A-04 sub-steps 1–2 done (auth/pause/withdraw + EIP-712 mandate), 42 tests green.
 
 ## Milestones
 - [ ] M0 Setup done (both machines pass `scripts/preflight.sh`; repo pushed; keys funded) — Owner
@@ -16,7 +16,7 @@ Last updated: 2026-10-20 by Dev A. A-01..A-03 done and pushed to `origin/main`: 
 | A-01 | Dev A | P0 | done | b6b5a7f | Foundry scaffold, MockERC20 + MockOracle, 7 tests |
 | A-02 | Dev A | P0 | done | f1d41c1 | LendingSim; HF 0.942857/1.051429, 11 tests |
 | A-03 | Dev A | P0 | done | a7893aa | MockSwap; 30 bps fee, slippage, setBroken, 5 tests |
-| A-04 | Dev A | P0 | todo | | |
+| A-04 | Dev A | P0 | doing | 9d19d70 | Sub-steps 1-2: auth/pause/withdraw; mandate set + EIP-712 |
 | A-05 | Dev A | P0 | todo | | |
 | A-06 | Dev A | P0 | todo | | |
 | A-07 | Dev A | P0 | todo | | |
@@ -53,6 +53,7 @@ Last updated: 2026-10-20 by Dev A. A-01..A-03 done and pushed to `origin/main`: 
 ## Pinned versions (fill when installed: forge-std, OpenZeppelin if used, solc, viem, zod, vitest, Fastify/Express, Vite)
 - solc 0.8.24 (`contracts/foundry.toml`)
 - forge-std v1.17.0 (`f3dae6e`, `contracts/foundry.lock`)
+- OpenZeppelin v5.0.2 (`dbb6104`, `contracts/foundry.lock`)
 
 ## Blockers
 (none)
