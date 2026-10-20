@@ -1,6 +1,6 @@
 # STATUS (update at the end of every task; agents load this each session)
 
-Last updated: 2026-10-20 by Dev B. Synced `origin/main` at `52cece8` (A-04.2). B-01..B-06 done (`packages/core`, 83 tests); D-025 merged; D-026..D-028 confirmed. `docs/reviews/DEV-A-sync.md` records the cross-check: Foundry suite green, LendingSim HFs match the pinned values, EIP-712 mandate set present, execute/ABIs still missing, and the mock SWAP fee/minAmountOut mismatch was fixed (`7cac091`). `opencode.json` allows non-force `origin` pushes and denies credential files; `git ls-remote origin` succeeded. Local push is blocked by missing git credentials (see Blockers).
+Last updated: 2026-10-20 by Dev B. Synced `origin/main` at `52cece8` (A-04.2). B-01..B-06 done (`packages/core`, 83 tests); D-025 merged; D-026..D-028 confirmed. `docs/reviews/DEV-A-sync.md` records the cross-check: 44 Foundry tests pass, LendingSim HFs match the pinned values, EIP-712 mandate set verified against viem, execute/ABIs still missing, and the mock SWAP fee/minAmountOut mismatch was fixed (`7cac091`). `opencode.json` allows non-force `origin` pushes and denies credential files; `git ls-remote origin` succeeded. Local push is blocked by missing git credentials (see Blockers).
 
 ## Milestones
 - [ ] M0 Setup done (both machines pass `scripts/preflight.sh`; repo pushed; keys funded) — Owner
@@ -61,6 +61,7 @@ Last updated: 2026-10-20 by Dev B. Synced `origin/main` at `52cece8` (A-04.2). B
 
 ## Blockers
 - B-08 is blocked on A-04 (full execute/EIP-712/ABI) and A-07 (`Deploy.s.sol`, `deployments/<chainId>.json`, `packages/core/src/abi/`, `eval/fixtures/base.json`). See `docs/reviews/DEV-A-sync.md`.
+- Push to `origin` is blocked: WSL git has `credential.helper = NONE`. Owner must run the two push commands from a shell with cached credentials; no credential file was read.
 
 ## Decisions needed from human
 See `docs/DECISIONS.md` rows with OPEN/VERIFY (D-003, D-006, D-013, D-016, D-020, D-021). D-018 is superseded by D-027.
