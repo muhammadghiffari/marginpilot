@@ -157,9 +157,10 @@ Part 1 command actually run:
 `pnpm eval:run -- --part 1 --seed 1`
 
 Generated artifact: `eval/results/2026-10-20T09-44-04-427Z/summary.md` (500 cases, seeds 1–500;
-`results.json` and `run-meta.json` are regenerated locally and not committed). It is SIMULATED: no
-chain, no LLM. A and B share one Bernoulli stress realization per case (10% drop, 50%
-probability).
+`results.json` and `run-meta.json` are regenerated locally and not committed). The artifact header
+records commit `4c4da28`, the evaluation-code commit; later commits changed UI/API/demo code and
+docs, not the Part 1 generator. It is SIMULATED: no chain, no LLM. A and B share one Bernoulli
+stress realization per case (10% drop, 50% probability).
 
 | Metric (USD unless noted) | A mean / median / p90 | B mean / median / p90 |
 |---|---:|---:|
