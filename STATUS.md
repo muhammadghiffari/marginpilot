@@ -1,6 +1,6 @@
 # STATUS (update at the end of every task; agents load this each session)
 
-Last updated: 2026-10-20 by Dev A. A-04 merged (`7039146`); A-07 complete on `a/A-07-deploy` (PR pending). D-030/D-031/D-032 closed on the contract side. B-01..B-07, B-09, B-10, B-11 done; B-12 Part 1 done; B-08 unblocked by A-07; Part 8 submission package done (`3adcbe1`, `a612d22` on `main`).
+Last updated: 2026-10-20 by Dev A. A-04 merged (`7039146`); A-07 merged (`c7000f0`). D-030/D-031/D-032 closed on the contract side. B-01..B-07, B-09, B-10, B-11 done; B-12 Part 1 done; B-08 unblocked by A-07; Part 8 submission package done (`3adcbe1`, `a612d22` on `main`).
 - **A-04 PR #1**: merged at `7039146`; checks #1–#16, effects, `liquidReserveUsd8`, `ActionExecuted`, the SWAP role probe (D-032), the reserve token in the #11 price set (D-031), and missing-price → `StalePrice`; `forge test` = 125 passed at merge.
 - **A-07 local deploy**: fresh anvil + `scripts/deploy.sh` → `deployments/31337.json` (vault `0x0165...`, block 7), `eval/fixtures/base.json` (fresh `updatedAt` per price including mUSDC, `blockTimestamp`, `timestampUnit: "seconds"`, reserve + lockedToken, both positions, post-shock prices), and 5 ABIs in `packages/core/src/abi/`; `cast call` confirms pool 0 1e18/1400e6, pool 1 2e18/2800e6, reserve 400e6. `forge test` = 128 passed (3 new `seedPosition` tests).
 - **Mirror updated for the PR**: `PolicyContext` gains `reserveToken`, `lendingSim`, `swapTarget`; wrong-role targets and the reserve price are now enforced in `packages/core/src/policy.ts` (D-030, D-031); 88 core tests green, all workspaces green (235 tests). Reply: `docs/reviews/A04-PR1-REVIEW.md`; Dev A asks: `docs/reviews/MESSAGE-TO-DEV-A.md`. Pending on the mirror side: move the SWAP role check from after #15 to after #9 (D-032).
@@ -23,10 +23,10 @@ Last updated: 2026-10-20 by Dev A. A-04 merged (`7039146`); A-07 complete on `a/
 | A-01 | Dev A | P0 | done | b6b5a7f | Foundry scaffold, MockERC20 + MockOracle, 7 tests |
 | A-02 | Dev A | P0 | done | f1d41c1 | LendingSim; HF 0.942857/1.051429, 11 tests |
 | A-03 | Dev A | P0 | done | a7893aa | MockSwap; 30 bps fee, slippage, setBroken, 5 tests |
-| A-04 | Dev A | P0 | done | #1 / a/A-04-vault | Auth/pause/withdraw; EIP-712 mandate; checks #1–#16; effects + `ActionExecuted`; D-030/D-031/D-032 role + reserve-price parity; 125 Forge tests; PR pending merge |
+| A-04 | Dev A | P0 | done | #1 / 7039146 | Auth/pause/withdraw; EIP-712 mandate; checks #1–#16; effects + `ActionExecuted`; D-030/D-031/D-032 role + reserve-price parity; 125 Forge tests at merge |
 | A-05 | Dev A | P0 | todo | | |
 | A-06 | Dev A | P0 | todo | | |
-| A-07 | Dev A | P0 | done | a/A-07-deploy | `Deploy.s.sol` + `scripts/deploy.sh`; `deployments/31337.json`, `eval/fixtures/base.json`, 5 ABIs; fresh-anvil evidence; 128 Forge tests; PR pending |
+| A-07 | Dev A | P0 | done | #2 / c7000f0 | `Deploy.s.sol` + `scripts/deploy.sh`; `deployments/31337.json`, `eval/fixtures/base.json`, 5 ABIs; fresh-anvil evidence; 128 Forge tests |
 | A-08 | Dev A | P0 | todo | | |
 | A-09 | Dev A | P0 | todo | | |
 | A-10 | Dev A | P0 | todo | | |
@@ -70,7 +70,7 @@ Last updated: 2026-10-20 by Dev A. A-04 merged (`7039146`); A-07 complete on `a/
 - **Missing price (D-032):** the vault maps a missing oracle price in the #11 price set (including the reserve token) to `StalePrice`; it no longer leaks `MockOracle.UnknownToken`.
 
 ## Blockers
-- A-07 is done on `a/A-07-deploy` (PR pending). B-08 can read `deployments/31337.json`, `packages/core/src/abi/` and `eval/fixtures/base.json` as soon as it merges; B-12 Part 2 still needs A-09's chain runner. See `docs/reviews/DEV-A-sync.md` and `docs/reviews/MESSAGE-TO-DEV-A.md`.
+- A-07 is merged (`c7000f0`); B-08 can read `deployments/31337.json`, `packages/core/src/abi/` and `eval/fixtures/base.json`. B-12 Part 2 still needs A-09's chain runner. See `docs/reviews/DEV-A-sync.md` and `docs/reviews/MESSAGE-TO-DEV-A.md`.
 - A-04 is merged on `main` (`7039146`) with D-030/D-031/D-032 (SWAP role after #9, reserve token in #11, missing price → `StalePrice`). The mirror still places the SWAP role check after #15; it must move to after #9. B-15 proves the two sides agree.
 - B-12 Part 2 (anvil configs A–D) is blocked on the A-09 chain runner; the A-07 fixture/ABIs are present. Part 1 is independent and generated.
 
