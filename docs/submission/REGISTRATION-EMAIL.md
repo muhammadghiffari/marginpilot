@@ -4,8 +4,8 @@ Send to: `fintechathon@ican-x.com`
 Cc: `info@ican-x.com`
 Subject: **International Track Registration – MarginPilot – Team Leader Name**
 
-> Replace `Team Name` and `Team Leader Name` in the subject with the registered values, keeping the
-> same wording and order. Do not send until every placeholder below is replaced. This file contains
+> Replace `Team Leader Name` in the subject with the registered value, keeping the same wording and
+> order. The team name is **MarginPilot** (D-035). Do not send until every placeholder below is replaced. This file contains
 > placeholders only; no attachment is claimed to exist.
 
 ---
@@ -17,7 +17,7 @@ leader is **<TEAM LEADER NAME>**, and our submission targets **Topic F (Agent Wa
 
 Our project, **MarginPilot**, is a mandate-bound wallet agent for rescuing multiple at-risk lending
 positions under one owner-signed, on-chain-enforced budget. The repository is available at
-`<GITHUB REPOSITORY URL>` at commit `<COMMIT HASH>`. The lending market in the current build is
+`<GITHUB REPOSITORY URL>` at commit `0b8ecf6` (HEAD of main at packaging; use the final pushed hash if later commits add documents only). The lending market in the current build is
 clearly labelled **SIMULATED**; the package separates simulated evidence from any real testnet
 evidence.
 
@@ -41,6 +41,6 @@ results explicitly and does not present them as testnet transactions.
 Kind regards,
 
 **<TEAM LEADER NAME>**
-<TEAM NAME>
+MarginPilot
 <EMAIL ADDRESS> · <PHONE NUMBER>
 <UNIVERSITY OR ORGANISATION>
