@@ -145,6 +145,10 @@ Deployment addresses: **none for a public testnet yet**. `TODO(Dev A)`: A-07 mus
 artifacts. Until then the API uses `MockChainPort` only in explicit demo mode; there is no silent
 production fallback.
 
+UI evidence captured from the served demo on 2026-10-20: `docs/submission/screenshots/` (desktop
+run, 390px layout, and the two halt reasons). Every screenshot shows the SIMULATED badge; the
+hashes in them are synthetic.
+
 ## 8. Evaluation
 
 Design (`docs/eval/EVALUATION-PLAN.md`): Part 1 compares a local threshold rule A
