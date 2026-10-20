@@ -2,8 +2,8 @@
 
 Team: **MarginPilot** (D-035) · Topic F · Commit: `a0debd4` · Date: 2026-10-20
 
-This document describes only what the repository at commit `a0debd4` implements and what was
-measured; the submission-doc commit sits on top of it. Every number below comes from a command or a
+This document describes only what the repository at commit `ee8c840` implements and what was
+measured; later commits may add documents only. Every number below comes from a command or a
 generated artifact in this repository.
 actually run on 2026-10-20. Where an artifact is still missing, it says so. The lending market is
 **SIMULATED**; the repository currently has **no public-testnet deployment** (see §7 and

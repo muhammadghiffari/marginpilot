@@ -17,7 +17,7 @@ leader is **<TEAM LEADER NAME>**, and our submission targets **Topic F (Agent Wa
 
 Our project, **MarginPilot**, is a mandate-bound wallet agent for rescuing multiple at-risk lending
 positions under one owner-signed, on-chain-enforced budget. The repository is available at
-`<GITHUB REPOSITORY URL>` at commit `0b8ecf6` (HEAD of main at packaging; use the final pushed hash if later commits add documents only). The lending market in the current build is
+`<GITHUB REPOSITORY URL>` at commit `ee8c840` (code + evaluation docs; use the final pushed hash if later commits add documents only). The lending market in the current build is
 clearly labelled **SIMULATED**; the package separates simulated evidence from any real testnet
 evidence.
 

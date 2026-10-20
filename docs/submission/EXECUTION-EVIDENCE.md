@@ -1,6 +1,6 @@
 # Execution Evidence — MarginPilot
 
-Network: **SIMULATED (`MockChainPort`)** · Explorer: **none** · Commit: `a0debd4` (submission docs follow) · Date: 2026-10-20
+Network: **SIMULATED (`MockChainPort`)** · Explorer: **none** · Commit: `ee8c840` (code + evaluation docs; later commits may add documents only) · Date: 2026-10-20
 
 The repository at this commit has no public-testnet deployment. Every row below is **SIMULATED**
 and has no explorer link. Hashes shown by the demo UI are synthetic and change per run; they are

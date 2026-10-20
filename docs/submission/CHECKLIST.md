@@ -30,5 +30,5 @@ Source: official International Track rules file and registration form, captured 
 - [x] `scripts/check-secrets.sh` clean in the repository; the zip scan is TODO(human) at packaging
 - [x] No fabricated hashes: the package contains no tx hashes it cannot resolve (all real-hash rows are TODO)
 - [x] No forbidden claims (see `NOVELTY-AND-PRIOR-ART.md`); no "first"/"unsolved"/"100% secure"/"guarantees" claims
-- [x] Commit hash recorded in docs (`0b8ecf6`; evaluation run metadata records `a0debd4`)
+- [x] Commit hash recorded in docs (`ee8c840`; evaluation run metadata records `a0debd4`)
 - [ ] The latest version is the one submitted before the deadline (D-026)

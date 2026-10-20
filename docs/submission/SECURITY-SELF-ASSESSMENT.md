@@ -1,6 +1,6 @@
 # Security Self-Assessment — MarginPilot
 
-Commit: `a0debd4` (submission-doc commit follows) · Run date: 2026-10-20 · Chain: **SIMULATED (`MockChainPort`)**; no public
+Commit: `ee8c840` (code + evaluation docs; later commits may add documents only) · Run date: 2026-10-20 · Chain: **SIMULATED (`MockChainPort`)**; no public
 testnet deployment at this commit (TODO(human)/TODO(Dev A): A-10 deploy, A-13 URL; A-09 cut, D-034).
 
 Wording rule followed: no violations were found in the reported scenarios; this is **not** a claim
