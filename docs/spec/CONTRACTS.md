@@ -37,6 +37,7 @@ healthFactor(uint8 pool, address user) view returns (uint256 wad)   // type(uint
 positionOf(uint8 pool, address user) view returns (uint256 collateral, uint256 debt)
 liquidate(uint8 pool, address user, uint256 repayAmount) returns (uint256 collateralSeized)
 setPoolPaused(uint8 pool, bool paused)      // admin; repay/supply/borrow revert PoolPaused (failure injection, scenario S4)
+pools(uint8 pool) view returns (address collateralToken, address debtToken, uint32 ltBps, uint32 liqBonusBps, uint32 closeFactorBps, bool paused)
 ```
 Math (all via oracle prices; document rounding direction in code comments):
 - `HF = collateralUsd * ltBps / 10000 / debtUsd` (as wad). Liquidatable iff `HF < 1e18`.
@@ -139,6 +140,8 @@ Setting a new mandate sets `activeMandateId = id`, `nextMandateId = id + 1`, and
 | 15 | SWAP: `minAmountOut >= fairOut * (10000 - maxSlippageBps) / 10000` where `fairOut` comes from oracle prices | `SlippageExceeded` |
 | — | effects: `actionNonce++`, `spentUsd += valueUsd8`; record HF before (lending actions); approve exact `amount`; call target; reset approval to 0 | |
 | 16 | after: `liquidReserveUsd8() >= minLiquidReserveUsd`; lending actions: `HF after >= HF before` | `PostConditionFailed` |
+
+Wrong-role target (between #9 and #11): a lending action (REPAY/SUPPLY_COLLATERAL/BORROW) at an allowed target that does not expose `LendingSim.pools(uint8)` is rejected with `TargetNotAllowed`; the pool-token read in #11 is wrapped and maps any failure to that error. A SWAP at a LendingSim target is not role-checked; it fails at the vault-built target call and the whole tx reverts.
 
 Revert of the whole tx (including a failed target call) leaves nonce and spend unchanged — the ledger never records spend for a reverted action.
 

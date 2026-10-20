@@ -309,7 +309,12 @@ contract MandateVault is EIP712, ReentrancyGuard {
         view
         returns (address collateralToken, address debtToken)
     {
-        (collateralToken, debtToken,,,,) = LendingSim(target).pools(poolId);
+        // A lending action at an allowed Non-LendingSim target must fail closed with a named error (check #11).
+        try LendingSim(target).pools(poolId) returns (address collateral, address debt, uint32, uint32, uint32, bool) {
+            return (collateral, debt);
+        } catch {
+            revert TargetNotAllowed();
+        }
     }
 
     function _usd8Up(uint256 amount, address token, uint256 priceUsd8) private view returns (uint256) {

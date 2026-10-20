@@ -668,6 +668,24 @@ contract MandateVaultTest is Test {
         assertEq(vault.execute(a), 100e8);
     }
 
+    function test_Execute_Check11_LendingActionAtMockSwapRevertsTargetNotAllowed() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+        a.target = address(swap); // allowed target, but not a LendingSim
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.TargetNotAllowed.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Check11_LendingActionAtLendingSimPasses() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+
+        vm.prank(executor);
+        assertEq(vault.execute(a), 100e8);
+    }
+
     function test_Execute_Check11_PriceAgeBoundary() public {
         _setExecMandate(false, 7);
         MandateVault.Action memory a = _baseAction();
@@ -867,6 +885,38 @@ contract MandateVaultTest is Test {
 
         vm.prank(executor);
         vm.expectRevert(MandateVault.BudgetExceeded.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Order12_MandateInactiveBeforeStaleAction() public {
+        MandateVault.Action memory a = _baseAction();
+        a.mandateId = 99; // also violates #4; no active mandate means #3 must win
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.MandateInactive.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Order13_MandateExpiredBeforeZeroAmount() public {
+        _setMandateFull(false, 7, 260e8, 260e8, uint64(block.timestamp - 2 days), uint64(block.timestamp - 1 days));
+        MandateVault.Action memory a = _baseAction();
+        a.amount = 0; // also violates #7; the expired mandate (#6) must win
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.MandateExpired.selector);
+        vault.execute(a);
+    }
+
+    function test_Execute_Order14_AssetLockedBeforeStalePrice() public {
+        oracle.setPriceAt(address(weth), 1600e8, block.timestamp - 601);
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+        a.tokenIn = address(weth); // locked, and its price is stale
+        a.amount = 0.01e18;
+        a.quotedPriceUsd8 = 1600e8;
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.AssetLocked.selector);
         vault.execute(a);
     }
 
