@@ -55,8 +55,14 @@ contract LendingSimTest is Test {
     }
 
     function test_PoolConfig() public view {
-        (address collateralToken, address debtToken, uint32 ltBps, uint32 liqBonusBps, uint32 closeFactorBps, bool paused) =
-            sim.pools(0);
+        (
+            address collateralToken,
+            address debtToken,
+            uint32 ltBps,
+            uint32 liqBonusBps,
+            uint32 closeFactorBps,
+            bool paused
+        ) = sim.pools(0);
         assertEq(collateralToken, address(weth));
         assertEq(debtToken, address(usdc));
         assertEq(ltBps, 8250);
