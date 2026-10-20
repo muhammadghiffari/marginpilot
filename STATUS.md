@@ -1,6 +1,6 @@
 # STATUS (update at the end of every task; agents load this each session)
 
-Last updated: 2026-10-20 by Dev A. A-01 done: Foundry scaffold, `MockERC20`/`MockOracle`, 7 tests green.
+Last updated: 2026-10-20 by Dev A. A-01/A-02 done: Foundry scaffold + mocks, `LendingSim` matches worked-example HF; 18 tests green.
 
 ## Milestones
 - [ ] M0 Setup done (both machines pass `scripts/preflight.sh`; repo pushed; keys funded) — Owner
@@ -14,7 +14,7 @@ Last updated: 2026-10-20 by Dev A. A-01 done: Foundry scaffold, `MockERC20`/`Moc
 | Task | Owner | Pri | State | PR/commit | Notes |
 |---|---|---|---|---|---|
 | A-01 | Dev A | P0 | done | b6b5a7f | Foundry scaffold, MockERC20 + MockOracle, 7 tests |
-| A-02 | Dev A | P0 | todo | | |
+| A-02 | Dev A | P0 | done | f1d41c1 | LendingSim; HF 0.942857/1.051429, 11 tests |
 | A-03 | Dev A | P0 | todo | | |
 | A-04 | Dev A | P0 | todo | | |
 | A-05 | Dev A | P0 | todo | | |
