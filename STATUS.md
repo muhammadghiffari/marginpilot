@@ -1,6 +1,6 @@
 # STATUS (update at the end of every task; agents load this each session)
 
-Last updated: 2026-10-20 by Dev A. A-01..A-03 done and pushed; A-04 sub-steps 1–2 done (auth/pause/withdraw + EIP-712 mandate), 42 tests green.
+Last updated: 2026-10-20 by Dev A. A-01..A-03 done; A-04 sub-steps 1–2 done, docs corrected before sub-step 3 (EIP-712 array hashing, VaultPaused/VaultUnpaused).
 
 ## Milestones
 - [ ] M0 Setup done (both machines pass `scripts/preflight.sh`; repo pushed; keys funded) — Owner
@@ -54,6 +54,10 @@ Last updated: 2026-10-20 by Dev A. A-01..A-03 done and pushed; A-04 sub-steps 1�
 - solc 0.8.24 (`contracts/foundry.toml`)
 - forge-std v1.17.0 (`f3dae6e`, `contracts/foundry.lock`)
 - OpenZeppelin v5.0.2 (`dbb6104`, `contracts/foundry.lock`)
+
+## Spec notes for Dev B (2026-10-20)
+- **EIP-712:** arrays use standard encoding (each address padded to 32 bytes, concatenated, `keccak256`), not `abi.encodePacked(address[])`. `SET_MANDATE_TYPEHASH` is the full EIP-712 `encodeType` hash, including the referenced `Mandate` type string. viem's `hashTypedData` already does both; `INTERFACES.md` §8 types are unchanged.
+- **Events:** vault pause events are `VaultPaused` / `VaultUnpaused`; the error remains `Paused` (D-022). Update any ABI/event usage accordingly.
 
 ## Blockers
 (none)
