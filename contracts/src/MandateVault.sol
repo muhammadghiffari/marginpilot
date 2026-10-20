@@ -158,6 +158,12 @@ contract MandateVault is EIP712, ReentrancyGuard {
         return _mandate;
     }
 
+    /// @notice USD value (usd8, floored) of the vault's reserve-token balance. Check #16 reads this.
+    function liquidReserveUsd8() public view returns (uint256) {
+        uint256 balance = reserveToken.balanceOf(address(this));
+        return balance * _price(address(reserveToken)) / (10 ** uint256(reserveToken.decimals()));
+    }
+
     /// @notice Installs a mandate signed directly by the owner. Owner only.
     function setMandate(Mandate calldata m) external onlyOwner {
         _activateMandate(m);
@@ -244,8 +250,23 @@ contract MandateVault is EIP712, ReentrancyGuard {
             if (a.minAmountOut < fairOut * (10_000 - m.maxSlippageBps) / 10_000) revert SlippageExceeded();
         }
 
+        uint256 hfBefore;
+        if (_isLending(a.actionType)) {
+            hfBefore = LendingSim(a.target).healthFactor(a.poolId, address(this));
+        }
+
         _executeEffects(a, valueUsd8);
 
+        // 16
+        if (liquidReserveUsd8() < m.minLiquidReserveUsd) revert PostConditionFailed();
+        if (_isLending(a.actionType) && LendingSim(a.target).healthFactor(a.poolId, address(this)) < hfBefore) {
+            revert PostConditionFailed();
+        }
+
+        _emitActionExecuted(a, valueUsd8);
+    }
+
+    function _emitActionExecuted(Action calldata a, uint256 valueUsd8) private {
         emit ActionExecuted(
             a.mandateId, a.nonce, uint8(a.actionType), a.target, a.tokenIn, a.amount, valueUsd8, spentUsd[a.mandateId]
         );
@@ -326,6 +347,12 @@ contract MandateVault is EIP712, ReentrancyGuard {
             if (m.lockedTokens[i] == token) return true;
         }
         return false;
+    }
+
+    function _isLending(ActionType actionType) private pure returns (bool) {
+        return
+            actionType == ActionType.REPAY || actionType == ActionType.SUPPLY_COLLATERAL
+                || actionType == ActionType.BORROW;
     }
 
     /// @dev D-023: tokenIn, plus tokenOut for SWAP, plus the pool's collateral/debt for lending actions.

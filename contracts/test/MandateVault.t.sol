@@ -574,15 +574,17 @@ contract MandateVaultTest is Test {
         vault.execute(a);
     }
 
-    function test_Execute_Check08_BorrowAllowedPasses() public {
+    function test_Execute_Check08_BorrowAllowedReachesPostCondition() public {
         _setExecMandate(true, 7);
-        _supplyVaultCollateral(1e18); // borrow needs collateral; this test has no #16 yet
+        _supplyVaultCollateral(1e18);
         MandateVault.Action memory a = _baseAction();
         a.actionType = MandateVault.ActionType.BORROW;
         a.amount = 1e6;
 
+        // #8 passes; BORROW lowers HF, so #16 must reject it.
         vm.prank(executor);
-        assertEq(vault.execute(a), 0);
+        vm.expectRevert(MandateVault.PostConditionFailed.selector);
+        vault.execute(a);
     }
 
     function test_Execute_Check08_SwapAllowedPasses() public {
@@ -1010,10 +1012,13 @@ contract MandateVaultTest is Test {
         a.actionType = MandateVault.ActionType.BORROW;
         a.amount = 1e6;
 
+        // BORROW never approves the debt token; #16 rejects the HF decrease.
         vm.prank(executor);
-        assertEq(vault.execute(a), 0);
+        vm.expectRevert(MandateVault.PostConditionFailed.selector);
+        vault.execute(a);
 
         assertEq(usdc.allowance(address(vault), address(sim)), 0);
+        assertEq(vault.actionNonce(), 0);
         assertEq(uint256(vault.spentUsd(1)), 0);
     }
 
@@ -1159,6 +1164,78 @@ contract MandateVaultTest is Test {
         assertEq(usdc.allowance(address(vault), address(reentrant)), 0);
     }
 
+    // ---------------------------------------------------------------------
+    // A-04.4b: liquid reserve view and post-condition #16
+    // ---------------------------------------------------------------------
+
+    function test_LiquidReserveUsd8_ReadsReserveAtOraclePrice() public {
+        assertEq(vault.liquidReserveUsd8(), 1000e8);
+        oracle.setPrice(address(usdc), 1.1e8);
+        assertEq(vault.liquidReserveUsd8(), 1100e8);
+    }
+
+    function test_Execute_Check16_ReserveBelowMinimum() public {
+        _setMandateReserve(950e8);
+        MandateVault.Action memory a = _swapAction(100e6, 0.061875e18);
+        uint256 vaultUsdcBefore = usdc.balanceOf(address(vault));
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.PostConditionFailed.selector);
+        vault.execute(a);
+
+        assertEq(usdc.balanceOf(address(vault)), vaultUsdcBefore);
+        assertEq(vault.actionNonce(), 0);
+        assertEq(uint256(vault.spentUsd(1)), 0);
+        assertEq(usdc.allowance(address(vault), address(swap)), 0);
+    }
+
+    function test_Execute_Check16_ReserveAtBoundaryPasses() public {
+        _setMandateReserve(900e8);
+        MandateVault.Action memory a = _swapAction(100e6, 0.061875e18);
+
+        vm.prank(executor);
+        assertEq(vault.execute(a), 100e8);
+
+        assertEq(vault.liquidReserveUsd8(), 900e8);
+        assertEq(vault.actionNonce(), 1);
+        assertEq(uint256(vault.spentUsd(1)), 100e8);
+    }
+
+    function test_Execute_Check16_HfDecreases() public {
+        _setExecMandate(true, 7);
+        _supplyVaultCollateral(1e18);
+        (uint256 collateralBefore, uint256 debtBefore) = sim.positionOf(0, address(vault));
+
+        MandateVault.Action memory a = _baseAction();
+        a.actionType = MandateVault.ActionType.BORROW;
+        a.amount = 1e6;
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.PostConditionFailed.selector);
+        vault.execute(a);
+
+        (uint256 collateralAfter, uint256 debtAfter) = sim.positionOf(0, address(vault));
+        assertEq(collateralAfter, collateralBefore);
+        assertEq(debtAfter, debtBefore);
+        assertEq(vault.actionNonce(), 0);
+        assertEq(uint256(vault.spentUsd(1)), 0);
+    }
+
+    function test_Execute_Check16_HfImprovesPasses() public {
+        _setExecMandate(true, 7);
+        _supplyVaultCollateral(1e18);
+        vm.prank(address(vault));
+        sim.borrow(0, 100e6);
+        uint256 hfBefore = sim.healthFactor(0, address(vault));
+
+        MandateVault.Action memory a = _baseAction(); // REPAY 100 mUSDC
+
+        vm.prank(executor);
+        assertEq(vault.execute(a), 100e8);
+
+        assertGt(sim.healthFactor(0, address(vault)), hfBefore);
+    }
+
     function _supplyVaultCollateral(uint256 amount) private {
         vm.prank(address(vault));
         weth.approve(address(sim), amount);
@@ -1180,6 +1257,33 @@ contract MandateVaultTest is Test {
             maxTotalSpendUsd: 260e8,
             maxPerActionUsd: 260e8,
             minLiquidReserveUsd: 0,
+            maxSlippageBps: 100,
+            maxPriceAgeSec: 600,
+            maxPriceDeviationBps: 300,
+            allowedActions: 7,
+            allowBorrow: false,
+            allowedTargets: targets,
+            lockedTokens: locked
+        });
+        vm.prank(owner);
+        vault.setMandate(m);
+    }
+
+    function _setMandateReserve(uint256 minReserveUsd) private returns (uint64 id) {
+        id = vault.nextMandateId();
+        address[] memory targets = new address[](2);
+        targets[0] = address(sim);
+        targets[1] = address(swap);
+        address[] memory locked = new address[](1);
+        locked[0] = address(weth);
+
+        MandateVault.Mandate memory m = MandateVault.Mandate({
+            id: id,
+            validFrom: uint64(block.timestamp),
+            validUntil: uint64(block.timestamp + 1 days),
+            maxTotalSpendUsd: 260e8,
+            maxPerActionUsd: 260e8,
+            minLiquidReserveUsd: uint128(minReserveUsd),
             maxSlippageBps: 100,
             maxPriceAgeSec: 600,
             maxPriceDeviationBps: 300,

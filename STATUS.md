@@ -1,6 +1,6 @@
 # STATUS (update at the end of every task; agents load this each session)
 
-Last updated: 2026-10-20 by Dev B. Synced `origin/main` at `264cf63` (A-04.3). B-01..B-07 done (`packages/core`, 83 tests; B-07 16 agent tests). B-09 done (`d8b0701`): fixed tool set, plan binding, plan-age/price-drift replans, simulate-before-submit, UNKNOWN reconciliation, kill switch; 12 orchestrator tests, S1–S5/S7/S9 green with `ScriptedLlm` on `MockChainPort` (SIMULATED); `verify-all` GREEN. D-025 and D-029 recorded; D-026..D-028 confirmed. Dev A has A-04 sub-steps 1–3 (auth/pause/withdraw, EIP-712 mandate, execute checks #1–#15); 98 Foundry tests green, effects/#16 and A-07 next. `docs/reviews/DEV-A-sync.md` records the cross-check and the mock SWAP fee/minAmountOut fix (`7cac091`). `main` and `feat/dev-b-foundations` were pushed successfully at Part 0.
+Last updated: 2026-10-20 by Dev A. A-04 done on `a/A-04-vault` (sub-steps 1–4: auth/pause/withdraw, EIP-712 mandate, checks #1–#15, effects + #16; 97 vault tests, 120 Foundry tests total). Dev B: B-01..B-07 and B-09 done (83 core + 16 agent + 12 orchestrator tests); B-08 now only blocked on A-07; D-025/D-029 recorded; D-026..D-028 confirmed.
 
 ## Milestones
 - [ ] M0 Setup done (both machines pass `scripts/preflight.sh`; repo pushed; keys funded) — Owner
@@ -16,7 +16,7 @@ Last updated: 2026-10-20 by Dev B. Synced `origin/main` at `264cf63` (A-04.3). B
 | A-01 | Dev A | P0 | done | b6b5a7f | Foundry scaffold, MockERC20 + MockOracle, 7 tests |
 | A-02 | Dev A | P0 | done | f1d41c1 | LendingSim; HF 0.942857/1.051429, 11 tests |
 | A-03 | Dev A | P0 | done | a7893aa | MockSwap; 30 bps fee, slippage, setBroken, 5 tests |
-| A-04 | Dev A | P0 | doing | 264cf63 | Sub-steps 1-3: auth/pause/withdraw; EIP-712 mandate; `execute` checks #1-#15. Effects/#16 and ABIs next |
+| A-04 | Dev A | P0 | done | a/A-04-vault | Sub-steps 1–4: auth/pause/withdraw; EIP-712 mandate; checks #1–#15; effects + #16. 97 vault tests |
 | A-05 | Dev A | P0 | todo | | |
 | A-06 | Dev A | P0 | todo | | |
 | A-07 | Dev A | P0 | todo | | |
@@ -60,9 +60,10 @@ Last updated: 2026-10-20 by Dev B. Synced `origin/main` at `264cf63` (A-04.3). B
 - **Events:** vault pause events are `VaultPaused` / `VaultUnpaused`; the error remains `Paused` (D-022). Update any ABI/event usage accordingly.
 - **Pools:** `MandateVault` reads `LendingSim.pools(uint8)` for the collateral/debt tokens (checks #11 and #16). `CONTRACTS.md` §2.3 now documents that public getter; `PolicyContext.pools` already carries exactly `{ collateralToken, debtToken }` per pool. The vault ABI is unchanged.
 - **Wrong-role target:** a lending action at an allowed target that is not `LendingSim` maps the failed `pools()` read to `TargetNotAllowed` (implemented in A-04.4). `PolicyContext` has no `lendingSim`/`swapTarget`, so the TS mirror cannot yet detect this; see `docs/reviews/D-025-dev-a-reply.md` §e.
+- **#16 BORROW consequence:** a BORROW that changes debt lowers HF, so it always reverts `PostConditionFailed`; the `allowBorrow` bit is effectively unusable in P0. The TS `checkPostConditions` has the same rule.
 
 ## Blockers
-- B-08 is blocked on A-04.4 (execute effects, check #16, `liquidReserveUsd8`, `ActionExecuted`) and A-07 (`Deploy.s.sol`, `scripts/deploy.sh`, `deployments/<chainId>.json`, `packages/core/src/abi/`, `eval/fixtures/base.json`). See `docs/reviews/DEV-A-sync.md` and `docs/reviews/MESSAGE-TO-DEV-A.md`.
+- B-08 is unblocked on A-04.4 (`a/A-04-vault`: effects, #16, `liquidReserveUsd8`, `ActionExecuted`); it is blocked only on A-07 (`Deploy.s.sol`, `scripts/deploy.sh`, `deployments/<chainId>.json`, `packages/core/src/abi/`, `eval/fixtures/base.json`). See `docs/reviews/DEV-A-sync.md` and `docs/reviews/MESSAGE-TO-DEV-A.md`.
 
 ## Decisions needed from human
 See `docs/DECISIONS.md` rows with OPEN/VERIFY (D-003, D-006, D-013, D-016, D-020, D-021). D-018 is superseded by D-027.
