@@ -26,6 +26,8 @@ finished `COMPLETED` with both positions rescued; see
 | `ViemChainPort`: reads, simulate-before-submit, receipts, unknown reconciliation, owner/executor writes | Implemented; real local-anvil and public Sepolia receipts |
 | Owner signing: server owner key and browser-wallet EIP-712 relay | Implemented; unit/API tested (no MetaMask extension run recorded) |
 | OpenAI-compatible LLM client (tools, JSON-schema retry, primary→fallback) | Implemented, mock-HTTP tests only; **no live model call** (D-036) |
+| Local anvil deploy, base fixture and ABIs | Implemented; `scripts/deploy.sh` (A-07), `eval/fixtures/base.json`, 5 ABIs in `packages/core/src/abi/` |
+| A-10 testnet evidence tooling | `scripts/testnet-evidence.sh` + `evidence/testnet-31337.json` / `evidence/TESTNET-EVIDENCE.md` (15 txs, H1 success + R1–R6 expected reverts); keystore mode via `OWNER_ACCOUNT`/`EXECUTOR_ACCOUNT`; a testnet deploy writes `eval/fixtures/testnet-<chainId>.json` |
 | Public testnet deployment and public URL | Sepolia chain 11155111 deployed; a **browser-driven rescue completed** (`COMPLETED`, two mined REPAYs, Etherscan links in the UI); **public URL not live** (A-13), S2/S7 not yet broadcast |
 | On-chain `execute` effects and post-condition check #16 | Merged (PR #1 `7039146`, PR #2 `c7000f0`); direct anvil receipts above |
 
@@ -116,7 +118,8 @@ owner/executor roles at startup. Details: [Execution Evidence](docs/submission/E
 
 `pnpm eval:run` writes `eval/results/<timestamp>/{results.json,summary.md,run-meta.json}`. Use the
 generated summary; never hand-edit results. Part 2 runs the A–D ablation on `MockChainPort` only:
-**SIMULATED, no anvil and no on-chain hashes** (D-034). Sample seed 1: config D records 0
+**SIMULATED, no anvil and no on-chain hashes** (D-034); it uses the A-07 deployment artifacts and
+does not need an anvil chain runner. Sample seed 1: config D records 0
 hard-constraint violations and passes all seven scenario acceptance tests; the 12 recorded violations
 all sit in the deliberately weak A/C configs (budget, stale-price, direct-SWAP). Generated evidence:
 [`eval/results/2026-10-20T14-11-32-655Z/summary.md`](eval/results/2026-10-20T14-11-32-655Z/summary.md).

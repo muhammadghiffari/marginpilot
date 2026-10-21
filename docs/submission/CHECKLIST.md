@@ -19,14 +19,14 @@ Source: official International Track rules file and registration form, captured 
 - [x] Source code with README (setup in ≤ 10 commands) + `.env.example` (no secrets)
 - [ ] GitHub link — **push blocked from the agent (empty credential cache)**; human must push and confirm judges can access the commit
 - [x] Test cases (forge + vitest + eval), local deployment script, and Sepolia deployment receipts; reusable guarded explicit-gas deploy script still TODO (A-10)
-- [x] Security self-assessment (`SECURITY-SELF-ASSESSMENT.md`, 328 passing tests)
+- [x] Security self-assessment (`SECURITY-SELF-ASSESSMENT.md`, 329 passing tests)
 - [x] Execution evidence (`EXECUTION-EVIDENCE.md`) — SIMULATED market labelled; local-anvil and public Sepolia receipts verified; a browser-driven Sepolia run finished `COMPLETED`; public S2/S7 cases still TODO
 - [x] Evaluation summary + `results.json` (Part 1 and Part 2 SIMULATED artifacts)
 - [ ] Public link (TODO(human), A-13) + known-risks list (present)
 - [x] Demo script (`DEMO-SCRIPT.md`) as supporting material, if recording the optional video — 5-minute script in **English and Bahasa Indonesia**, with the live Sepolia flow, fallbacks, quotable numbers and the claims to avoid
 
 ## Gates before submit
-- [x] `scripts/verify-all.sh` green (2026-10-21, 328 tests)
+- [x] `scripts/verify-all.sh` green (2026-10-21, 329 tests)
 - [x] `scripts/check-secrets.sh` clean in the repository; the zip scan is TODO(human) at packaging
 - [x] No fabricated hashes: local-anvil and public Sepolia receipts are separated in `evidence/`; in-memory results remain explicitly SIMULATED
 - [x] No forbidden claims (see `NOVELTY-AND-PRIOR-ART.md`); no "first"/"unsolved"/"100% secure"/"guarantees" claims

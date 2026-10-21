@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 # A-07: deploy + seed the demo market on anvil, patch deployment metadata, export ABIs.
-# Local (chain 31337) uses anvil's unlocked account 0; it never reads a private key.
-# Non-anvil: set SENDER and pass a signer via EXTRA_FORGE_ARGS (e.g. --account deployer).
+# OWNER_ACCOUNT/EXECUTOR_ACCOUNT set -> sign with the owner Foundry keystore on any chain,
+# including 31337 (no --unlocked). Otherwise chain 31337 uses anvil's unlocked account 0.
+# Other chains without accounts: set SENDER and pass a signer via EXTRA_FORGE_ARGS.
+# Fixture: chain 31337 -> eval/fixtures/base.json; other chains -> eval/fixtures/testnet-<chainId>.json.
 set -eu
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 RPC_URL="${RPC_URL:-http://127.0.0.1:8545}"
 EXTRA_FORGE_ARGS="${EXTRA_FORGE_ARGS:-}"
-FIXTURE="$ROOT/eval/fixtures/base.json"
+BASE_FIXTURE="$ROOT/eval/fixtures/base.json"
+FIXTURE="$BASE_FIXTURE"
 FIXTURE_SNAPSHOT=""
 CHAIN_ID=""
 cleanup() {
@@ -14,17 +17,18 @@ cleanup() {
     # Restore the committed 31337 fixture on any exit, including a failed
     # non-local deploy that wrote part-way through. A 31337 deploy updates it.
     if [ "${CHAIN_ID:-}" != "31337" ]; then
-      cp "$FIXTURE_SNAPSHOT" "$FIXTURE" 2>/dev/null || true
+      cp "$FIXTURE_SNAPSHOT" "$BASE_FIXTURE" 2>/dev/null || true
     fi
     rm -f "$FIXTURE_SNAPSHOT"
   fi
 }
 trap cleanup EXIT
 # The committed fixture describes the canonical local chain (31337). A testnet
-# or throwaway-chain deploy must not overwrite it with different addresses.
-if [ -f "$FIXTURE" ]; then
+# or throwaway-chain deploy writes its own eval/fixtures/testnet-<chainId>.json
+# and must never overwrite it.
+if [ -f "$BASE_FIXTURE" ]; then
   FIXTURE_SNAPSHOT="$(mktemp)"
-  cp "$FIXTURE" "$FIXTURE_SNAPSHOT"
+  cp "$BASE_FIXTURE" "$FIXTURE_SNAPSHOT"
 fi
 
 fail() { echo "deploy: $*" >&2; exit 1; }
@@ -35,14 +39,31 @@ command -v jq >/dev/null || fail "jq not found"
 CHAIN_ID="${CHAIN_ID:-$(cast chain-id --rpc-url "$RPC_URL" 2>/dev/null)}" || fail "no chain at $RPC_URL (run scripts/dev-anvil.sh)"
 [ "$(cast chain-id --rpc-url "$RPC_URL")" = "$CHAIN_ID" ] || fail "RPC chain id does not match CHAIN_ID=$CHAIN_ID"
 
-if [ "$CHAIN_ID" = "31337" ]; then
+if [ -n "${OWNER_ACCOUNT:-}" ] || [ -n "${EXECUTOR_ACCOUNT:-}" ]; then
+  [ -n "${OWNER_ACCOUNT:-}" ] && [ -n "${EXECUTOR_ACCOUNT:-}" ] \
+    || fail "set both OWNER_ACCOUNT and EXECUTOR_ACCOUNT (Foundry keystore names), or neither"
+  case " ${EXTRA_FORGE_ARGS:-} " in
+    *" --account "* | *" --account="*) fail "OWNER_ACCOUNT is set; drop --account from EXTRA_FORGE_ARGS" ;;
+  esac
+  OWNER_SIGNER="$(cast wallet address --account "$OWNER_ACCOUNT")"
+  EXECUTOR_SIGNER="$(cast wallet address --account "$EXECUTOR_ACCOUNT")"
+  if [ -n "${SENDER:-}" ] && [ "${SENDER,,}" != "${OWNER_SIGNER,,}" ]; then
+    fail "SENDER $SENDER != OWNER_ACCOUNT address $OWNER_SIGNER"
+  fi
+  SENDER="$OWNER_SIGNER"
+  export OWNER_ADDRESS="${OWNER_ADDRESS:-$SENDER}"
+  export EXECUTOR_ADDRESS="${EXECUTOR_ADDRESS:-$EXECUTOR_SIGNER}"
+  [ "${OWNER_ADDRESS,,}" = "${SENDER,,}" ] || fail "OWNER_ADDRESS must match OWNER_ACCOUNT"
+  [ "${EXECUTOR_ADDRESS,,}" = "${EXECUTOR_SIGNER,,}" ] || fail "EXECUTOR_ADDRESS must match EXECUTOR_ACCOUNT"
+  SIGNER_FLAGS=(--sender "$SENDER" --account "$OWNER_ACCOUNT")
+elif [ "$CHAIN_ID" = "31337" ]; then
   SENDER="${SENDER:-$(cast rpc eth_accounts --rpc-url "$RPC_URL" | jq -r '.[0]')}"
   [ -n "$SENDER" ] || fail "no unlocked account on anvil"
   SIGNER_FLAGS=(--sender "$SENDER" --unlocked)
   export OWNER_ADDRESS="${OWNER_ADDRESS:-$SENDER}"
   export EXECUTOR_ADDRESS="${EXECUTOR_ADDRESS:-0x70997970C51812dc3A010C7d01b50e0d17dc79C8}"
 else
-  [ -n "${SENDER:-}" ] || fail "set SENDER for chain $CHAIN_ID"
+  [ -n "${SENDER:-}" ] || fail "set SENDER for chain $CHAIN_ID (or OWNER_ACCOUNT/EXECUTOR_ACCOUNT)"
   SIGNER_FLAGS=(--sender "$SENDER")
 fi
 
@@ -61,6 +82,11 @@ if [ "$CHAIN_ID" != "31337" ] && [ -n "$FIXTURE_SNAPSHOT" ]; then
 fi
 
 DEPLOYMENT="$ROOT/deployments/$CHAIN_ID.json"
+if [ "$CHAIN_ID" = "31337" ]; then
+  FIXTURE="$BASE_FIXTURE"
+else
+  FIXTURE="$ROOT/eval/fixtures/testnet-$CHAIN_ID.json"
+fi
 BROADCAST="$ROOT/contracts/broadcast/Deploy.s.sol/$CHAIN_ID/run-latest.json"
 [ -s "$DEPLOYMENT" ] || fail "missing $DEPLOYMENT"
 [ -s "$FIXTURE" ] || fail "missing $FIXTURE"

@@ -61,9 +61,9 @@ owner may unpause.
 
 ## 4. Test results
 
-`tests_total=328 passed=328 scenarios=7 runs_per_scenario=1 any_failed=none`
+`tests_total=329 passed=329 scenarios=7 runs_per_scenario=1 any_failed=none`
 
-Breakdown: 144 Foundry, 89 core, 79 agent, 8 web, 8 eval (all run 2026-10-21; `scripts/verify-all.sh`
+Breakdown: 145 Foundry, 89 core, 79 agent, 8 web, 8 eval (all run 2026-10-21; `scripts/verify-all.sh`
 GREEN). The seven scenarios are S1–S5, S7, S9, each run once with `ScriptedLlm` on
 `MockChainPort`; the Part 2 ablation adds 28 SIMULATED runs (A–D × S1–S5/S7/S9/T15). The separate
 local-anvil E2E installs a mandate and mines two rescue actions on chain 31338. On public Sepolia a
@@ -104,7 +104,7 @@ tested).
 
 Generated from `grep -n 'function test_T' contracts/test/MandateVault.t.sol` and
 `grep -n 'function invariant_' contracts/test/Invariants.t.sol` (branch `a/A-05-adversarial`,
-merged here); every listed test passed in `forge test` (144 Foundry tests, 0 failed). A T-ID
+merged here); every listed test passed in `forge test` (145 Foundry tests, 0 failed). A T-ID
 with no **Foundry** test is marked `not covered (Foundry)` even where a TypeScript test exists;
 the Status column in the table above still describes the full evidence set.
 

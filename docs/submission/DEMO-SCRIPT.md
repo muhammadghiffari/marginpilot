@@ -90,7 +90,7 @@ oracle timestamps and run again."
 ### 9. Evidence and limits — 3:40
 **Do:** show the Deployment card (vault, oracle, lending, swap, three tokens — each a link), then the
 known-risks slide.
-**Say:** "Seven contracts, every one verifiable, plus 328 automated tests. Be clear about the
+**Say:** "Seven contracts, every one verifiable, plus 329 automated tests. Be clear about the
 limits: the contracts are unaudited, the lending market is our own simulator, the agent only ever
 sees prices through the vault's checks, and we have not run a browser-wallet extension end to end."
 
@@ -201,7 +201,7 @@ menegakkan, explorer membuktikan."
 | REPAY pool 0 / pool 1 | `0xbf947b0c…d5fe19` ($86.57) / `0xef8876de…97cbcab` ($163.59) | same JSON |
 | Spend | `$250.16` of `$260` (96.21 %), gas tracked separately | same JSON (`spentUsd(2) = 25016000000` USD8) |
 | Health factors | pool 0 `0.942857… → 1.005002…`, pool 1 `1.051428… → 1.116670…` | same JSON |
-| Tests | 328 (144 Forge, 89 core, 79 agent, 8 web, 8 eval) | `scripts/verify-all.sh` output |
+| Tests | 329 (145 Forge, 89 core, 79 agent, 8 web, 8 eval) | `scripts/verify-all.sh` output |
 | Second deployment (first run) | `0x2014c1F2…fFA1`, two runs, both `COMPLETED_PARTIAL` | `evidence/sepolia-e2e-20261021.json` |
 
 ---

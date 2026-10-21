@@ -14,8 +14,8 @@ using an ignored temporary override file (without duplicating keys).
   Evidence: `evidence/anvil-e2e-20261021T060254Z.json` (mandate
   `0x62dcec…0b8ad`, actions `0x85136a…d8366` and `0x82088d…f5225`). This is REAL EVM on anvil,
   **not public testnet**; the UI labels it `ANVIL`.
-- **Current gate:** `scripts/verify-all.sh` GREEN = 144 Forge + 89 core + 79 agent + 8 web + 8 eval =
-  **328 tests**; `check-secrets: clean`; workspace typechecks green (2026-10-21). The merged
+- **Current gate:** `scripts/verify-all.sh` GREEN = 145 Forge + 89 core + 79 agent + 8 web + 8 eval =
+  **329 tests**; `check-secrets: clean`; workspace typechecks green (2026-10-21). The merged
   `a/A-05-adversarial` branch adds 15 Foundry adversarial tests and 3 A-06 invariants.
 - **Public Sepolia run driven from the browser (primary proof):** vault
   `0xd7FC116f1acaE8cE017114aD7E41F132a998743C` on chain `11155111`. A Playwright session against
@@ -39,6 +39,7 @@ using an ignored temporary override file (without duplicating keys).
   receipts: `evidence/sepolia-e2e-20261021.json`; the archived record is
   `deployments/11155111-run1.json`. Read-only `scripts/verify-sepolia-bytecode.sh` matched all
   seven on-chain creation inputs to pinned source.
+- **A-10 tooling merged (2026-10-21):** `scripts/testnet-evidence.sh` with `evidence/testnet-31337.json` / `evidence/TESTNET-EVIDENCE.md` (15 txs, H1 success + R1–R6 expected reverts); keystore mode via `OWNER_ACCOUNT`/`EXECUTOR_ACCOUNT` also works on chain 31337, and a testnet deploy writes `eval/fixtures/testnet-<chainId>.json` instead of the committed local fixture.
 - **Sepolia deployment caveat:** Forge's gas estimates produced failed creation transactions;
   successful contracts were deployed with explicit per-tx `cast` gas limits and an optimized
   via-IR vault. `scripts/deploy-testnet.sh` now **refuses Sepolia before broadcast** rather than
@@ -63,12 +64,12 @@ using an ignored temporary override file (without duplicating keys).
 | A-02 | Dev A | P0 | done | f1d41c1 | LendingSim; HF 0.942857/1.051429, 11 tests |
 | A-03 | Dev A | P0 | done | a7893aa | MockSwap; 30 bps fee, slippage, setBroken, 5 tests |
 | A-04 | Dev A | P0 | done | #1 `7039146` + `b01a970` | Auth/pause/withdraw; EIP-712 mandate; checks #1–#16; effects + `ActionExecuted`; D-030/D-031/D-032 role + reserve-price parity; 125 Forge tests |
-| A-05 | Dev A | P0 | todo | | |
+| A-05 | Dev A | P0 | done | `a/A-05-adversarial` `2dd2611` | Adversarial T01–T16 suite; T09c rejects signatures bound to another vault or chainId with `BadSignature`; 145 Forge tests; merged with main |
 | A-06 | Dev A | P0 | todo | | |
 | A-07 | Dev A | P0 | done | #2 `c7000f0` | `Deploy.s.sol` + `scripts/deploy.sh`; `deployments/31337.json`, `eval/fixtures/base.json`, 5 ABIs; 128 Forge tests |
 | A-08 | Dev A | P0 | todo | | |
 | A-09 | Dev A | P0 | cut | D-034 | anvil runner + liquidator bot cut to protect the deadline; Part 2 runs SIMULATED on `MockChainPort` |
-| A-10 | Dev A | P0 | doing | local evidence | Sepolia vault + two REPAY receipts recorded; S2/S7 and reproducible deploy wrapper outstanding |
+| A-10 | Dev A | P0 | doing | `a/A-10-testnet` `6505654` + local evidence | `scripts/testnet-evidence.sh` + `evidence/testnet-31337.json` (15 txs, H1 + R1–R6 reverts), keystore mode, chain-specific testnet fixtures; plus the public Sepolia vault and four mined REPAY receipts; S2/S7 and a reproducible guarded deploy wrapper are still outstanding |
 | B-18 | Dev B | P0 | doing | local | Browser-driven Sepolia rescue (`COMPLETED`) + explorer links in the console + replan-on-stale-plan fix; docs/commits pending |
 | A-11 | Dev A | P1 | todo | | |
 | A-12 | Dev A | P1 | todo | | |
