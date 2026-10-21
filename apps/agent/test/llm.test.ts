@@ -51,6 +51,17 @@ describe('LlmClient seam', () => {
     await expect(llm.complete(request('anything'))).rejects.toBeInstanceOf(ScriptedLlmExhaustedError);
   });
 
+  test('a repeatable trace is reused up to its repeat count, then the next trace is used', async () => {
+    const llm = new ScriptedLlm([
+      { text: 'act', repeat: 2 },
+      { text: 'finish' },
+    ]);
+    expect((await llm.complete(request('go'))).text).toBe('act');
+    expect((await llm.complete(request('go'))).text).toBe('act');
+    expect((await llm.complete(request('go'))).text).toBe('finish');
+    await expect(llm.complete(request('go'))).rejects.toBeInstanceOf(ScriptedLlmExhaustedError);
+  });
+
   test('empty provider/model throws a typed "not configured" error', async () => {
     expect(readLlmConfig({ LLM_PROVIDER: '  ', LLM_MODEL: '' })).toEqual({ provider: '', model: '' });
     const llm = new LiveLlmClient({ provider: '', model: '' });

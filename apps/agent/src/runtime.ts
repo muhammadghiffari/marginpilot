@@ -195,6 +195,8 @@ export class AgentRuntime {
   readonly allowDemoControls: boolean;
   private readonly ownerPrivateKey?: string;
   private readonly now: () => bigint;
+  /** Mandate transaction installed by this process; surfaced for explorer links. */
+  private lastMandateTxHash?: Hex;
 
   constructor(options: AgentRuntimeOptions = {}) {
     this.registry = options.registry ?? LOCAL_TEST_REGISTRY;
@@ -287,7 +289,14 @@ export class AgentRuntime {
     const positions = await this.chain.getPositions();
     const tokens = this.tokensFor(positions);
     const prices = await this.chain.getPrices(tokens);
-    return { vault, mandate, positions, prices };
+    return {
+      vault,
+      mandate,
+      positions,
+      prices,
+      /** Hash of the mandate transaction this process installed, for explorer links. */
+      mandateTxHash: this.lastMandateTxHash ?? null,
+    };
   }
 
   async shock(token: Address, priceUsd8: bigint, updatedAt?: bigint): Promise<Hex> {
@@ -339,6 +348,7 @@ export class AgentRuntime {
     if (!writer) throw new Error('this chain has no mandate writer');
     const result = await writer.call(this.chain, mandate, deadline, signature);
     if (result.status === 'mined') {
+      this.lastMandateTxHash = result.txHash;
       return { txHash: result.txHash, mandateId: mandate.id, signature, simulated: this.simulated };
     }
     if (result.status === 'reverted') throw new MandateNotInstalledError('reverted');
@@ -351,6 +361,7 @@ export class AgentRuntime {
       throw new MandateTxUnknownError(result.txHash);
     }
     if (tx.status === 'mined' && tx.success) {
+      this.lastMandateTxHash = result.txHash;
       return { txHash: result.txHash, mandateId: mandate.id, signature, simulated: this.simulated };
     }
     if (tx.status === 'mined') throw new MandateNotInstalledError('reverted');

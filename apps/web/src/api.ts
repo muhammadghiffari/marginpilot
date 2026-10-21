@@ -45,6 +45,15 @@ export const ApiStateSchema = z.object({
   explorerBase: z.string().optional(),
   tokens: z.array(TokenInfoSchema).optional(),
   nextMandateId: z.string().optional(),
+  /** Hash of the mandate transaction installed by this process. */
+  mandateTxHash: z.string().nullable().optional(),
+  /** Deployed contract addresses, for explorer links. */
+  contracts: z.object({
+    vault: z.string(),
+    oracle: z.string(),
+    lending: z.string(),
+    swap: z.string(),
+  }).optional(),
 });
 export interface TokenInfo {
   symbol: string;
@@ -70,6 +79,8 @@ export interface ApiState {
   explorerBase?: string;
   tokens?: TokenInfo[];
   nextMandateId?: string;
+  mandateTxHash?: string | null;
+  contracts?: { vault: string; oracle: string; lending: string; swap: string };
 }
 
 export const ApiEventSchema = z.object({

@@ -114,6 +114,9 @@ interface ExecuteResult {
   needsReplan?: boolean;
   planComplete?: boolean;
   reconciled?: boolean;
+  /** Plan the executed action belonged to, so the caller can continue that plan. */
+  planId?: string;
+  actionIndex?: number;
 }
 
 function formatUsd8(value: bigint): string {
@@ -820,7 +823,15 @@ export class RescueOrchestrator {
         kind: 'NEEDS_OWNER_DECISION',
         detail: `post-condition failed after tx ${result.txHash}: ${post.error}`,
       });
-      return { ok: true, txHash: result.txHash, status: 'mined', spendUsd8, reconciled };
+      return {
+        ok: true,
+        txHash: result.txHash,
+        status: 'mined',
+        spendUsd8,
+        reconciled,
+        planId: this.currentPlanValue?.planId,
+        actionIndex: entry.index,
+      };
     }
 
     const deviationBps = await this.priceDrift();
@@ -843,6 +854,8 @@ export class RescueOrchestrator {
         needsReplan: true,
         planComplete,
         reconciled,
+        planId: this.currentPlanValue?.planId,
+        actionIndex: entry.index,
       };
     }
 
@@ -854,6 +867,8 @@ export class RescueOrchestrator {
       spendUsd8,
       planComplete,
       reconciled,
+      planId: this.currentPlanValue?.planId,
+      actionIndex: entry.index,
     };
   }
 
@@ -1043,10 +1058,14 @@ export class RescueOrchestrator {
       .filter((hash): hash is Hex => hash !== undefined);
 
     const haltText = this.haltReason ? ` Halt: ${this.haltReason.kind}.` : '';
+    const unsavedText =
+      unsavedPools.length === 0
+        ? ''
+        : ` Unsaved pools: ${unsavedPools.map((poolId) => `pool ${poolId}`).join(', ')}.`;
     const summary =
       `${this.state}: spent ${formatUsd8(spentUsd8)}${mandate ? ` of ${formatUsd8(mandate.maxTotalSpendUsd)}` : ''}; ` +
       `${mined.length} mined, ${rejected.length} rejected, ${unknown.length} unknown.` +
-      (unsavedPools.length > 0 ? ` Unsaved pools: ${unsavedPools.join(', ')}.` : '') +
+      unsavedText +
       (remainingActions > 0 ? ` Remaining actions: ${remainingActions}.` : '') +
       haltText;
 

@@ -17,6 +17,12 @@ export interface ScriptedTrace {
   usage?: Partial<LlmUsage>;
   model?: string;
   temperature?: number;
+  /**
+   * How many times this trace may answer (default 1). A repeatable trace models
+   * a step the agent takes again after new chain state, e.g. replanning when a
+   * plan aged out; every use still replays the same deterministic script.
+   */
+  repeat?: number;
 }
 
 export class ScriptedLlmExhaustedError extends Error {
@@ -49,7 +55,7 @@ function usageOf(partial: Partial<LlmUsage> | undefined): LlmUsage {
  * replay cannot silently change behavior between runs. No network access.
  */
 export class ScriptedLlm implements LlmClient {
-  private readonly used = new Set<number>();
+  private readonly used = new Map<number, number>();
 
   constructor(
     private readonly traces: readonly ScriptedTrace[],
@@ -60,16 +66,18 @@ export class ScriptedLlm implements LlmClient {
     const lastUser = [...request.messages].reverse().find((message) => message.role === 'user')?.content ?? '';
     let selected = -1;
     for (let index = 0; index < this.traces.length; index += 1) {
-      if (this.used.has(index)) continue;
       const trace = this.traces[index];
-      if (trace && matches(trace, lastUser)) {
+      if (!trace) continue;
+      const used = this.used.get(index) ?? 0;
+      if (used >= Math.max(1, trace.repeat ?? 1)) continue;
+      if (matches(trace, lastUser)) {
         selected = index;
         break;
       }
     }
     if (selected < 0) throw new ScriptedLlmExhaustedError();
 
-    this.used.add(selected);
+    this.used.set(selected, (this.used.get(selected) ?? 0) + 1);
     const trace = this.traces[selected] as ScriptedTrace;
     const toolCalls =
       typeof trace.toolCalls === 'function'
@@ -86,6 +94,9 @@ export class ScriptedLlm implements LlmClient {
   }
 
   get remaining(): number {
-    return this.traces.length - this.used.size;
+    return this.traces.reduce(
+      (total, trace, index) => total + Math.max(0, Math.max(1, trace.repeat ?? 1) - (this.used.get(index) ?? 0)),
+      0,
+    );
   }
 }

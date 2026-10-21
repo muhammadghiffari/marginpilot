@@ -338,6 +338,12 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
       owner: runtime.registry.owner ?? null,
       executor: runtime.registry.executor ?? null,
       explorerBase: runtime.explorerBase,
+      contracts: {
+        vault: runtime.vaultAddress,
+        oracle: runtime.registry.targets.oracle,
+        lending: runtime.registry.targets.lending,
+        swap: runtime.registry.targets.swap,
+      },
       tokens: [
         { symbol: 'mUSDC', address: runtime.registry.tokens.mUSDC, decimals: 6 },
         { symbol: 'mWETH', address: runtime.registry.tokens.mWETH, decimals: 18 },

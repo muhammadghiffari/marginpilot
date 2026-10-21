@@ -42,6 +42,25 @@ function explorerTx(base: string | undefined, hash: string): string | null {
   return `${base.replace(/\/$/, '')}/tx/${hash}`;
 }
 
+function explorerAddress(base: string | undefined, address: string): string | null {
+  if (!base || !/^https?:\/\//i.test(base)) return null;
+  if (!/^0x[0-9a-fA-F]{40}$/.test(address)) return null;
+  return `${base.replace(/\/$/, '')}/address/${address}`;
+}
+
+function shortAddress(address: string): string {
+  return address.length > 12 ? `${address.slice(0, 6)}…${address.slice(-4)}` : address;
+}
+
+function explorerHost(base: string | undefined): string {
+  if (!base) return '';
+  try {
+    return new URL(base).host;
+  } catch {
+    return base;
+  }
+}
+
 function haltMessage(payload: unknown): string {
   const result = HaltReasonSchema.safeParse(payload);
   if (!result.success) return 'The run halted. Review the audit and ask the owner before continuing.';
@@ -196,6 +215,9 @@ export function App({ initialState, initialHalt }: AppProps) {
   const cap = mandate?.maxTotalSpendUsd ?? 0n;
   const spent = vault?.spentUsd8 ?? 0n;
   const running = state?.runState === 'EXECUTING' || state?.runState === 'PLANNING' || state?.runState === 'OBSERVING';
+  const explorerBase = state?.explorerBase;
+  const vaultLink = explorerAddress(explorerBase, state?.contracts?.vault ?? state?.vaultAddress ?? '');
+  const mandateTxLink = state?.mandateTxHash ? explorerTx(explorerBase, state.mandateTxHash) : null;
 
   return (
     <div className="app-shell">
@@ -206,7 +228,12 @@ export function App({ initialState, initialHalt }: AppProps) {
           <div><p className="eyebrow">Owner-signed rescue desk</p><h1>MarginPilot</h1></div>
         </div>
         <div className="masthead-status">
-          <span className="mode-badge">{mode}</span>
+          {vaultLink
+            ? <a className="mode-badge explorer-badge" href={vaultLink} target="_blank" rel="noreferrer"
+              title={`Open the deployed vault on ${explorerHost(explorerBase)}`}>
+              {mode} · {explorerHost(explorerBase)} ↗
+            </a>
+            : <span className="mode-badge">{mode}</span>}
           <span className="status-line" aria-live="polite">{state?.runState ?? 'CONNECTING'}</span>
           <button className="text-button" type="button" onClick={() => void refresh()} disabled={refreshing}>
             {refreshing ? 'Refreshing…' : 'Refresh state'}
@@ -307,6 +334,8 @@ export function App({ initialState, initialHalt }: AppProps) {
                 <div><dt>Locked assets</dt><dd>{mandate.lockedTokens.map((token) => tokenLabel(token, tokens)).join(', ') || 'None listed'}</dd></div>
                 <div><dt>Borrow</dt><dd>{mandate.allowBorrow ? 'Allowed' : 'Forbidden'}</dd></div></dl>
               <p className="hint">Active mandate #{mandate.id.toString()} read from the {state?.simulated ? 'SIMULATED chain' : 'deployed vault'}. Draft a new one to change limits.</p>
+              {mandateTxLink && <p className="hint">Owner-signed mandate transaction: <a href={mandateTxLink} target="_blank" rel="noreferrer">
+                <code title={state?.mandateTxHash ?? ''}>{shortAddress(state?.mandateTxHash ?? '')}</code> ↗</a></p>}
             </> : <p className="empty-copy">No active mandate was reported by the chain. Draft one to continue.</p>}
           </article>
           <article className="sheet plan-sheet" aria-labelledby="plan-title">
@@ -356,6 +385,33 @@ export function App({ initialState, initialHalt }: AppProps) {
               <p className="hint">{healthBand(position.healthFactor) === 'risk' ? 'Below liquidation threshold' : healthBand(position.healthFactor) === 'caution' ? 'Above 1.0; monitor closely' : 'Above 1.1 now'}</p>
             </li>)}</ul> : <p className="empty-copy">No lending positions were returned. Refresh state to check the market.</p>}
           </article>
+          {state?.contracts && explorerBase ? <article className="sheet deployment-sheet" aria-labelledby="deployment-title">
+            <div className="sheet-header"><div><p className="eyebrow">Public chain proof</p><h3 id="deployment-title">Deployment</h3></div>
+              <span className="small-badge">{explorerHost(explorerBase)}</span></div>
+            <p className="hint">Every contract and transaction below is a real {state?.mode ?? 'CHAIN'} transaction you can open in the block explorer.</p>
+            <ul className="deployment-list">
+              {([
+                ['Vault · enforcer', state.contracts.vault],
+                ['Oracle', state.contracts.oracle],
+                ['Lending market', state.contracts.lending],
+                ['Swap', state.contracts.swap],
+                ...(tokens ?? []).map((token) => [token.symbol, token.address] as [string, string]),
+              ] as [string, string][]).map(([label, address]) => {
+                const link = explorerAddress(explorerBase, address);
+                return <li key={`${label}-${address}`}><span>{label}</span>
+                  {link
+                    ? <a href={link} target="_blank" rel="noreferrer"><code title={address}>{shortAddress(address)}</code> ↗</a>
+                    : <code title={address}>{shortAddress(address)}</code>}
+                </li>;
+              })}
+            </ul>
+            {mandateTxLink && <p className="hint">Mandate transaction <a href={mandateTxLink} target="_blank" rel="noreferrer">
+              <code title={state?.mandateTxHash ?? ''}>{shortAddress(state?.mandateTxHash ?? '')}</code> ↗</a></p>}
+          </article> : <article className="sheet deployment-sheet" aria-labelledby="deployment-title">
+            <div className="sheet-header"><div><p className="eyebrow">Public chain proof</p><h3 id="deployment-title">Deployment</h3></div>
+              <span className="small-badge">NO EXPLORER</span></div>
+            <p className="empty-copy">No block explorer is configured for this chain, so no public links are shown here.</p>
+          </article>}
           <article className="sheet timeline-sheet" aria-labelledby="timeline-title">
             <div className="sheet-header"><div><p className="eyebrow">Append-only events</p><h3 id="timeline-title">Run timeline</h3></div>
               <span className="small-badge">{events.length} EVENTS</span></div>
@@ -368,14 +424,15 @@ export function App({ initialState, initialHalt }: AppProps) {
                   : 'off-chain'}</span>
             </li>)}</ol> : <p className="empty-copy">No run events yet. Start a rescue to see observation, planning, action and verification.</p>}
             <h4 className="subsection-title">Transaction ledger</h4>
-            {state?.ledger.length ? <ol className="tx-list">{state.ledger.map((entry) => {
+            {state?.ledger.length ? <ol className="tx-list">{state.ledger.map((entry, position) => {
               const txLink = entry.txHash && state.simulated === false ? explorerTx(state.explorerBase, entry.txHash) : null;
-              return <li key={`${entry.runId}-${entry.actionIndex}`}>
-                <div><strong>Action {entry.actionIndex + 1} · {entry.status.toUpperCase()}</strong>
+              return <li key={`${entry.runId}-${entry.actionIndex}-${position}`}>
+                <div><strong>Action {position + 1} · {entry.status.toUpperCase()}</strong>
                   <span className="small-badge">{state.simulated ? 'SIMULATED' : 'ON CHAIN'}</span></div>
                 <p>{formatUsd8(entry.spendUsd8)} spent · {entry.error ?? 'No policy error'}</p>
                 {entry.txHash && (txLink
-                  ? <a href={txLink} target="_blank" rel="noreferrer"><code title={entry.txHash}>{entry.txHash}</code></a>
+                  ? <a href={txLink} target="_blank" rel="noreferrer" className="tx-link">
+                    <code title={entry.txHash}>{shortAddress(entry.txHash)}</code> · view on {explorerHost(explorerBase)} ↗</a>
                   : <code title={entry.txHash}>{entry.txHash}</code>)}
                 {!entry.txHash && <span className="hint">No submitted transaction</span>}
               </li>;

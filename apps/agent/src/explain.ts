@@ -47,8 +47,11 @@ export function explainPlan(plan: Plan, mandate: Mandate, vault: VaultSnapshot):
     }
   }
 
-  const unsaved = plan.unsavedPools.length === 0 ? 'none' : plan.unsavedPools.join(', ');
-  lines.push(`Not done: pools ${unsaved}; reason: remaining budget or plan limits.`);
+  const unsaved =
+    plan.unsavedPools.length === 0
+      ? 'none'
+      : plan.unsavedPools.map((poolId) => `pool ${poolId}`).join(', ');
+  lines.push(`Not done: ${unsaved}; reason: remaining budget or plan limits.`);
   if (plan.haltReason) {
     lines.push(`Halt: ${JSON.stringify(plan.haltReason)}.`);
   }

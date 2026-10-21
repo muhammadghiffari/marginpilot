@@ -140,6 +140,24 @@ describe('API contract (SIMULATED demo runtime)', () => {
     expect(state.mandate?.id).toBe('2');
   });
 
+  test('the state exposes the mandate transaction hash for explorer links', async () => {
+    const compiled = await app.inject({
+      method: 'POST',
+      url: '/api/mandate/compile',
+      payload: { text: DEMO_TEXT },
+    });
+    const confirmed = await app.inject({
+      method: 'POST',
+      url: '/api/mandate/confirm',
+      payload: { draft: compiled.json(), ownerMode: 'demo' },
+    });
+    const { txHash } = confirmed.json() as { txHash: string };
+
+    const state = await app.inject({ method: 'GET', url: '/api/state' });
+    expect(state.statusCode).toBe(200);
+    expect((state.json() as { mandateTxHash: string | null }).mandateTxHash).toBe(txHash);
+  });
+
   test('run, SSE and audit expose grounded events, and approve starts an awaiting run', async () => {
     const created = await app.inject({
       method: 'POST',

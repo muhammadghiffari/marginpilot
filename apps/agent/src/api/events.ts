@@ -5,7 +5,7 @@ import {
   type RunState,
 } from '@marginpilot/core';
 
-import type { LlmClient, LlmRequest } from '../llm/client.js';
+import type { LlmClient, LlmRequest, LlmToolCall } from '../llm/client.js';
 import { ScriptedLlm, type ScriptedTrace } from '../llm/scripted.js';
 import { RescueOrchestrator, type RunResult } from '../orchestrator.js';
 import type { TokenRegistry } from '../mandate/registry.js';
@@ -18,6 +18,13 @@ export type ApiRunEventType =
   | 'action'
   | 'halt'
   | 'report';
+
+/**
+ * How many times the run script may take one more step. A step is either an
+ * action, a replan, or the final report, so a rescue with two positions and a
+ * couple of replans stays well inside the limit.
+ */
+const ACT_TRACE_REPEATS = 12;
 
 export interface ApiRunEvent {
   runId: string;
@@ -80,6 +87,34 @@ function tool(name: string, args: Record<string, unknown> = {}) {
 
 let toolCounter = 0;
 
+/** Tool-result shape the run script reads back to decide the next step. */
+interface ToolResultView {
+  ok?: boolean;
+  error?: string;
+  needsReplan?: boolean;
+  status?: string;
+  planComplete?: boolean;
+  planId?: string;
+  actionIndex?: number;
+  state?: string;
+  actions?: { index?: number }[];
+}
+
+function lastToolResult(request: LlmRequest<unknown>): ToolResultView | undefined {
+  for (let index = request.messages.length - 1; index >= 0; index -= 1) {
+    const message = request.messages[index];
+    if (!message || message.role !== 'tool') continue;
+    try {
+      const parsed: unknown = JSON.parse(message.content);
+      if (typeof parsed === 'object' && parsed !== null) return parsed as ToolResultView;
+      return undefined;
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
+}
+
 function marketOf(registry: TokenRegistry) {
   return {
     reserveToken: registry.tokens.mUSDC,
@@ -104,6 +139,7 @@ export class RunSession {
 
   private readonly auditLog: EmittingAuditLog;
   private readonly subscribers = new Set<(event: ApiRunEvent) => void>();
+  private readonly explainedPlans = new Set<string>();
   private seq = 0;
 
   constructor(options: RunSessionOptions) {
@@ -129,24 +165,70 @@ export class RunSession {
     const traces: ScriptedTrace[] = [
       { toolCalls: [tool('get_state')] },
       { toolCalls: [tool('plan_rescue')] },
-      {
-        toolCalls: () => {
-          const plan = this.orchestrator.currentPlan;
-          if (!plan) return [tool('halt_and_ask_owner', {
-            reason: { kind: 'NEEDS_OWNER_DECISION', detail: 'no plan available' },
-          })];
-          return [
-            tool('explain_plan', { planId: plan.planId }),
-            ...plan.actions.map((entry) =>
-              tool('execute_plan_action', { planId: plan.planId, index: entry.index }),
-            ),
-          ];
-        },
-      },
+      { repeat: ACT_TRACE_REPEATS, toolCalls: (request) => this.nextStep(request) },
       { toolCalls: [tool('finish_run')] },
     ];
     deferred.inner = new ScriptedLlm(traces);
     this.publishState(this.state);
+  }
+
+  /**
+   * Deterministic next step for the run script. It behaves like a careful
+   * operator: execute the current plan in order, and when the vault's plan-age
+   * check rejects an action (public testnets confirm a transaction several
+   * blocks later) replan against fresh chain state instead of ending the run.
+   */
+  private nextStep(request: LlmRequest<unknown>): LlmToolCall[] {
+    const result = lastToolResult(request);
+
+    // No tool result yet: explain the plan and run its first action.
+    if (!result) {
+      const plan = this.orchestrator.currentPlan;
+      if (!plan || plan.actions.length === 0) {
+        return [tool('halt_and_ask_owner', {
+          reason: { kind: 'NEEDS_OWNER_DECISION', detail: 'no plan available' },
+        })];
+      }
+      return [
+        tool('explain_plan', { planId: plan.planId }),
+        tool('execute_plan_action', { planId: plan.planId, index: plan.actions[0]?.index ?? 0 }),
+      ];
+    }
+
+    // A fresh plan (first plan or replan): execute its first action.
+    if (Array.isArray(result.actions)) {
+      const first = result.actions[0];
+      if (!first || typeof result.planId !== 'string') return [tool('finish_run')];
+      return this.executeWithExplanation(result.planId, first.index ?? 0);
+    }
+
+    // An executed action.
+    if (result.ok === true && result.status === 'mined') {
+      if (result.planComplete === true) return [tool('finish_run')];
+      const plan = this.orchestrator.currentPlan;
+      const planId = result.planId;
+      const actionIndex = result.actionIndex;
+      if (plan && planId && typeof actionIndex === 'number' && plan.planId === planId) {
+        const next = plan.actions.find((entry) => entry.index === actionIndex + 1);
+        if (next) return [tool('execute_plan_action', { planId, index: next.index })];
+      }
+      return [tool('plan_rescue')];
+    }
+
+    // The plan aged out, the nonce moved, or the budget cap bit: replan.
+    if (result.needsReplan === true || result.error === 'StaleAction') {
+      return [tool('plan_rescue')];
+    }
+
+    return [tool('finish_run')];
+  }
+
+  private executeWithExplanation(planId: string, index: number): LlmToolCall[] {
+    if (!this.explainedPlans.has(planId)) {
+      this.explainedPlans.add(planId);
+      return [tool('explain_plan', { planId }), tool('execute_plan_action', { planId, index })];
+    }
+    return [tool('execute_plan_action', { planId, index })];
   }
 
   get audit(): AuditEntry[] {
