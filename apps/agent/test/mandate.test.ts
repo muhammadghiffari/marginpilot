@@ -155,8 +155,12 @@ describe('token registry', () => {
             mWSTETH: LOCAL_TEST_REGISTRY.tokens.mWSTETH,
             lending: LOCAL_TEST_REGISTRY.targets.lending,
             swap: LOCAL_TEST_REGISTRY.targets.swap,
-            vault: '0x00000000000000000000000000000000000000b2',
+            vault: LOCAL_TEST_REGISTRY.targets.vault,
+            oracle: LOCAL_TEST_REGISTRY.targets.oracle,
           },
+          owner: LOCAL_TEST_REGISTRY.owner,
+          executor: LOCAL_TEST_REGISTRY.executor,
+          explorerBase: '',
         }),
       );
       const registry = await loadTokenRegistry(31337, { root });

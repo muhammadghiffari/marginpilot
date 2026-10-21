@@ -8,5 +8,6 @@ export * from './state-machines.js';
 export * from './redact.js';
 export * from './audit.js';
 export * from './chain-port.js';
+export * from './abi.js';
 export * from './mock-chain-port.js';
 export * from './ledger.js';

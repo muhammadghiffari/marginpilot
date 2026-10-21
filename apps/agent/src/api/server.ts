@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import {
   AddressSchema,
   MandateDraftSchema,
+  MandateSchema,
   encodeJson,
   verifyAuditChain,
 } from '@marginpilot/core';
@@ -13,18 +14,36 @@ import Fastify, { type FastifyInstance, type FastifyReply } from 'fastify';
 import { z } from 'zod';
 
 import { DemoRuntime, DemoSignerNotConfiguredError } from '../demo/runtime.js';
+import { ChainTransactionError, OwnerSignerNotConfiguredError } from '../chain/viem-port.js';
 import { DraftHasClarificationsError, MandateCompileError } from '../mandate/compile.js';
+import {
+  AgentRuntime,
+  InvalidOwnerSignatureError,
+  MandateDraftMismatchError,
+  MandateIdChangedError,
+  MandateNotInstalledError,
+  OwnerSignerMismatchError,
+} from '../runtime.js';
 import type { RunSession } from './events.js';
 import { RunStore, formatSse } from './events.js';
 
 const CompileBody = z.object({ text: z.string().min(1).max(4_000) }).strict();
+const Uint256String = z
+  .union([z.string().regex(/^(0|[1-9]\d*)$/), z.number().int().nonnegative()])
+  .transform(String)
+  .transform(BigInt)
+  .refine((value) => value <= (1n << 256n) - 1n, 'must fit uint256');
 const ConfirmBody = z
   .object({
     draft: MandateDraftSchema,
     ownerMode: z.enum(['demo', 'wallet']),
     signature: z.string().regex(/^0x[0-9a-fA-F]{130}$/).optional(),
+    /** Wallet mode: the exact mandate returned by /api/mandate/prepare. */
+    mandate: MandateSchema.optional(),
+    deadline: Uint256String.optional(),
   })
   .strict();
+const PrepareBody = z.object({ draft: MandateDraftSchema }).strict();
 const RunBody = z.object({ autoExecute: z.boolean() }).strict();
 const RunParams = z.object({ id: z.string().min(1).max(120) }).strict();
 const AuditQuery = z.object({ run: z.string().min(1).max(120).optional() }).strict();
@@ -88,7 +107,7 @@ class TokenBucket {
 
 export interface BuildServerOptions {
   demoMode: boolean;
-  runtime?: DemoRuntime;
+  runtime?: AgentRuntime;
   staticDir?: string;
   demoOwnerPrivateKey?: string;
   rateLimitCapacity?: number;
@@ -151,19 +170,17 @@ function activeRun(run: RunSession | undefined): boolean {
 }
 
 export async function buildServer(options: BuildServerOptions): Promise<FastifyInstance> {
-  const app = Fastify({ logger: false, bodyLimit: 1_000_000, trustProxy: true });
+  const app = Fastify({ logger: false, bodyLimit: 1_000_000, trustProxy: false });
   const runtime =
     options.runtime ??
     new DemoRuntime({
       demoOwnerPrivateKey: options.demoOwnerPrivateKey ?? process.env.DEMO_OWNER_PRIVATE_KEY,
     });
   const runs = new RunStore();
-  const limiter = options.demoMode
-    ? new TokenBucket(options.rateLimitCapacity ?? 120, options.rateLimitRefillPerSecond ?? 2)
-    : undefined;
-  const runLimiter = options.demoMode
-    ? new TokenBucket(options.runLimitCapacity ?? 20, options.runLimitRefillPerSecond ?? 1 / 3_600)
-    : undefined;
+  // Rate limits are always on: compile can cost an LLM call and run spends
+  // executor gas. Demo mode uses the same buckets with the configured caps.
+  const limiter = new TokenBucket(options.rateLimitCapacity ?? 120, options.rateLimitRefillPerSecond ?? 2);
+  const runLimiter = new TokenBucket(options.runLimitCapacity ?? 20, options.runLimitRefillPerSecond ?? 1 / 3_600);
   const staticDir =
     options.staticDir ?? resolve(dirname(fileURLToPath(import.meta.url)), '../../../web/dist');
 
@@ -185,6 +202,27 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     if (error instanceof DemoSignerNotConfiguredError) {
       return sendJson(reply, 503, { error: 'DemoSignerNotConfigured' });
     }
+    if (error instanceof OwnerSignerMismatchError) {
+      return sendJson(reply, 503, { error: 'OwnerSignerMismatch' });
+    }
+    if (error instanceof InvalidOwnerSignatureError) {
+      return sendJson(reply, 400, { error: 'InvalidOwnerSignature' });
+    }
+    if (error instanceof MandateDraftMismatchError) {
+      return sendJson(reply, 400, { error: 'MandateDraftMismatch' });
+    }
+    if (error instanceof MandateIdChangedError) {
+      return sendJson(reply, 409, { error: 'MandateIdChanged' });
+    }
+    if (error instanceof OwnerSignerNotConfiguredError) {
+      return sendJson(reply, 503, { error: 'OwnerSignerNotConfigured' });
+    }
+    if (error instanceof ChainTransactionError) {
+      return sendJson(reply, 502, { error: 'ChainTransactionFailed', txHash: error.txHash });
+    }
+    if (error instanceof MandateNotInstalledError) {
+      return sendJson(reply, 502, { error: 'MandateNotInstalled', status: error.status });
+    }
     return sendJson(reply, 500, { error: 'InternalError' });
   });
 
@@ -194,11 +232,25 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     return sendJson(reply, 200, draft);
   });
 
+  app.post('/api/mandate/prepare', async (request, reply) => {
+    const body = PrepareBody.parse(request.body);
+    const prepared = await runtime.prepareWallet(body.draft);
+    return sendJson(reply, 200, prepared);
+  });
+
   app.post('/api/mandate/confirm', async (request, reply) => {
     const body = ConfirmBody.parse(request.body);
     if (body.ownerMode === 'wallet') {
-      if (!body.signature) return sendJson(reply, 400, { error: 'SignatureRequired' });
-      return sendJson(reply, 501, { error: 'WalletModeNotAvailable' });
+      if (!body.signature || !body.mandate || body.deadline === undefined) {
+        return sendJson(reply, 400, { error: 'WalletPreparationRequired' });
+      }
+      const confirmed = await runtime.confirmWithSignature(
+        body.draft,
+        body.signature as `0x${string}`,
+        body.mandate,
+        body.deadline,
+      );
+      return sendJson(reply, 200, confirmed);
     }
     const confirmed = await runtime.confirm(body.draft);
     return sendJson(reply, 200, confirmed);
@@ -259,19 +311,37 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
 
   app.post('/api/vault/pause', async (_request, reply) => {
     const txHash = await runtime.pause();
-    return sendJson(reply, 200, { txHash, paused: true });
+    const vault = await runtime.chain.getVault();
+    return sendJson(reply, 200, { txHash, paused: vault.paused });
   });
 
   app.get('/api/state', async (_request, reply) => {
     const state = await runtime.state();
     const latest = runs.latest();
+    const chainId = runtime.registry.chainId;
     return sendJson(reply, 200, {
       ...state,
       ledger: latest?.result?.ledger ?? [],
       runId: latest?.runId ?? null,
       runState: latest?.state ?? 'IDLE',
-      simulated: true,
+      simulated: runtime.simulated,
       demoMode: options.demoMode,
+      demoControls: runtime.allowDemoControls,
+      mode: runtime.chainLabel,
+      chainId,
+      vaultAddress: runtime.vaultAddress,
+      nextMandateId: (runtime.chain.getNextMandateId
+        ? await runtime.chain.getNextMandateId()
+        : state.vault.activeMandateId + 1n
+      ).toString(),
+      owner: runtime.registry.owner ?? null,
+      executor: runtime.registry.executor ?? null,
+      explorerBase: runtime.explorerBase,
+      tokens: [
+        { symbol: 'mUSDC', address: runtime.registry.tokens.mUSDC, decimals: 6 },
+        { symbol: 'mWETH', address: runtime.registry.tokens.mWETH, decimals: 18 },
+        { symbol: 'mWSTETH', address: runtime.registry.tokens.mWSTETH, decimals: 18 },
+      ],
     });
   });
 
@@ -291,14 +361,14 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     if (!options.demoMode) return sendJson(reply, 404, { error: 'DemoModeDisabled' });
     const body = ShockBody.parse(request.body);
     const txHash = await runtime.shock(body.token, body.priceUsd8, body.updatedAt);
-    return sendJson(reply, 200, { txHash, simulated: true });
+    return sendJson(reply, 200, { txHash, simulated: runtime.simulated });
   });
 
   app.post('/api/demo/inject', async (request, reply) => {
     if (!options.demoMode) return sendJson(reply, 404, { error: 'DemoModeDisabled' });
     const body = InjectBody.parse(request.body);
     const result = await runtime.inject(body.kind, body.value);
-    return sendJson(reply, 200, { ...(result as Record<string, unknown>), simulated: true });
+    return sendJson(reply, 200, { ...(result as Record<string, unknown>), simulated: runtime.simulated });
   });
 
   app.setNotFoundHandler(async (request, reply) => {

@@ -120,6 +120,9 @@ button:not(:disabled):active { transform: translateY(1px); }
 .primary-button { background: var(--accent); color: var(--accent-ink); font-weight: 600; width: 100%; margin-top: var(--space-s); }
 .primary-button:not(:disabled):hover { background: var(--ink); border-color: var(--ink); }
 .primary-button[aria-busy='true'] { cursor: progress; }
+.sign-actions { display: grid; gap: var(--space-2xs); margin-top: var(--space-s); }
+.sign-actions .primary-button { margin-top: 0; }
+.sign-actions .secondary-button { width: 100%; }
 .secondary-button, .chip { color: var(--accent); background: var(--surface); }
 .secondary-button:not(:disabled):hover, .chip:not(:disabled):hover { background: var(--base); }
 .text-button { background: transparent; border: 1px solid var(--ink-3); color: var(--ink); padding: var(--space-2xs) var(--space-xs); }

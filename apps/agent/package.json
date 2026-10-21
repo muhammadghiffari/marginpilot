@@ -7,7 +7,8 @@
     "test": "vitest run --passWithNoTests --config ../../vitest.config.ts",
     "typecheck": "tsc -p tsconfig.json",
     "start": "tsx src/server.ts",
-    "dev": "tsx watch src/server.ts"
+    "dev": "tsx watch src/server.ts",
+    "prices:refresh": "tsx src/cli/refresh-prices.ts"
   },
   "dependencies": {
     "@marginpilot/core": "workspace:*",

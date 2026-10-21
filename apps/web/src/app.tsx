@@ -13,13 +13,33 @@ const EXAMPLES = [
   "Protect both positions, spend at most $150, and keep $100 in reserve.",
 ];
 
+interface Eip1193Provider {
+  request(args: { method: string; params?: unknown[] | object }): Promise<unknown>;
+}
+
+declare global {
+  interface Window {
+    ethereum?: Eip1193Provider;
+  }
+}
+
+function browserWallet(): Eip1193Provider | undefined {
+  return typeof window === 'undefined' ? undefined : window.ethereum;
+}
+
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : 'The request failed. Keep your draft and retry.';
 }
 
-function tokenLabel(address: string): string {
-  const suffix = address.slice(-2).toLowerCase();
-  return suffix === 'a1' ? 'mUSDC' : suffix === 'a2' ? 'mWETH' : suffix === 'a3' ? 'mWSTETH' : `${address.slice(0, 6)}…${address.slice(-4)}`;
+function tokenLabel(address: string, tokens?: { symbol: string; address: string }[]): string {
+  const known = tokens?.find((token) => token.address.toLowerCase() === address.toLowerCase());
+  if (known) return known.symbol;
+  return `${address.slice(0, 6)}…${address.slice(-4)}`;
+}
+
+function explorerTx(base: string | undefined, hash: string): string | null {
+  if (!base || !/^https?:\/\//i.test(base)) return null;
+  return `${base.replace(/\/$/, '')}/tx/${hash}`;
 }
 
 function haltMessage(payload: unknown): string {
@@ -110,8 +130,43 @@ export function App({ initialState, initialHalt }: AppProps) {
     if (!draft || draft.clarifications.length > 0) return;
     setBusy('sign'); setError(null);
     try {
-      await api.confirmDemo(draft);
-      setNotice('SIMULATED mandate activated. The vault limits are now the source of truth.');
+      const confirmed = await api.confirmDemo(draft);
+      setDraft(null); setAnswers({});
+      setNotice(confirmed.simulated
+        ? 'SIMULATED mandate activated. The vault limits are now the source of truth.'
+        : `Mandate #${confirmed.mandateId} activated on chain. The deployed vault is now the enforcer.`);
+      await refresh();
+    } catch (cause) { setError(errorText(cause)); }
+    finally { setBusy(null); }
+  }
+
+  async function signWallet(): Promise<void> {
+    if (!draft || draft.clarifications.length > 0) return;
+    const provider = browserWallet();
+    if (!provider) { setError('No browser wallet was detected. Install an EIP-1193 wallet or use the owner-key path.'); return; }
+    setBusy('wallet'); setError(null);
+    try {
+      const prepared = await api.prepareWallet(draft);
+      const accounts = (await provider.request({ method: 'eth_requestAccounts' })) as string[];
+      const account = accounts[0];
+      if (!account) throw new Error('No wallet account is connected.');
+      if (state?.owner && account.toLowerCase() !== state.owner.toLowerCase()) {
+        throw new Error(`The connected wallet ${account.slice(0, 6)}… is not the deployment owner ${state.owner.slice(0, 6)}….`);
+      }
+      if (state?.chainId !== undefined) {
+        const hex = (await provider.request({ method: 'eth_chainId' })) as string;
+        if (Number.parseInt(hex, 16) !== state.chainId) {
+          throw new Error(`Switch the wallet to chain ${state.chainId} before signing.`);
+        }
+      }
+      const signature = (await provider.request({
+        method: 'eth_signTypedData_v4',
+        params: [account, JSON.stringify(encodeJson(prepared.typedData))],
+      })) as string;
+      if (!/^0x[0-9a-fA-F]{130}$/.test(signature)) throw new Error('The wallet returned an unexpected signature.');
+      const confirmed = await api.confirmWallet(draft, prepared.mandate, prepared.deadline, signature);
+      setDraft(null); setAnswers({});
+      setNotice(`Mandate #${confirmed.mandateId} signed by the browser wallet and activated on chain.`);
       await refresh();
     } catch (cause) { setError(errorText(cause)); }
     finally { setBusy(null); }
@@ -122,20 +177,22 @@ export function App({ initialState, initialHalt }: AppProps) {
     try {
       const started = await api.run();
       setRunId(started.runId);
-      setNotice('Rescue run started. Actions are gated by the simulated vault.');
+      setNotice(`Rescue run started. Actions are gated by the ${state?.simulated ? 'simulated' : 'deployed'} vault.`);
     } catch (cause) { setError(errorText(cause)); }
     finally { setBusy(null); }
   }
 
   async function scenario(label: string, action: () => Promise<unknown>): Promise<void> {
     setBusy(label); setError(null);
-    try { await action(); setNotice(`${label} applied to the SIMULATED chain.`); await refresh(); }
+    try { await action(); setNotice(`${label} applied to the ${mode} chain.`); await refresh(); }
     catch (cause) { setError(errorText(cause)); }
     finally { setBusy(null); }
   }
 
   const mandate = state?.mandate;
   const vault = state?.vault;
+  const mode = state?.mode ?? (state?.simulated === false ? 'CHAIN' : 'SIMULATED');
+  const tokens = state?.tokens;
   const cap = mandate?.maxTotalSpendUsd ?? 0n;
   const spent = vault?.spentUsd8 ?? 0n;
   const running = state?.runState === 'EXECUTING' || state?.runState === 'PLANNING' || state?.runState === 'OBSERVING';
@@ -149,7 +206,7 @@ export function App({ initialState, initialHalt }: AppProps) {
           <div><p className="eyebrow">Owner-signed rescue desk</p><h1>MarginPilot</h1></div>
         </div>
         <div className="masthead-status">
-          <span className="mode-badge">SIMULATED</span>
+          <span className="mode-badge">{mode}</span>
           <span className="status-line" aria-live="polite">{state?.runState ?? 'CONNECTING'}</span>
           <button className="text-button" type="button" onClick={() => void refresh()} disabled={refreshing}>
             {refreshing ? 'Refreshing…' : 'Refresh state'}
@@ -160,9 +217,9 @@ export function App({ initialState, initialHalt }: AppProps) {
         <span><b>01</b> Set the boundary</span><span><b>02</b> Plan within limits</span><span><b>03</b> Verify on chain</span>
       </div>
       <div className="page-intro">
-        <div><p className="eyebrow">SIMULATED · owner-controlled workflow</p>
+        <div><p className="eyebrow">{mode} · owner-controlled workflow</p>
           <h2>Rescue the position.<br /><em>Keep the mandate.</em></h2></div>
-        <p>One budget across two lending positions. The agent proposes; policy code and the simulated vault enforce every move.</p>
+        <p>One budget across two lending positions. The agent proposes; policy code and the deployed vault enforce every move.</p>
       </div>
       <div className="announcements" aria-live="polite" aria-atomic="true">{notice}</div>
       {error && <div className="error-banner" role="alert"><strong>Action needs attention.</strong> {error}
@@ -192,7 +249,7 @@ export function App({ initialState, initialHalt }: AppProps) {
             <form onSubmit={onCompile}>
               <label htmlFor="instruction">Your mandate instruction</label>
               <textarea id="instruction" rows={4} maxLength={4_000} value={text} onChange={(event) => setText(event.target.value)} aria-describedby="instruction-hint" />
-              <p id="instruction-hint" className="hint">Drafting is simulated. Nothing is signed or sent on chain until you confirm.</p>
+              <p id="instruction-hint" className="hint">Drafting is advisory. Nothing is signed or sent on chain until you confirm.</p>
               <button type="submit" className="primary-button" disabled={busy !== null} aria-busy={busy === 'compile'}>
                 {busy === 'compile' ? 'Drafting limits…' : 'Draft mandate'}
               </button>
@@ -201,15 +258,15 @@ export function App({ initialState, initialHalt }: AppProps) {
         </section>
         <section className="column mandate-column" aria-labelledby="mandate-title">
           <div className="column-head"><span className="section-index">02 / Authority</span><h2 id="mandate-title">Mandate &amp; plan</h2>
-            <p>Owner limits are enforced by policy code and the simulated vault—not by a promise in chat.</p></div>
+            <p>Owner limits are enforced by policy code and the deployed vault—not by a promise in chat.</p></div>
           <article className="sheet mandate-sheet" aria-labelledby="mandate-card-title">
             <div className="sheet-header"><div><p className="eyebrow">Owner boundary</p><h3 id="mandate-card-title">Mandate</h3></div>
-              <span className="small-badge">{draft ? 'DRAFT · NOT SIGNED' : mandate ? 'ACTIVE · SIMULATED' : 'NO MANDATE'}</span></div>
+              <span className="small-badge">{draft ? 'DRAFT · NOT SIGNED' : mandate ? `ACTIVE · ${mode}` : 'NO MANDATE'}</span></div>
             {draft ? <>
               <dl className="fact-grid"><div><dt>Total cap</dt><dd>{formatUsd8(draft.mandate.maxTotalSpendUsd)}</dd></div>
                 <div><dt>Per action</dt><dd>{formatUsd8(draft.mandate.maxPerActionUsd)}</dd></div>
                 <div><dt>Reserve floor</dt><dd>{formatUsd8(draft.mandate.minLiquidReserveUsd)}</dd></div>
-                <div><dt>Locked assets</dt><dd>{draft.mandate.lockedTokens.map(tokenLabel).join(', ') || 'None listed'}</dd></div>
+                <div><dt>Locked assets</dt><dd>{draft.mandate.lockedTokens.map((token) => tokenLabel(token, tokens)).join(', ') || 'None listed'}</dd></div>
                 <div><dt>Borrow</dt><dd>{draft.mandate.allowBorrow ? 'Allowed' : 'Forbidden'}</dd></div>
                 <div><dt>Expiry</dt><dd>{new Date(Number(draft.mandate.validUntil) * 1_000).toLocaleString()}</dd></div>
               </dl>
@@ -228,18 +285,28 @@ export function App({ initialState, initialHalt }: AppProps) {
                 }}>Redraft with answers</button>
               </div>}
               <details className="raw-details"><summary>Inspect raw mandate JSON</summary><pre>{JSON.stringify(encodeJson(draft.mandate), null, 2)}</pre></details>
-              <button className="primary-button" type="button" onClick={() => void sign()}
-                disabled={draft.clarifications.length > 0 || busy !== null || !state?.demoMode} aria-busy={busy === 'sign'}>
-                {busy === 'sign' ? 'Signing in demo mode…' : 'Sign & activate · demo owner'}
-              </button>
+              <div className="sign-actions">
+                <button className="primary-button" type="button" onClick={() => void sign()}
+                  disabled={draft.clarifications.length > 0 || busy !== null} aria-busy={busy === 'sign'}>
+                  {busy === 'sign' ? 'Signing…' : state?.simulated ? 'Sign & activate · demo owner' : 'Sign & activate · owner key'}
+                </button>
+                {!state?.simulated && state?.owner && browserWallet() && (
+                  <button className="secondary-button" type="button" onClick={() => void signWallet()}
+                    disabled={draft.clarifications.length > 0 || busy !== null} aria-busy={busy === 'wallet'}>
+                    {busy === 'wallet' ? 'Waiting for wallet…' : 'Sign with browser wallet'}
+                  </button>
+                )}
+              </div>
               {draft.clarifications.length > 0 && <p className="hint">Signing is blocked until the open questions are resolved.</p>}
-              {!state?.demoMode && <p className="hint">Demo signing is unavailable here; wallet mode requires the testnet adapter.</p>}
+              {!state?.simulated && <p className="hint">{browserWallet()
+                ? 'The browser-wallet path asks the deployment owner to sign the EIP-712 mandate; the server only relays the signature. The owner-key path signs on the server for the demo.'
+                : 'The owner signature is produced by the server-side owner key and submitted to the deployed vault; no key is sent to this page.'}</p>}
             </> : mandate ? <>
               <dl className="fact-grid"><div><dt>Total cap</dt><dd>{formatUsd8(mandate.maxTotalSpendUsd)}</dd></div>
                 <div><dt>Reserve floor</dt><dd>{formatUsd8(mandate.minLiquidReserveUsd)}</dd></div>
-                <div><dt>Locked assets</dt><dd>{mandate.lockedTokens.map(tokenLabel).join(', ') || 'None listed'}</dd></div>
+                <div><dt>Locked assets</dt><dd>{mandate.lockedTokens.map((token) => tokenLabel(token, tokens)).join(', ') || 'None listed'}</dd></div>
                 <div><dt>Borrow</dt><dd>{mandate.allowBorrow ? 'Allowed' : 'Forbidden'}</dd></div></dl>
-              <p className="hint">Preloaded SIMULATED mandate #{mandate.id.toString()}. Draft a new one to change limits.</p>
+              <p className="hint">Active mandate #{mandate.id.toString()} read from the {state?.simulated ? 'SIMULATED chain' : 'deployed vault'}. Draft a new one to change limits.</p>
             </> : <p className="empty-copy">No active mandate was reported by the chain. Draft one to continue.</p>}
           </article>
           <article className="sheet plan-sheet" aria-labelledby="plan-title">
@@ -258,7 +325,7 @@ export function App({ initialState, initialHalt }: AppProps) {
               <p className="residual"><strong>Not done &amp; residual risk:</strong> {plan.unsavedPools.length > 0
                 ? `Pools ${plan.unsavedPools.join(', ')} remain unprotected by this plan.`
                 : 'No known pool omitted by the model. Market conditions can still change.'}</p>
-            </> : <p className="empty-copy">A plan appears here when a rescue run observes the simulated chain. No action is implied until it passes the vault gate.</p>}
+            </> : <p className="empty-copy">A plan appears here when a rescue run observes the chain. No action is implied until it passes the vault gate.</p>}
             <button type="button" className="primary-button" onClick={() => void run()}
               disabled={!mandate || vault?.paused || busy !== null || running} aria-busy={busy === 'run'}>
               {busy === 'run' || running ? 'Run in progress…' : 'Run rescue'}
@@ -281,13 +348,13 @@ export function App({ initialState, initialHalt }: AppProps) {
             </> : <p className="empty-copy">Waiting for a verified vault and mandate read. Retry state if this persists.</p>}
           </article>
           <article className="sheet position-sheet" aria-labelledby="position-title">
-            <div className="sheet-header"><div><p className="eyebrow">Risk after price shock</p><h3 id="position-title">Positions</h3></div>
+            <div className="sheet-header"><div><p className="eyebrow">Live health factors</p><h3 id="position-title">Positions</h3></div>
               <span className="small-badge">{state?.positions.length ?? 0} POOLS</span></div>
             {state?.positions.length ? <ul className="position-list">{state.positions.map((position) => <li key={position.poolId}>
-              <div className="position-top"><div><strong>Pool {position.poolId}</strong><span>{tokenLabel(position.collateralToken)} / {tokenLabel(position.debtToken)}</span></div>
+              <div className="position-top"><div><strong>Pool {position.poolId}</strong><span>{tokenLabel(position.collateralToken, tokens)} / {tokenLabel(position.debtToken, tokens)}</span></div>
                 <div className={`hf-pill ${healthBand(position.healthFactor)}`}><span>HF</span><strong>{formatHealth(position.healthFactor)}</strong></div></div>
               <p className="hint">{healthBand(position.healthFactor) === 'risk' ? 'Below liquidation threshold' : healthBand(position.healthFactor) === 'caution' ? 'Above 1.0; monitor closely' : 'Above 1.1 now'}</p>
-            </li>)}</ul> : <p className="empty-copy">No lending positions were returned. Refresh state to check the simulated market.</p>}
+            </li>)}</ul> : <p className="empty-copy">No lending positions were returned. Refresh state to check the market.</p>}
           </article>
           <article className="sheet timeline-sheet" aria-labelledby="timeline-title">
             <div className="sheet-header"><div><p className="eyebrow">Append-only events</p><h3 id="timeline-title">Run timeline</h3></div>
@@ -295,15 +362,24 @@ export function App({ initialState, initialHalt }: AppProps) {
             {events.length > 0 ? <ol className="timeline-list">{events.slice(-10).map((event) => <li key={event.seq}>
               <span className="mono">{String(event.seq).padStart(2, '0')}</span><strong>{event.type.toUpperCase()}</strong>
               <span>{event.type === 'state' && event.payload && typeof event.payload === 'object' && 'state' in event.payload
-                ? String(event.payload.state) : 'SIMULATED event'}</span>
+                ? `run state · ${String(event.payload.state)}`
+                : event.type === 'action'
+                  ? `${state?.simulated ? 'SIMULATED' : 'ON-CHAIN'} tx`
+                  : 'off-chain'}</span>
             </li>)}</ol> : <p className="empty-copy">No run events yet. Start a rescue to see observation, planning, action and verification.</p>}
             <h4 className="subsection-title">Transaction ledger</h4>
-            {state?.ledger.length ? <ol className="tx-list">{state.ledger.map((entry) => <li key={`${entry.runId}-${entry.actionIndex}`}>
-              <div><strong>Action {entry.actionIndex + 1} · {entry.status.toUpperCase()}</strong><span className="small-badge">SIMULATED</span></div>
-              <p>{formatUsd8(entry.spendUsd8)} spent · {entry.error ?? 'No policy error'}</p>
-              {entry.txHash && <code title={entry.txHash}>{entry.txHash}</code>}
-              {!entry.txHash && <span className="hint">No submitted transaction</span>}
-            </li>)}</ol> : <p className="empty-copy">No executed actions yet. Simulated hashes never link to a public explorer.</p>}
+            {state?.ledger.length ? <ol className="tx-list">{state.ledger.map((entry) => {
+              const txLink = entry.txHash && state.simulated === false ? explorerTx(state.explorerBase, entry.txHash) : null;
+              return <li key={`${entry.runId}-${entry.actionIndex}`}>
+                <div><strong>Action {entry.actionIndex + 1} · {entry.status.toUpperCase()}</strong>
+                  <span className="small-badge">{state.simulated ? 'SIMULATED' : 'ON CHAIN'}</span></div>
+                <p>{formatUsd8(entry.spendUsd8)} spent · {entry.error ?? 'No policy error'}</p>
+                {entry.txHash && (txLink
+                  ? <a href={txLink} target="_blank" rel="noreferrer"><code title={entry.txHash}>{entry.txHash}</code></a>
+                  : <code title={entry.txHash}>{entry.txHash}</code>)}
+                {!entry.txHash && <span className="hint">No submitted transaction</span>}
+              </li>;
+            })}</ol> : <p className="empty-copy">No executed actions yet. {state?.simulated ? 'Hashes from the simulated chain are not explorer links.' : 'Mined hashes link to an explorer when one is configured.'}</p>}
             <details className="audit-details"><summary>Audit log · {audit.length} entries</summary>
               <p>Hash-chained entries from this run. Export excludes private key material.</p>
               {audit.length > 0 ? <><button type="button" className="secondary-button" onClick={() => {
@@ -315,13 +391,15 @@ export function App({ initialState, initialHalt }: AppProps) {
                 <ol className="audit-list">{audit.slice(-12).map((entry) => <li key={entry.seq}><span>#{entry.seq} {entry.kind}</span><code title={entry.hash}>{entry.hash.slice(0, 14)}…</code></li>)}</ol></>
                 : <p className="empty-copy">The audit appears when the run completes.</p>}</details>
           </article>
-          {state?.demoMode && <details className="sheet scenario-lab"><summary>Scenario lab <span>SIMULATION CONTROLS</span></summary>
-            <p>These controls change only the in-memory simulated market. They are not real trades.</p>
+          {(state?.demoMode || state?.demoControls) && <details className="sheet scenario-lab"><summary>Scenario lab <span>{state?.simulated ? 'SIMULATION CONTROLS' : `${state?.mode ?? 'CHAIN'} CONTROLS`}</span></summary>
+            <p>{state?.simulated
+              ? 'These controls change only the in-memory simulated market. They are not real trades.'
+              : 'These controls send owner transactions to the deployed simulator contracts on this chain. They change test market state, not real markets.'}</p>
             <div className="lab-controls">{state.positions.map((position) => [10, 20].map((percent) => {
               const price = state.prices.find((item) => item.token.toLowerCase() === position.collateralToken.toLowerCase());
               return <button type="button" key={`${position.poolId}-${percent}`} disabled={busy !== null || !price}
-                onClick={() => void scenario(`${tokenLabel(position.collateralToken)} −${percent}%`, () => api.shock(position.collateralToken, price!.priceUsd8 * BigInt(100 - percent) / 100n))}>
-                {tokenLabel(position.collateralToken)} −{percent}%</button>;
+                onClick={() => void scenario(`${tokenLabel(position.collateralToken, tokens)} -${percent}%`, () => api.shock(position.collateralToken, price!.priceUsd8 * BigInt(100 - percent) / 100n))}>
+                {tokenLabel(position.collateralToken, tokens)} -{percent}%</button>;
             }))}
               <button type="button" disabled={busy !== null} onClick={() => void scenario('Stale oracle', () => api.inject('stalePrice', ''))}>Make oracle stale</button>
               <button type="button" disabled={busy !== null} onClick={() => void scenario('Pool 1 paused', () => api.inject('poolPause', 1))}>Pause lending pool 1</button>
@@ -331,7 +409,10 @@ export function App({ initialState, initialHalt }: AppProps) {
           </details>}
         </aside>
       </main>
-      <footer className="footer"><span>MarginPilot · testnet connection pending</span><span>SIMULATED lending market · not financial advice</span></footer>
+      <footer className="footer">
+        <span>MarginPilot · {state?.simulated ? 'SIMULATED market' : `chain ${state?.chainId ?? '—'} · ${state?.mode ?? 'CHAIN'}`}</span>
+        <span>{state?.simulated ? 'SIMULATED lending market' : 'Deployed test market'} · not financial advice</span>
+      </footer>
     </div>
   );
 }

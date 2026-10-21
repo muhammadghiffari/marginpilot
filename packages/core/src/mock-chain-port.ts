@@ -144,6 +144,22 @@ export class MockChainPort implements ChainPort {
     return this.vault.activeMandateId === 0n || this.mandate === null ? null : clone(this.mandate);
   }
 
+  async getNextMandateId(): Promise<bigint> {
+    return this.vault.activeMandateId + 1n;
+  }
+
+  /** SIMULATED signature path: the mock cannot verify EIP-712, so it installs the mandate. */
+  async setMandateWithSig(mandate: Mandate, _deadline: bigint, _signature: Hex): Promise<SubmitResult> {
+    const txHash = await this.demoSetMandate(mandate);
+    return {
+      status: 'mined',
+      txHash,
+      blockNumber: this.vault.blockNumber,
+      gasUsed: this.gasUsed,
+      effectiveGasPrice: this.effectiveGasPrice,
+    };
+  }
+
   async simulate(action: Action): Promise<Simulation> {
     return this.evaluate(action).result;
   }

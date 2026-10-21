@@ -2,18 +2,24 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { MockChainPort, encodeJson, type MandateDraft } from '@marginpilot/core';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { privateKeyToAccount } from 'viem/accounts';
 
 import { buildServer } from '../src/api/server.js';
 import { formatSse } from '../src/api/events.js';
+import { demoChainConfig } from '../src/demo/fixtures.js';
 import { DemoRuntime } from '../src/demo/runtime.js';
+import { LOCAL_TEST_REGISTRY } from '../src/mandate/registry.js';
+import { AgentRuntime } from '../src/runtime.js';
 
 const ANVIL_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
+const ANVIL_OWNER = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
 const DEMO_TEXT = "Protect my loans. Max $260. Don't touch my ETH. Keep $100 in reserve.";
 
 let app: FastifyInstance;
-let runtime: DemoRuntime;
+let runtime: AgentRuntime;
 let staticDir: string;
 
 async function makeApp(overrides: {
@@ -230,6 +236,90 @@ describe('API contract (SIMULATED demo runtime)', () => {
     });
     expect(shock.statusCode).toBe(404);
     expect((await getState()).demoMode).toBe(false);
+  });
+
+  test('chain-mode state exposes deployment metadata and verifies a browser-wallet signature', async () => {
+    await app.close();
+    const registry = { ...LOCAL_TEST_REGISTRY, owner: ANVIL_OWNER };
+    const chain = new MockChainPort(demoChainConfig(registry));
+    runtime = new AgentRuntime({
+      registry,
+      chain,
+      simulated: false,
+      allowDemoControls: false,
+    });
+    app = await buildServer({
+      demoMode: false,
+      runtime,
+      staticDir,
+      rateLimitCapacity: 1_000,
+      rateLimitRefillPerSecond: 0,
+      runLimitCapacity: 100,
+    });
+
+    const state = await app.inject({ method: 'GET', url: '/api/state' });
+    expect(state.statusCode).toBe(200);
+    const body = state.json() as {
+      simulated: boolean;
+      mode: string;
+      chainId: number;
+      vaultAddress: string;
+      tokens: { symbol: string }[];
+      demoMode: boolean;
+    };
+    expect(body.simulated).toBe(false);
+    expect(body.mode).toBe('ANVIL');
+    expect(body.chainId).toBe(31337);
+    expect(body.vaultAddress).toBe(LOCAL_TEST_REGISTRY.targets.vault);
+    expect(body.tokens.map((token) => token.symbol)).toEqual(['mUSDC', 'mWETH', 'mWSTETH']);
+
+    const compiled = await app.inject({
+      method: 'POST',
+      url: '/api/mandate/compile',
+      payload: { text: DEMO_TEXT },
+    });
+    const draft = compiled.json() as MandateDraft;
+    const prepared = await runtime.prepareWallet(draft);
+
+    const unprepared = await app.inject({
+      method: 'POST',
+      url: '/api/mandate/confirm',
+      payload: { draft, ownerMode: 'wallet', signature: `0x${'22'.repeat(65)}` },
+    });
+    expect(unprepared.statusCode).toBe(400);
+    expect(unprepared.json()).toMatchObject({ error: 'WalletPreparationRequired' });
+
+    const wrongKey = await privateKeyToAccount(
+      '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d',
+    ).signTypedData(prepared.typedData);
+    const rejected = await app.inject({
+      method: 'POST',
+      url: '/api/mandate/confirm',
+      payload: {
+        draft,
+        ownerMode: 'wallet',
+        signature: wrongKey,
+        mandate: encodeJson(prepared.mandate),
+        deadline: prepared.deadline.toString(),
+      },
+    });
+    expect(rejected.statusCode).toBe(400);
+    expect(rejected.json()).toMatchObject({ error: 'InvalidOwnerSignature' });
+
+    const signature = await privateKeyToAccount(ANVIL_KEY).signTypedData(prepared.typedData);
+    const confirmed = await app.inject({
+      method: 'POST',
+      url: '/api/mandate/confirm',
+      payload: {
+        draft,
+        ownerMode: 'wallet',
+        signature,
+        mandate: encodeJson(prepared.mandate),
+        deadline: prepared.deadline.toString(),
+      },
+    });
+    expect(confirmed.statusCode).toBe(200);
+    expect(confirmed.json()).toMatchObject({ simulated: false, mandateId: '2' });
   });
 
   test('rate limiting returns 429 on a burst', async () => {

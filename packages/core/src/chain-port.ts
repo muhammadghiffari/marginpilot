@@ -26,11 +26,18 @@ export type SubmitResult =
   | { status: 'reverted'; txHash: Hex; error: ErrorName | 'Unknown'; gasUsed: bigint; effectiveGasPrice: bigint }
   | { status: 'unknown'; txHash: Hex };
 
-export interface ChainPort {
+/** Owner write path. A chain that cannot install a signed mandate does not implement this. */
+export interface MandateWriter {
+  setMandateWithSig(mandate: Mandate, deadline: bigint, signature: Hex): Promise<SubmitResult>;
+}
+
+export interface ChainPort extends Partial<MandateWriter> {
   getVault(): Promise<VaultSnapshot>;
   getPositions(): Promise<PositionSnapshot[]>;
   getPrices(tokens: Address[]): Promise<PriceSnapshot[]>;
   getMandate(): Promise<Mandate | null>;
+  /** Next mandate id the vault will accept. Optional so old test doubles stay valid. */
+  getNextMandateId?(): Promise<bigint>;
   simulate(
     action: Action,
   ): Promise<{ ok: true; valueUsd8: bigint } | { ok: false; error: ErrorName | 'Unknown'; raw?: string }>;
@@ -39,4 +46,5 @@ export interface ChainPort {
   pause(): Promise<Hex>;
   demoSetPrice(token: Address, priceUsd8: bigint, updatedAt?: bigint): Promise<Hex>;
   demoSetPoolPaused(pool: number, paused: boolean): Promise<Hex>;
+  demoSetSwapBroken?(broken: boolean): Promise<Hex>;
 }

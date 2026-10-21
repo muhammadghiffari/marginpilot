@@ -19,8 +19,14 @@ export const TokenRegistrySchema = z
       .object({
         lending: AddressSchema,
         swap: AddressSchema,
+        vault: AddressSchema,
+        oracle: AddressSchema,
       })
       .strict(),
+    /** Deployment owner (the EIP-712 signer). Optional for legacy test fixtures. */
+    owner: AddressSchema.optional(),
+    executor: AddressSchema.optional(),
+    explorerBase: z.string().default(''),
   })
   .strict();
 
@@ -36,8 +42,13 @@ const DeploymentFileSchema = z
         mWSTETH: AddressSchema,
         lending: AddressSchema,
         swap: AddressSchema,
+        vault: AddressSchema,
+        oracle: AddressSchema,
       })
       .passthrough(),
+    owner: AddressSchema.optional(),
+    executor: AddressSchema.optional(),
+    explorerBase: z.string().optional(),
   })
   .passthrough();
 
@@ -73,7 +84,12 @@ export const LOCAL_TEST_REGISTRY: TokenRegistry = {
   targets: {
     lending: '0x00000000000000000000000000000000000000b1',
     swap: '0x00000000000000000000000000000000000000b3',
+    vault: '0x00000000000000000000000000000000000000b2',
+    oracle: '0x00000000000000000000000000000000000000b4',
   },
+  owner: '0x00000000000000000000000000000000000000e3',
+  executor: '0x00000000000000000000000000000000000000e1',
+  explorerBase: '',
 };
 
 export interface LoadTokenRegistryOptions {
@@ -150,6 +166,11 @@ export async function loadTokenRegistry(
     targets: {
       lending: parsed.data.contracts.lending,
       swap: parsed.data.contracts.swap,
+      vault: parsed.data.contracts.vault,
+      oracle: parsed.data.contracts.oracle,
     },
+    ...(parsed.data.owner ? { owner: parsed.data.owner } : {}),
+    ...(parsed.data.executor ? { executor: parsed.data.executor } : {}),
+    explorerBase: parsed.data.explorerBase ?? '',
   };
 }

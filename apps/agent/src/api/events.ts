@@ -196,8 +196,21 @@ export class RunSession {
 export class RunStore {
   private readonly sessions = new Map<string, RunSession>();
   private latestId?: string;
+  private readonly maxSessions: number;
+
+  constructor(maxSessions = 50) {
+    this.maxSessions = Math.max(1, maxSessions);
+  }
 
   create(options: RunSessionOptions): RunSession {
+    // Bound memory on a public demo: evict the oldest completed sessions.
+    while (this.sessions.size >= this.maxSessions) {
+      const oldest = this.sessions.keys().next().value as string | undefined;
+      if (oldest === undefined) break;
+      const session = this.sessions.get(oldest);
+      if (session && session.done === undefined) break;
+      this.sessions.delete(oldest);
+    }
     const session = new RunSession(options);
     this.sessions.set(session.runId, session);
     this.latestId = session.runId;
