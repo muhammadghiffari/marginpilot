@@ -6,6 +6,9 @@ runs are recorded in `evidence/anvil-e2e-20261021T060254Z.json` and
 finished `COMPLETED` with two mined REPAY transactions; the lending market is our own simulator.
 A-13 (public URL) remains human-run.
 
+Branch `a/A-05-adversarial` (15 explicit Foundry adversarial tests + 3 A-06 invariants) is merged
+here; §4.1 maps every T-ID to its Foundry test.
+
 Wording rule followed: no violations were found in the reported scenarios; this is **not** a claim
 that the system is secure. Contracts are unaudited and must not hold real funds.
 
@@ -58,16 +61,17 @@ owner may unpause.
 
 ## 4. Test results
 
-`tests_total=310 passed=310 scenarios=7 runs_per_scenario=1 any_failed=none`
+`tests_total=328 passed=328 scenarios=7 runs_per_scenario=1 any_failed=none`
 
-Breakdown: 128 Foundry, 89 core, 79 agent, 6 web, 8 eval (all run 2026-10-21; `scripts/verify-all.sh`
+Breakdown: 144 Foundry, 89 core, 79 agent, 8 web, 8 eval (all run 2026-10-21; `scripts/verify-all.sh`
 GREEN). The seven scenarios are S1–S5, S7, S9, each run once with `ScriptedLlm` on
 `MockChainPort`; the Part 2 ablation adds 28 SIMULATED runs (A–D × S1–S5/S7/S9/T15). The separate
 local-anvil E2E installs a mandate and mines two rescue actions on chain 31338. On public Sepolia a
 browser-driven run mined two REPAY actions in one run and reported `COMPLETED`; the earlier
 API-driven run needed two runs and reported `COMPLETED_PARTIAL` because the agent stopped at the
 two-block plan-age limit before the replan-on-stale-plan fix. This is **not** a repeated-run
-(pass^k) study.
+(pass^k) study. Foundry includes the merged `a/A-05-adversarial` suite: 15 explicit `test_Txx`
+adversarial tests and 3 invariants (64 runs × depth 100 = 6400 calls, 0 reverts).
 
 | ID | Status | Layer | Evidence / gap |
 |---|---|---|---|
@@ -78,16 +82,16 @@ two-block plan-age limit before the replan-on-stale-plan fix. This is **not** a 
 | T05 | pass | C, T | `Check11_Stale*`; agent `S5` zero transactions, halt recorded |
 | T05b | pass | C, T | `Check12_DeviationExceeded`; agent `S3` replans after price move |
 | T06 | pass | C | `Check15_SlippageExceeded`, `test_Swap_RevertsOneUnitAboveSlippage` |
-| T07 | **partial** | C, T | Contract tests for target-revert atomicity pass (effects/check #16 merged); local-anvil and Sepolia runs mined successful actions. No injected target failure on a public testnet |
+| T07 | pass (C) + E2E | C, T | On-chain atomicity: `test_T07_PoolPausedRevertsAndRollsBackNonceAndSpend`; agent `S4` simulate fails, no tx, ledger 0 spend, halt. Local-anvil and Sepolia runs mined successful actions; no injected target failure on a public testnet |
 | T08 | **partial** | T | Sanitizer/tripwire and m09 unit tests; no end-to-end injected-note run |
 | T09 | pass | C | `SetMandateWithSig_*` replay/wrong signer/expired; EIP-712 digest tests |
 | T09b | pass | C | `Check04_WrongMandateId`, `Check04_WrongNonce` |
 | T10 | pass | C | `SetMandate_OnlyOwner`, `RevokeMandate_OnlyOwner`, `SetExecutor_OwnerOnlyAndEffective`, `OwnerWithdraw_OnlyOwner`, `Unpause_OwnerOnly` |
-| T11 | pass | C | `Pause_Executor`, `OwnerWithdraw_WorksWhilePausedAndNoMandate`; external mid-run pause E2E not run |
+| T11 | pass | C | `Pause_Executor`, `OwnerWithdraw_WorksWhilePausedAndNoMandate`, `test_T11_PauseMidRunBlocksNextExecuteButOwnerCanWithdraw`; external mid-run pause E2E not run |
 | T12 | **partial** | T | Poisoned-note sanitizer test; no plan-unchanged comparison against a control run |
 | T13 | **not run** | E | Needs B-13/Part 3 five-run study |
 | T14 | **not run** | E | No indexer in scope; decision uses chain reads only |
-| T15 | pass (SIMULATED) | T | `S7/T15 config D rejects direct SWAP; permissive C wiring mines` on `MockChainPort` |
+| T15 | pass (SIMULATED TS + Foundry strict) | C, T | `test_T15_ExecutorDirectForbiddenSwapReverts`; `S7/T15 config D rejects direct SWAP; permissive C wiring mines` on `MockChainPort` |
 | T16 | pass | C | `Pause_Executor` succeeds, `Unpause_OwnerOnly` reverts for executor |
 | T17 | pass | T | 7 audit/redaction tests; secret-shaped prompt test reports pattern ids only |
 | T18 | pass | T | API burst test returns 429; demo endpoints hidden unless demo controls are enabled |
@@ -95,6 +99,45 @@ two-block plan-age limit before the replan-on-stale-plan fix. This is **not** a 
 Not represented as passing: public-testnet S2/S7 failure injections, repeated-run consistency, injected-note plan
 comparison, indexer disagreement, browser-extension wallet E2E (the signing protocol is unit/API
 tested).
+
+### 4.1 Generated Foundry evidence map
+
+Generated from `grep -n 'function test_T' contracts/test/MandateVault.t.sol` and
+`grep -n 'function invariant_' contracts/test/Invariants.t.sol` (branch `a/A-05-adversarial`,
+merged here); every listed test passed in `forge test` (144 Foundry tests, 0 failed). A T-ID
+with no **Foundry** test is marked `not covered (Foundry)` even where a TypeScript test exists;
+the Status column in the table above still describes the full evidence set.
+
+| T-ID / invariant | Foundry test | File:line | Foundry status |
+|---|---|---|---|
+| T01 | `test_T01_SwapLockedTokenRevertsAssetLocked`; `test_T01_SwapNotAllowedRevertsActionNotAllowed` | `contracts/test/MandateVault.t.sol:1555`; `:1567` | pass |
+| T02 | `test_T02_BudgetReplanRevertsAndSpentUnchanged` | `contracts/test/MandateVault.t.sol:1576` | pass |
+| T03 | `test_T03_BorrowForbidden` | `contracts/test/MandateVault.t.sol:1589` | pass |
+| T04 | `test_T04_TargetNotAllowed` | `contracts/test/MandateVault.t.sol:1600` | pass |
+| T05 | `test_T05_StalePriceReverts` | `contracts/test/MandateVault.t.sol:1610` | pass |
+| T05b | `test_T05b_PriceDeviationRevertsAfterQuoteMoves` | `contracts/test/MandateVault.t.sol:1620` | pass |
+| T06 | `test_T06_SlippageExceeded` | `contracts/test/MandateVault.t.sol:1630` | pass |
+| T07 | `test_T07_PoolPausedRevertsAndRollsBackNonceAndSpend` (target revert atomicity only) | `contracts/test/MandateVault.t.sol:1639` | pass |
+| T08 | — | — | not covered (Foundry); TS partial |
+| T09 | `test_T09_SignatureReplayWrongSignerAndExpired` | `contracts/test/MandateVault.t.sol:1656` | pass |
+| T09b | `test_T09b_StaleActionAfterNonceUsed` | `contracts/test/MandateVault.t.sol:1679` | pass |
+| T10 | `test_T10_NonOwnerCannotAdminister` | `contracts/test/MandateVault.t.sol:1691` | pass |
+| T11 | `test_T11_PauseMidRunBlocksNextExecuteButOwnerCanWithdraw` | `contracts/test/MandateVault.t.sol:1706` | pass |
+| T12 | — | — | not covered (Foundry); TS partial |
+| T13 | — | — | not covered |
+| T14 | — | — | not covered |
+| T15 | `test_T15_ExecutorDirectForbiddenSwapReverts` (strict wiring only) | `contracts/test/MandateVault.t.sol:1725` | pass |
+| T16 | `test_T16_ExecutorCanPauseButNotUnpause` | `contracts/test/MandateVault.t.sol:1737` | pass |
+| T17 | — | — | not covered (Foundry); TS pass |
+| T18 | — | — | not covered (Foundry); TS pass |
+| A-06 spend ≤ mandate cap | `invariant_SpentAtOrBelowMandateCap` | `contracts/test/Invariants.t.sol:97` | pass |
+| A-06 spend monotonic | `invariant_SpentMonotonic` | `contracts/test/Invariants.t.sol:102` | pass |
+| A-06 nonce monotonic | `invariant_NonceMonotonic` | `contracts/test/Invariants.t.sol:106` | pass |
+
+Invariant run: `runs: 64, calls: 6400, reverts: 0` (`[invariant] runs = 64`, `depth = 100` in
+`contracts/foundry.toml`). Depth is configured, not printed by this forge version; runs and calls are
+printed. The handler fuzzes only the executor `REPAY` path; it does not cover owner/admin paths,
+SWAP, BORROW or mandate replacement.
 
 ## 5. Failures found and fixed
 

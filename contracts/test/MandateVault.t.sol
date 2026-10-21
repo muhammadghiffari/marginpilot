@@ -1547,4 +1547,200 @@ contract MandateVaultTest is Test {
         }
         return keccak256(abi.encodePacked(words));
     }
+
+    // ---------------------------------------------------------------------
+    // A-05 adversarial T-ID tests (Foundry layer)
+    // ---------------------------------------------------------------------
+
+    function test_T01_SwapLockedTokenRevertsAssetLocked() public {
+        _setExecMandate(false, 15);
+        MandateVault.Action memory a = _swapAction(0.01e18, 0);
+        a.tokenIn = address(weth);
+        a.tokenOut = address(usdc);
+        a.quotedPriceUsd8 = 1600e8;
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.AssetLocked.selector);
+        vault.execute(a);
+    }
+
+    function test_T01_SwapNotAllowedRevertsActionNotAllowed() public {
+        _setExecMandate(false, 3);
+        MandateVault.Action memory a = _swapAction(100e6, 0);
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.ActionNotAllowed.selector);
+        vault.execute(a);
+    }
+
+    function test_T02_BudgetReplanRevertsAndSpentUnchanged() public {
+        uint64 id = _setExecMandate(false, 7, 260e8, 260e8);
+        vault.setSpent(id, 150e8);
+        MandateVault.Action memory a = _baseAction();
+        a.amount = 150e6 + 1;
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.BudgetExceeded.selector);
+        vault.execute(a);
+        assertEq(uint256(vault.spentUsd(id)), 150e8);
+        assertEq(vault.actionNonce(), 0);
+    }
+
+    function test_T03_BorrowForbidden() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+        a.actionType = MandateVault.ActionType.BORROW;
+        a.amount = 1e6;
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.BorrowForbidden.selector);
+        vault.execute(a);
+    }
+
+    function test_T04_TargetNotAllowed() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+        a.target = address(swap);
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.TargetNotAllowed.selector);
+        vault.execute(a);
+    }
+
+    function test_T05_StalePriceReverts() public {
+        oracle.setPriceAt(address(usdc), 1e8, block.timestamp - 601);
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.StalePrice.selector);
+        vault.execute(a);
+    }
+
+    function test_T05b_PriceDeviationRevertsAfterQuoteMoves() public {
+        oracle.setPrice(address(usdc), 1.0301e8);
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.PriceDeviation.selector);
+        vault.execute(a);
+    }
+
+    function test_T06_SlippageExceeded() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _swapAction(100e6, 0.061875e18 - 1);
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.SlippageExceeded.selector);
+        vault.execute(a);
+    }
+
+    function test_T07_PoolPausedRevertsAndRollsBackNonceAndSpend() public {
+        _setExecMandate(false, 7);
+        sim.setPoolPaused(0, true);
+        MandateVault.Action memory a = _baseAction();
+        a.actionType = MandateVault.ActionType.SUPPLY_COLLATERAL;
+        a.tokenIn = address(weth);
+        a.amount = 0.01e18;
+        a.quotedPriceUsd8 = 1600e8;
+
+        vm.prank(executor);
+        vm.expectRevert(abi.encodeWithSelector(LendingSim.PoolPaused.selector, 0));
+        vault.execute(a);
+
+        assertEq(vault.actionNonce(), 0);
+        assertEq(uint256(vault.spentUsd(1)), 0);
+    }
+
+    function test_T09_SignatureReplayWrongSignerAndExpired() public {
+        uint256 deadline = block.timestamp + 1 hours;
+        MandateVault.Mandate memory m1 = _mandate(1);
+        bytes memory sig1 = _sign(OWNER_PK, m1, deadline);
+        vm.prank(alice);
+        vault.setMandateWithSig(m1, deadline, sig1);
+
+        vm.prank(alice);
+        vm.expectRevert(MandateVault.BadNonce.selector);
+        vault.setMandateWithSig(m1, deadline, sig1);
+
+        MandateVault.Mandate memory m2 = _mandate(2);
+        bytes memory wrong = _sign(OTHER_PK, m2, deadline);
+        vm.prank(alice);
+        vm.expectRevert(MandateVault.BadSignature.selector);
+        vault.setMandateWithSig(m2, deadline, wrong);
+
+        bytes memory expired = _sign(OWNER_PK, m2, block.timestamp - 1);
+        vm.prank(alice);
+        vm.expectRevert(MandateVault.SignatureExpired.selector);
+        vault.setMandateWithSig(m2, block.timestamp - 1, expired);
+    }
+
+    function test_T09b_StaleActionAfterNonceUsed() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory a = _baseAction();
+
+        vm.prank(executor);
+        vault.execute(a);
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.StaleAction.selector);
+        vault.execute(a);
+    }
+
+    function test_T10_NonOwnerCannotAdminister() public {
+        vm.startPrank(alice);
+        vm.expectRevert(MandateVault.NotOwner.selector);
+        vault.setMandate(_mandate(1));
+        vm.expectRevert(MandateVault.NotOwner.selector);
+        vault.revokeMandate();
+        vm.expectRevert(MandateVault.NotOwner.selector);
+        vault.setExecutor(alice);
+        vm.expectRevert(MandateVault.NotOwner.selector);
+        vault.ownerWithdraw(address(usdc), 1, alice);
+        vm.expectRevert(MandateVault.NotOwner.selector);
+        vault.unpause();
+        vm.stopPrank();
+    }
+
+    function test_T11_PauseMidRunBlocksNextExecuteButOwnerCanWithdraw() public {
+        _setExecMandate(false, 7);
+        MandateVault.Action memory first = _baseAction();
+        vm.prank(executor);
+        vault.execute(first);
+
+        vm.prank(owner);
+        vault.pause();
+
+        MandateVault.Action memory second = _baseAction();
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.Paused.selector);
+        vault.execute(second);
+
+        vm.prank(owner);
+        vault.ownerWithdraw(address(usdc), 10e6, alice);
+        assertEq(usdc.balanceOf(alice), 10e6);
+    }
+
+    function test_T15_ExecutorDirectForbiddenSwapReverts() public {
+        _setExecMandate(false, 3);
+        MandateVault.Action memory a = _swapAction(0.01e18, 0);
+        a.tokenIn = address(weth);
+        a.tokenOut = address(usdc);
+        a.quotedPriceUsd8 = 1600e8;
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.ActionNotAllowed.selector);
+        vault.execute(a);
+    }
+
+    function test_T16_ExecutorCanPauseButNotUnpause() public {
+        vm.prank(executor);
+        vault.pause();
+        assertTrue(vault.paused());
+
+        vm.prank(executor);
+        vm.expectRevert(MandateVault.NotOwner.selector);
+        vault.unpause();
+    }
 }

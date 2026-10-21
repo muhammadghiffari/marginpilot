@@ -14,8 +14,9 @@ using an ignored temporary override file (without duplicating keys).
   Evidence: `evidence/anvil-e2e-20261021T060254Z.json` (mandate
   `0x62dcec…0b8ad`, actions `0x85136a…d8366` and `0x82088d…f5225`). This is REAL EVM on anvil,
   **not public testnet**; the UI labels it `ANVIL`.
-- **Current gate:** `scripts/verify-all.sh` GREEN = 128 Forge + 89 core + 79 agent + 6 web + 8 eval =
-  **310 tests**; `check-secrets: clean`; workspace typechecks green (2026-10-21).
+- **Current gate:** `scripts/verify-all.sh` GREEN = 144 Forge + 89 core + 79 agent + 8 web + 8 eval =
+  **328 tests**; `check-secrets: clean`; workspace typechecks green (2026-10-21). The merged
+  `a/A-05-adversarial` branch adds 15 Foundry adversarial tests and 3 A-06 invariants.
 - **Public Sepolia run driven from the browser (primary proof):** vault
   `0xd7FC116f1acaE8cE017114aD7E41F132a998743C` on chain `11155111`. A Playwright session against
   the served console shocked the market with the owner controls, drafted and signed mandate #2

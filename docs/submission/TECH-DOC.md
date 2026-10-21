@@ -238,7 +238,7 @@ generated `summary.md`; do not copy numbers from this prose without regenerating
 ## 9. Security
 
 `docs/submission/SECURITY-SELF-ASSESSMENT.md` reports controls and T01–T18 status honestly. The
-current tree has 310 passing automated tests: 128 Foundry, 89 core, 79 agent, 6 web, 8 eval
+current tree has 328 passing automated tests: 144 Foundry, 89 core, 79 agent, 8 web, 8 eval
 (`scripts/verify-all.sh`, 2026-10-21). Seven scenarios (S1–S5, S7, S9) run once each with
 `ScriptedLlm` on `MockChainPort`, plus the 28-run Part 2 ablation. Config D records 0
 hard-constraint violations and 7/7 acceptance passes in that SIMULATED study; this is not a k=5

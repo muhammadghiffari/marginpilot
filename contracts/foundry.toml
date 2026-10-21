@@ -22,3 +22,7 @@ via_ir = false
 
 [fuzz]
 runs = 256
+
+[invariant]
+runs = 64
+depth = 100
