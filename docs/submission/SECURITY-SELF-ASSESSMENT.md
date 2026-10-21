@@ -56,7 +56,7 @@ owner may unpause.
 
 ## 4. Test results
 
-`tests_total=272 passed=272 scenarios=7 runs_per_scenario=1 any_failed=none`
+`tests_total=304 passed=304 scenarios=7 runs_per_scenario=1 any_failed=none`
 
 Breakdown: 128 Foundry, 89 core, 74 agent, 5 web, 8 eval (all run 2026-10-21; `scripts/verify-all.sh`
 GREEN). The seven scenarios are S1–S5, S7, S9, each run once with `ScriptedLlm` on

@@ -1,6 +1,6 @@
 # REPO-MAP — target codebase, file level
 
-Derived only from `ARCHITECTURE`, `INTERFACES`, `CONTRACTS`, `AGENT-DESIGN`, `OPTIMIZER`, `UI-SPEC` and `tasks/*`. It adds no new design. **Every file below is `to-create`.**
+Derived only from `ARCHITECTURE`, `INTERFACES`, `CONTRACTS`, `AGENT-DESIGN`, `OPTIMIZER`, `UI-SPEC` and `tasks/*`. It adds no new design. **The status column reflects the tree as of 2026-10-21; `to-create` rows remain planned.**
 
 ## How to read this
 - **Name:** `S` = the file name is given in a spec; `P` = proposed name (the spec gives only the role). Renaming a `P` file is free; renaming an `S` file needs a spec PR.
@@ -57,12 +57,15 @@ Derived only from `ARCHITECTURE`, `INTERFACES`, `CONTRACTS`, `AGENT-DESIGN`, `OP
 | `apps/agent/src/tools.ts` | The only tool set: `get_state` ... `finish_run`; no mandate or free-form tools | B | B-09 | AGENT-DESIGN §2 | Heavy | P | to-create |
 | `apps/agent/src/orchestrator.ts` | Run loop, plan binding, replan, halt, kill switch, `MAX_TOOL_CALLS`, plan-age guard | B | B-09 | AGENT-DESIGN §3; INTERFACES §6 | Heavy | S | to-create |
 | `apps/agent/src/chain/viem-port.ts` | `ViemChainPort`: simulate before submit, reconcile unknown, never resubmit | B | B-08 | INTERFACES §4, §9 | Heavy | S | done (2026-10-21) |
+| `apps/agent/src/chain/factory.ts` | Explicit simulated/chain port selection; no silent fallback | B | B-08 | INTERFACES §4 | Light | S | done (2026-10-21) |
+| `apps/agent/src/runtime.ts` | Unified simulated/chain runtime: mandate compile/confirm, wallet EIP-712, state and demo controls | B | B-08 | INTERFACES §4, §8, §10 | Heavy | S | done (2026-10-21) |
+| `apps/agent/src/cli/refresh-prices.ts` | Re-stamp simulator oracle prices with a funded hot key; never prints keys | B | B-08 | AGENT-DESIGN §8 | Light | P | done (2026-10-21) |
 | `apps/agent/src/explain.ts` | Template explanation from `RationaleFacts` (B-09, P0); LLM paraphrase, grounding fallback, `explanation.ungrounded` (B-13, P1) | B | B-09 / B-13 | AGENT-DESIGN §6 | Medium | P | to-create |
 | `apps/agent/src/notes.ts` | Session notes as untrusted data (`notes.json`), `poisonNote` channel | B | B-14 | AGENT-DESIGN §7 | Medium | S | to-create |
 | `apps/agent/src/api/server.ts` | HTTP server, zod validation, rate limits when `DEMO_MODE`, serves `apps/web/dist` | B | B-10 | INTERFACES §10; ARCHITECTURE | Medium | P | to-create |
 | `apps/agent/src/api/routes.ts` | `/api/mandate/*`, `/api/run*`, `/api/vault/pause`, `/api/state`, `/api/audit`, `/api/demo/*` | B | B-10 | INTERFACES §10 | Medium | P | to-create |
 | `apps/agent/src/api/sse.ts` | `RunEvent` stream | B | B-10 | INTERFACES §10 | Light | P | to-create |
-| `apps/agent/src/config.ts` | Env loading (never logs secrets), `MAX_REPLANS`, `MAX_PLAN_AGE_BLOCKS`, `DEMO_MODE` | B | B-09 / B-10 | AGENT-DESIGN §3; `.env.example` | Light | P | to-create |
+| `apps/agent/src/config.ts` | Env loading (never logs secrets), explicit chain mode, signer selection, demo limits | B | B-08 / B-09 / B-10 | AGENT-DESIGN §3; `.env.example` | Light | P | done (2026-10-21) |
 | `apps/agent/src/mcp.ts` | MCP wrapper for read tools (P2) | B | B-17 | tasks/DEV-B | Light | P | to-create |
 | `apps/agent/Dockerfile` (or provider config) | Single deployable server | A+B | A-13 | tasks/DEV-A | Light | P | to-create |
 

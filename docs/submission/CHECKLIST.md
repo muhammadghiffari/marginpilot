@@ -30,5 +30,5 @@ Source: official International Track rules file and registration form, captured 
 - [x] `scripts/check-secrets.sh` clean in the repository; the zip scan is TODO(human) at packaging
 - [x] No fabricated hashes: every listed hash is either a local-anvil receipt in `evidence/` or explicitly marked SIMULATED; public-testnet rows say NOT RUN
 - [x] No forbidden claims (see `NOVELTY-AND-PRIOR-ART.md`); no "first"/"unsolved"/"100% secure"/"guarantees" claims
-- [ ] Commit hash recorded in docs after the final commit (previous baseline `ee8c840`; real-chain work is in the working tree at this writing)
+- [ ] Commit hash recorded in docs after the final commit (real-chain code is at `8fcbb0d`; packaging must record the then-current HEAD)
 - [ ] The latest version is the one submitted before the deadline (D-026)

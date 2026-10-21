@@ -53,7 +53,7 @@ blocker**: `.env` still points at local anvil and no funded public-testnet accou
 | B-05 | Dev B | P0 | done | 9284979 | ordered #1-#15 + pure #16; 21 policy tests, D-023 set; D-025 |
 | B-06 | Dev B | P0 | done | 43282e9 | 31 new tests: atomic rollback, UNKNOWN no-resubmit, event ledger, audit chain, redactor, state machines; 81 total |
 | B-07 | Dev B | P0 | done | 81837e6 | `LlmClient`, typed live stub, `ScriptedLlm`, normalizer, clarifications, sanitizer/tripwire; m01–m12 zero dangerous widening; 16 tests green |
-| B-08 | Dev B | P0 | done | working tree 2026-10-21 | `ViemChainPort` in `apps/agent/src/chain/viem-port.ts`; explicit `CHAIN_MODE`, owner-key + browser-wallet signing, receipt/unknown handling; local-anvil E2E green (`evidence/anvil-e2e-20261021T060254Z.json`). Public testnet remains A-10 (human). |
+| B-08 | Dev B | P0 | done | 5f61240 + 8fcbb0d | `ViemChainPort` in `apps/agent/src/chain/viem-port.ts`; explicit `CHAIN_MODE`, owner-key + browser-wallet signing, receipt/unknown handling; local-anvil E2E green (`evidence/anvil-e2e-20261021T060254Z.json`). Public testnet remains A-10 (human). |
 | B-09 | Dev B | P0 | done | d8b0701 | fixed tool set + orchestrator; S1–S5/S7/S9 green with `ScriptedLlm` on `MockChainPort` (SIMULATED); 12 tests; verify-all GREEN |
 | B-10 | Dev B | P0 | done | 81c5794 | Fastify API + SSE + zod + demo gating + 429 + static serving + demo signing; 8 contract tests; verify-all GREEN |
 | B-11 | Dev B | P0 | done | 99ecd55 | Vite/React console served with the API: compile/sign/run/SSE/audit/scenario lab; 5 web tests; 1440px + 390px browser check; all labels SIMULATED |
