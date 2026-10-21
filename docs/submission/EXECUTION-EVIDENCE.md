@@ -12,8 +12,10 @@ This file separates three kinds of evidence:
 2. **SIMULATED** — in-memory `MockChainPort`; hashes are synthetic and deliberately not listed here.
 3. **NOT RUN** — public-testnet deployment and public explorer links.
 
-No hash or address in this file was invented. The local-anvil hashes below are copied from
-[`evidence/anvil-e2e-20261021T060254Z.json`](../../evidence/anvil-e2e-20261021T060254Z.json).
+No hash or address in this file was invented. The rescue/mandate/shock hashes below are copied from
+[`evidence/anvil-e2e-20261021T060254Z.json`](../../evidence/anvil-e2e-20261021T060254Z.json); the
+three price-refresh hashes are from that run's console output (the JSON stores the rescue ledger, not
+the refresh transactions).
 
 ## 1. Real-EVM local-anvil run (ANVIL)
 
@@ -33,7 +35,7 @@ timestamps, installs an owner-signed EIP-712 mandate, runs the rescue, writes th
 | Action 1 (REPAY pool 1) | `0x82088d70621d00cd312f9a2974613f7fae398e73520f6ee578dcfba56baf5225` |
 | Oracle shock tx 0 | `0xeff730a5f403a7ec38c2c9842285e3629ff9cff871b90aea3857fd48ec07cdbb` |
 | Oracle shock tx 1 | `0x1a3071f92832e1f688f7ac1482750b94da68eaef0aae3afdd08fd8778555f22e` |
-| Price refresh (mUSDC / mWETH / mWSTETH) | `0xc73f81b5…`, `0x9f89a08a…`, `0x5066b914…` (full hashes in the JSON) |
+| Price refresh (mUSDC / mWETH / mWSTETH) | `0xc73f81b5…`, `0x9f89a08a…`, `0x5066b914…` (console output; not stored in the JSON) |
 | Run | `run-mvhph1yl-1`, state `COMPLETED`, two ledger entries `mined` |
 | Spend | `$86.57` + `$163.59` = `$250.16` of the `$260` cap (96.21%; gas excluded, reported separately) |
 | Health factors | pool 0: `0.942857…` → `1.005002…`; pool 1: `1.051428…` → `1.116670…` |
