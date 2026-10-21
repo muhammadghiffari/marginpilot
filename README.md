@@ -14,14 +14,15 @@ so every hash is synthetic and no explorer link exists. See
 |---|---|
 | Core policy, loss model, exhaustive planner, audit chain, ledger | Implemented, 89 tests |
 | Deterministic `ScriptedLlm`, mandate compiler, clarification gate, prompt sanitizer | Implemented, agent suite 42 tests |
-| Orchestrator: fixed tools, plan binding, replans on remaining budget, unknown-tx reconciliation, halt/kill switch | Implemented; S1–S5, S7, S9 on `MockChainPort` |
+| Orchestrator: fixed tools, plan binding, replans on remaining budget, unknown-tx reconciliation, halt/kill switch | Implemented, 12 orchestrator tests; S1–S5, S7, S9 on `MockChainPort` |
 | Fastify API + SSE + zod boundaries + 429 limit + demo signing | Implemented, 8 API tests |
 | Web console (instruction → mandate → plan → live state → ledger) | Implemented, 5 tests; verified at 1440px and 390px |
-| Seeded Part 1 evaluation and generated report | Implemented, 500 cases |
+| Seeded Part 1 evaluation and generated report | Implemented, 500 cases; 6 eval tests |
 | Part 2 ablation runner (configs A–D × S1–S5/S7/S9/T15) | Implemented on `MockChainPort`, **SIMULATED**; 8 eval tests |
 | OpenAI-compatible LLM client (tools, JSON-schema retry, primary→fallback) | Implemented, mock-HTTP tests only; **no live model call** (D-036) |
-| Public testnet deployment, `ViemChainPort`, wallet signing, public URL | **Not implemented / not run**: B-08 deferred, A-10 and A-13 are human-run |
-| On-chain `execute` effects and post-condition check #16 | Merged (PR #1 `7039146`, PR #2 `c7000f0`) |
+| Local anvil deploy, base fixture and ABIs | Implemented, 128 Forge tests; `scripts/deploy.sh` (A-07) |
+| Public testnet deployment, `ViemChainPort`, wallet signing, public URL | **Not implemented / not run**: B-08 in progress, A-10 and A-13 are human-run |
+| On-chain `execute` effects and post-condition check #16 | Merged (PR #1 `7039146`, PR #2 `c7000f0`); 125 Forge tests at merge |
 
 ## Quick start (setup in fewer than ten commands)
 
@@ -39,6 +40,13 @@ scripts/verify-all.sh
 cd contracts && forge test
 ```
 
+Local on-chain demo (anvil only; no keys are read):
+
+```bash
+scripts/dev-anvil.sh   # keep running in a second shell
+scripts/deploy.sh      # deployments/31337.json, eval/fixtures/base.json, packages/core/src/abi/
+```
+
 Open `http://127.0.0.1:8787`. The page is served by the API at one URL. The preloaded mandate is
 SIMULATED; click **Run rescue** to watch observe → plan → simulate → two gated repays → refreshed
 state and ledger. **Demo signing** additionally needs `DEMO_OWNER_PRIVATE_KEY` in the environment;
@@ -47,7 +55,8 @@ a key.
 
 `pnpm eval:run` writes `eval/results/<timestamp>/{results.json,summary.md,run-meta.json}`. Use the
 generated summary; never hand-edit results. Part 2 runs the A–D ablation on `MockChainPort` only:
-**SIMULATED, no anvil and no on-chain hashes** (D-034). Sample seed 1: config D records 0
+**SIMULATED, no anvil and no on-chain hashes** (D-034); it uses the A-07 deployment artifacts and
+does not need an anvil chain runner. Sample seed 1: config D records 0
 hard-constraint violations and passes all seven scenario acceptance tests; the 12 recorded violations
 all sit in the deliberately weak A/C configs (budget, stale-price, direct-SWAP). Generated evidence:
 [`eval/results/2026-10-20T14-11-32-655Z/summary.md`](eval/results/2026-10-20T14-11-32-655Z/summary.md).
