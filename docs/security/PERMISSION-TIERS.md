@@ -13,5 +13,6 @@ Rules
 3. Uncertain state (stale data, conflicting data, unknown tx status) ⇒ fail closed: wait or L3, never "try anyway".
 4. The UI shows the current tier and why (e.g. "L3: budget short by $X").
 5. Demo-owner mode (server-signed) is labelled in the UI; wallet mode is the real owner flow.
+6. Simulator-only admin surface: `LendingSim.seedPosition` is admin-only, used at deploy time, mock-only (D-033); it is not reachable through the vault or the agent.
 
 Where it appears in the submission: Security Self-Assessment §Permission tiers; UI badge; `ADVERSARIAL-TESTS.md` T10, T11, T16.

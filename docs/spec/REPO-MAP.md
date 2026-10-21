@@ -56,7 +56,7 @@ Derived only from `ARCHITECTURE`, `INTERFACES`, `CONTRACTS`, `AGENT-DESIGN`, `OP
 | `apps/agent/src/prompts.ts` | System prompt, `<untrusted>` delimiting, sanitizer, injection tripwire | B | B-07 / B-09 | AGENT-DESIGN §4 | Heavy | P | to-create |
 | `apps/agent/src/tools.ts` | The only tool set: `get_state` ... `finish_run`; no mandate or free-form tools | B | B-09 | AGENT-DESIGN §2 | Heavy | P | to-create |
 | `apps/agent/src/orchestrator.ts` | Run loop, plan binding, replan, halt, kill switch, `MAX_TOOL_CALLS`, plan-age guard | B | B-09 | AGENT-DESIGN §3; INTERFACES §6 | Heavy | S | to-create |
-| `apps/agent/src/chain/viem-chain-port.ts` | `ViemChainPort`: simulate before submit, reconcile unknown, never resubmit | B | B-08 | INTERFACES §4, §9 | Heavy | S | to-create |
+| `apps/agent/src/chain/viem-port.ts` | `ViemChainPort`: simulate before submit, reconcile unknown, never resubmit | B | B-08 | INTERFACES §4, §9 | Heavy | S | done (2026-10-21) |
 | `apps/agent/src/explain.ts` | Template explanation from `RationaleFacts` (B-09, P0); LLM paraphrase, grounding fallback, `explanation.ungrounded` (B-13, P1) | B | B-09 / B-13 | AGENT-DESIGN §6 | Medium | P | to-create |
 | `apps/agent/src/notes.ts` | Session notes as untrusted data (`notes.json`), `poisonNote` channel | B | B-14 | AGENT-DESIGN §7 | Medium | S | to-create |
 | `apps/agent/src/api/server.ts` | HTTP server, zod validation, rate limits when `DEMO_MODE`, serves `apps/web/dist` | B | B-10 | INTERFACES §10; ARCHITECTURE | Medium | P | to-create |

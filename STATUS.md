@@ -1,26 +1,33 @@
 # STATUS (update at the end of every task; agents load this each session)
 
-Last updated: 2026-10-20 21:40 WIB by Dev B. PR #1 and PR #2 merged; mirror mirrors D-032; Part 2 (SIMULATED) and the OpenAI-compatible LLM client are in; both branches verified and a fresh-clone gate is green. **Only the human push and the A-10/A-13 items remain.**
-- **Final local state (21:40 WIB):** `feat/dev-b-foundations` and `main` are both at `ee8c840` plus this STATUS-only commit; **origin/main = `c7000f0`, origin/feat = `6e81935`**. Agent pushes fail with `could not read Username` (empty cache, `GIT_TERMINAL_PROMPT=0`), so the human must push both branches. No force push was used.
-- **Fresh-clone gate GREEN:** `git clone /home/catalna/marginpilot /home/catalna/mp-fresh-gate` @ `ee8c840` (re-run after the D-036 audit commit; the earlier `0b8ecf6` gate was also green) → `pnpm install --frozen-lockfile` → `scripts/verify-all.sh` = 128 Forge + 89 core + 42 agent + 5 web + 8 eval = **272 tests**, `check-secrets: clean` (21:38 WIB).
-- **A-04 PR #1 merged** (`7039146` + `b01a970`): checks #1–#16, effects, `liquidReserveUsd8`, `ActionExecuted`, SWAP role probe at #9b (D-032), reserve token in the #11 price set (D-031), missing price → `StalePrice`; 125 Forge tests (`b01a970`).
-- **A-07 PR #2 merged** (`c7000f0`, branch `a/A-07-deploy`): fresh anvil + `scripts/deploy.sh` → `deployments/31337.json` (vault `0x0165...`, block 7), `eval/fixtures/base.json` (fresh `updatedAt` per price incl. mUSDC, `blockTimestamp`, `timestampUnit: "seconds"`, reserve + lockedToken, both positions, post-shock prices), 5 ABIs in `packages/core/src/abi/`; `forge test` = 128 passed (3 new `seedPosition` tests).
-- **B-12 Part 2 done (SIMULATED)** (`eval/results/2026-10-20T14-11-32-655Z/summary.md`): configs A–D × S1–S5/S7/S9/T15 = 28 runs on `MockChainPort` with `ScriptedLlm`; config **D: 0 hard-constraint violations and 7/7 acceptance passes**; 12 violations across 7 of 28 runs, all in the deliberately weak A/C configs (budget, stale-price, direct-SWAP); 4 false completions (C), 0 duplicates. No anvil and no on-chain hashes (D-034).
-- **D-036 LLM client**: `OpenAICompatLlm` (tools → JSON-schema retry, primary→fallback, temperature 0, key never logged) and a hash-chained `llm.response` audit entry (`model`, `temperature`, `usage`, `toolCalls`; no prompts or keys), tested against a local mock HTTP server only; `ScriptedLlm` remains the CI and demo default. **No live model call was made.**
-- **Mirror synced to D-032** (`packages/core/src/policy.ts`): SWAP-role check at #9b, lending-role after #10, reserve token priced for every action; ordering tests assert the precedence both ways. Thread: `docs/reviews/A04-PR1-REVIEW.md`, `docs/reviews/MESSAGE-TO-DEV-A.md`, D-030/D-031/D-032.
-- Gates: `scripts/verify-all.sh` GREEN = 128 Forge + 89 core + 42 agent + 5 web + 8 eval = **272 tests**; `check-secrets: clean`.
-
-- B-11 (`99ecd55`): one Vite/React page served by the API — compile/clarify/sign, plan, live state, ledger, audit, demo-only scenario lab, 390px layout; 5 web tests; browser click-through observed run→2 actions→ledger, stale-oracle halt and budget-exhausted halt; screenshots in `docs/submission/screenshots/`.
-- B-12 Part 1 (`4c4da28`, summary `eval/results/2026-10-20T09-44-04-427Z/summary.md`): realized-loss mean B−A −$13.9234, win/tie/loss 118/158/224, bootstrap 95% CI [−$17.6227, −$10.3966]; B loses some cases because A may choose partial-target amounts outside B's discrete candidates — no per-case dominance claim.
-- Part 8: root `README.md` (setup in 8 commands), `docs/submission/TECH-DOC.md`, `SECURITY-SELF-ASSESSMENT.md`, `EXECUTION-EVIDENCE.md`, `DECK-OUTLINE.md` (≤10 min, source per slide), `REGISTRATION-EMAIL.md`; `scripts/check-secrets.sh` clean. Current gate after PR #1/#2 + B-12 Part 2: `scripts/verify-all.sh` GREEN (128 Forge + 89 core + 42 agent + 5 web + 8 eval = 272 tests; 28 SIMULATED Part 2 runs).
-- B-08 and B-12 Part 2 now have the A-07 artifacts; B-12 Part 2 still needs A-09's chain runner. A-04 is merged (`7039146`). D-025/D-029 recorded; D-026..D-028 confirmed.
+Last updated: 2026-10-21 by the audit agent. The real-EVM path is implemented and green on local
+anvil; the default demo remains SIMULATED. **Public-testnet broadcast is the remaining external
+blocker**: `.env` still points at local anvil and no funded public-testnet account/RPC is configured.
+- **Real chain adapter (2026-10-21):** `apps/agent/src/chain/viem-port.ts` implements reads,
+  simulate-before-submit, receipt handling, unknown-tx reconciliation, owner/executor writes and
+  custom-error decoding. `AgentRuntime` serves both modes; `CHAIN_MODE=simulated|anvil|testnet|chain`
+  is explicit (no silent fallback). Owner signing supports a server key that must match the
+  deployment owner, or a browser-wallet EIP-712 prepare/verify/relay flow.
+- **Local-anvil E2E GREEN:** `bash scripts/e2e-anvil.sh` on a throwaway chain 31338 deployed the
+  simulator, refreshed prices, installed mandate #1, ran the two-repay rescue and mined both actions.
+  Evidence: `evidence/anvil-e2e-20261021T060254Z.json` (mandate
+  `0x62dcec…0b8ad`, actions `0x85136a…d8366` and `0x82088d…f5225`). This is REAL EVM on anvil,
+  **not public testnet**; the UI labels it `ANVIL`.
+- **Current gate:** `scripts/verify-all.sh` GREEN = 128 Forge + 89 core + 74 agent + 5 web + 8 eval =
+  **304 tests**; `check-secrets: clean`; `pnpm -r typecheck` green (2026-10-21).
+- **Public testnet (A-10) still not run.** `scripts/deploy-testnet.sh` and
+  `scripts/start-testnet.sh` are ready and refuse mainnet/local chain ids, `--private-key`, owner =
+  executor, and contract accounts. They need the human's funded testnet RPC/keys and presence.
+- **Earlier validation (2026-10-20):** Part 2 remains SIMULATED (`MockChainPort`, D-034);
+  D-036 LLM client is mock-tested only; the web console was verified at 1440px/390px; A-04/A-07 are
+  merged (`7039146`/`c7000f0`); push credentials are still missing.
 
 ## Milestones
-- [ ] M0 Setup done (both machines pass `scripts/preflight.sh`; repo pushed; keys funded) — Owner
-- [ ] M1 Foundations: contracts compile + core types/optimizer tests green; `MockChainPort` ready
-- [ ] M2 End-to-end on anvil: S1 + S7 automated, agent drives vault via `ViemChainPort`
-- [ ] M3 Testnet: deployed, S1/S2/S7 (+S3/S4) with real tx hashes in `evidence/`
-- [ ] M4 Eval + docs: `pnpm eval:run` results, security self-assessment, tech doc filled
+- [ ] M0 Setup done (both machines pass `scripts/preflight.sh`; repo pushed; keys funded) — Owner; push still blocked
+- [x] M1 Foundations: contracts compile + core types/optimizer tests green; `MockChainPort` ready
+- [x] M2 End-to-end on anvil: S1 + S7 automated, agent drives vault via `ViemChainPort` (2026-10-21)
+- [ ] M3 Testnet: deployed, S1/S2/S7 (+S3/S4) with real tx hashes in `evidence/` — blocked on human RPC/funding
+- [ ] M4 Eval + docs: `pnpm eval:run` results, security self-assessment, tech doc filled — eval done; public-testnet evidence pending
 - [ ] M5 Public URL live, final verification, submitted
 
 ## Task board (ids and deliverables in tasks/*.md; states: todo / doing / blocked / done)
@@ -46,7 +53,7 @@ Last updated: 2026-10-20 21:40 WIB by Dev B. PR #1 and PR #2 merged; mirror mirr
 | B-05 | Dev B | P0 | done | 9284979 | ordered #1-#15 + pure #16; 21 policy tests, D-023 set; D-025 |
 | B-06 | Dev B | P0 | done | 43282e9 | 31 new tests: atomic rollback, UNKNOWN no-resubmit, event ledger, audit chain, redactor, state machines; 81 total |
 | B-07 | Dev B | P0 | done | 81837e6 | `LlmClient`, typed live stub, `ScriptedLlm`, normalizer, clarifications, sanitizer/tripwire; m01–m12 zero dangerous widening; 16 tests green |
-| B-08 | Dev B | P0 | deferred | — | A-07 artifacts are present (`deployments/31337.json`, `packages/core/src/abi/`, `eval/fixtures/base.json`, `Deploy.s.sol`, `scripts/deploy.sh`), but `ViemChainPort` was time-boxed out before the 22:00 freeze; no adapter was invented. Remaining downstream: A-10 testnet deploy (human) and A-13 URL. |
+| B-08 | Dev B | P0 | done | working tree 2026-10-21 | `ViemChainPort` in `apps/agent/src/chain/viem-port.ts`; explicit `CHAIN_MODE`, owner-key + browser-wallet signing, receipt/unknown handling; local-anvil E2E green (`evidence/anvil-e2e-20261021T060254Z.json`). Public testnet remains A-10 (human). |
 | B-09 | Dev B | P0 | done | d8b0701 | fixed tool set + orchestrator; S1–S5/S7/S9 green with `ScriptedLlm` on `MockChainPort` (SIMULATED); 12 tests; verify-all GREEN |
 | B-10 | Dev B | P0 | done | 81c5794 | Fastify API + SSE + zod + demo gating + 429 + static serving + demo signing; 8 contract tests; verify-all GREEN |
 | B-11 | Dev B | P0 | done | 99ecd55 | Vite/React console served with the API: compile/sign/run/SSE/audit/scenario lab; 5 web tests; 1440px + 390px browser check; all labels SIMULATED |
@@ -76,10 +83,17 @@ Last updated: 2026-10-20 21:40 WIB by Dev B. PR #1 and PR #2 merged; mirror mirr
 - **Missing price (D-032):** the vault maps a missing oracle price in the #11 price set (including the reserve token) to `StalePrice`; it no longer leaks `MockOracle.UnknownToken`.
 
 ## Blockers
-- **Push still needs the human's terminal (21:40 WIB)**: agent-side git processes have no cached credential (`fatal: could not read Username for 'https://github.com'` with `GIT_TERMINAL_PROMPT=0`), so both pushes were attempted and failed. **Local `feat/dev-b-foundations` = local `main` = `ee8c840` + STATUS-only commit; push both.** No credential may be pasted to an agent; the earlier exposed token must stay revoked. Push range to publish: `origin/main c7000f0..<local main>` and `origin/feat 6e81935..<local feat>`.
-- **B-08 deferred, not blocked on missing files**: A-07 is merged (`c7000f0`) with `deployments/31337.json`, `packages/core/src/abi/*`, `eval/fixtures/base.json`, `contracts/script/Deploy.s.sol`, `scripts/deploy.sh`. `ViemChainPort` was time-boxed out before the 22:00 freeze (freeze rule), so the demo still uses `MockChainPort`; no adapter was invented. Downstream remains A-10 (testnet deploy, human present) and A-13 (public URL).
-- **A-09 is cut** (D-034): Part 2 numbers are SIMULATED on `MockChainPort`; on-chain evidence can only come from the testnet run (TODO(human)/TODO(Dev A) in `docs/submission/EXECUTION-EVIDENCE.md`).
-- **A-10/A-13** are human/Dev A items: testnet deploy with real tx hashes and the public URL. Nothing on the Dev B side can produce real hashes.
+- **Public-testnet broadcast (A-10) is blocked on external inputs:** `.env` still has
+  `CHAIN_ID=31337`/local anvil RPC, no funded public-testnet owner/executor is confirmed, and the
+  `mp-owner` Foundry keystore password is unknown. Needed from the human: a public testnet chain id +
+  RPC, a funded `SENDER` EOA, public `OWNER_ADDRESS`/`EXECUTOR_ADDRESS`, a keystore/hardware signer
+  (or its password entered interactively), and explicit go-ahead with the human present.
+- **Push still needs the human's terminal:** agent-side git has no cached credential
+  (`could not read Username for 'https://github.com'` with `GIT_TERMINAL_PROMPT=0`); no credential
+  may be pasted to an agent. Local work is committed in small commits; push remains the human's.
+- **A-09 was cut** (D-034): Part 2 numbers remain SIMULATED on `MockChainPort`. The local-anvil E2E
+  is separate real-EVM proof; it does not turn Part 2 into on-chain results.
+- **A-13 (public URL)** is human-run and not done.
 
 ## Decisions needed from human
 See `docs/DECISIONS.md` rows with OPEN/VERIFY (D-003, D-013, D-020, D-021). D-006 and D-016 are superseded by D-036/D-035; D-018 is superseded by D-027.

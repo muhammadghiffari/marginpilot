@@ -1,13 +1,13 @@
 # MarginPilot — Technical Documentation
 
-Team: **MarginPilot** (D-035) · Topic F · Commit: `a0debd4` · Date: 2026-10-20
+Team: **MarginPilot** (D-035) · Topic F · Date: 2026-10-21
 
-This document describes only what the repository at commit `ee8c840` implements and what was
-measured; later commits may add documents only. Every number below comes from a command or a
-generated artifact in this repository.
-actually run on 2026-10-20. Where an artifact is still missing, it says so. The lending market is
-**SIMULATED**; the repository currently has **no public-testnet deployment** (see §7 and
-`docs/submission/EXECUTION-EVIDENCE.md`).
+This document describes the repository working tree at the time of writing and what was measured;
+where an artifact is missing, it says so. The lending market is **SIMULATED** (D-002). The vault and
+agent can run against a real EVM chain: a local-anvil end-to-end run is recorded in
+`evidence/anvil-e2e-20261021T060254Z.json`. The repository still has **no public-testnet deployment**
+(see §7 and `docs/submission/EXECUTION-EVIDENCE.md`); that broadcast needs a funded public-testnet
+account and RPC supplied by the human.
 
 ## 1. Problem & motivation
 
@@ -83,10 +83,13 @@ targets map to `TargetNotAllowed` (SWAP role probe at #9b, D-032), the reserve t
 price set (D-031), and a missing price maps to `StalePrice`. Reverts are atomic and the off-chain
 ledger records no spend for a reverted action.
 
-**Current integration limit:** the on-chain code is merged and its Foundry suite is green (128 tests),
-but T07's full on-chain run still needs the testnet deployment (A-10) and a chain port (B-08, deferred
-before the freeze). The TypeScript policy mirror implements the same ordering plus
-`checkPostConditions`; the differential test is B-15.
+**Integration status:** the on-chain code is merged and its Foundry suite is green (128 tests).
+`apps/agent/src/chain/viem-port.ts` (`ViemChainPort`) implements reads, simulate-before-submit,
+receipt handling, unknown-transaction reconciliation and owner/executor writes against the deployed
+contracts. `scripts/e2e-anvil.sh` deploys a fresh chain, installs an owner-signed mandate, runs the
+two-action rescue and records mined transaction hashes (local anvil, chain 31338). The TypeScript
+policy mirror implements the same ordering plus `checkPostConditions`; the full differential test is
+B-15. A public-testnet broadcast (A-10) has not been run.
 
 Permission tiers (`docs/security/PERMISSION-TIERS.md`): L0 read, L1 plan/simulate (no submit path),
 L2 bounded execution inside the mandate, L3 owner-only decisions such as more budget, unlock,
@@ -120,9 +123,12 @@ audit entry with `model`, `temperature`, `usage` and `toolCalls` (never prompt t
 live model call was made**, so no live-provider result is claimed.
 
 The API (`apps/agent/src/api/server.ts`) validates every request with zod, streams typed
-`RunEvent`s over SSE, rate-limits with a capacity bucket (429), hides `/api/demo/*` unless
-`DEMO_MODE=true`, and serves the built web page from one URL. Demo signing is server-side EIP-712
-and refuses to run without `DEMO_OWNER_PRIVATE_KEY`; no key material is logged.
+`RunEvent`s over SSE, rate-limits with a capacity bucket (429, always on), hides `/api/demo/*` unless
+demo controls are explicitly enabled, and serves the built web page from one URL. Chain mode is
+explicit (`CHAIN_MODE=anvil` or `testnet`); there is no silent fallback to the mock. Owner signing has
+two paths: a server-side key that must match the deployment owner, and browser-wallet EIP-712
+signing where the API prepares the typed data, verifies the recovered owner before relaying, and
+never receives a private key. No key material is logged.
 
 ## 6. Planner
 
@@ -146,15 +152,20 @@ Fastify; React 19 + Vite; pnpm workspaces; Vitest.
 Repository map and run instructions are in the root `README.md` (setup in fewer than ten commands).
 `.env.example` lists names only. `scripts/verify-all.sh` is the green gate.
 
-Deployment addresses: **none for a public testnet yet**. `TODO(Dev A)`: A-07 must provide
-`contracts/script/Deploy.s.sol`, `scripts/deploy.sh`, `deployments/<chainId>.json`,
-`packages/core/src/abi/` and `eval/fixtures/base.json`; `ViemChainPort` (B-08) is blocked on those
-artifacts. Until then the API uses `MockChainPort` only in explicit demo mode; there is no silent
-production fallback.
+Deployment addresses: the committed local record is `deployments/31337.json` (anvil chain 31337).
+`scripts/e2e-anvil.sh` deploys a throwaway chain 31338, writes no permanent deployment record, and
+records its real receipts under `evidence/`. There is **no public-testnet deployment yet**;
+`scripts/deploy-testnet.sh` is the guarded wrapper and `scripts/start-testnet.sh` starts the agent
+against `deployments/<chainId>.json`. The wrapper refuses mainnet chain ids, local chain ids, a
+`--private-key` argument, an owner equal to the executor, and contract accounts as owner/executor.
+It requires a Foundry keystore or hardware signer, a funded `SENDER`, and a matching RPC chain id.
+The agent refuses mainnet ids, verifies the RPC chain id, and checks that code exists at every
+deployed address before serving.
 
-UI evidence captured from the served demo on 2026-10-20: `docs/submission/screenshots/` (desktop
-run, 390px layout, and the two halt reasons). Every screenshot shows the SIMULATED badge; the
-hashes in them are synthetic.
+UI evidence captured from the served demo on 2026-10-20 (`docs/submission/screenshots/`): desktop
+run, 390px layout, and two halt reasons. Those screenshots are from the **SIMULATED** mode and say
+so; their hashes are synthetic. The local-anvil run is separately evidenced by the JSON file above
+and is labelled `ANVIL`, not `TESTNET`.
 
 ## 8. Evaluation
 
@@ -221,22 +232,22 @@ generated `summary.md`; do not copy numbers from this prose without regenerating
 ## 9. Security
 
 `docs/submission/SECURITY-SELF-ASSESSMENT.md` reports controls and T01–T18 status honestly. The
-evaluated tree has 272 passing automated tests: 128 Foundry, 89 core, 42 agent, 5 web, 8 eval
-(`scripts/verify-all.sh`, 2026-10-20). Seven scenarios (S1–S5, S7, S9) run once each with
+current tree has 304 passing automated tests: 128 Foundry, 89 core, 74 agent, 5 web, 8 eval
+(`scripts/verify-all.sh`, 2026-10-21). Seven scenarios (S1–S5, S7, S9) run once each with
 `ScriptedLlm` on `MockChainPort`, plus the 28-run Part 2 ablation. Config D records 0
 hard-constraint violations and 7/7 acceptance passes in that SIMULATED study; this is not a k=5
-reliability study and not on-chain evidence. The contracts are unaudited and must not hold real
-funds.
+reliability study and not public-testnet evidence. The contracts are unaudited and must not hold
+real funds.
 
 ## 10. Limitations & future work
 
 From `docs/security/KNOWN-RISKS.md`: unaudited contracts; simulated market and oracle; hot executor
 key; server-held demo-owner key; gas outside the on-chain budget; oracle dependence; LLM/provider
 variance; injection robustness relies on the gate; one chain, one simulated protocol, two pools;
-public-demo abuse; EOA-only signatures; constructed evaluation. A-07 is merged, but B-08
-(`ViemChainPort`) was deferred before the freeze, B-15 (wallet signing/differential test) and B-13
-(LLM paraphrase/grounding) are not complete, A-09 was cut (D-034), and A-10/A-13 (testnet deploy,
-public URL) are human-run. Mainnet is out of scope.
+public-demo abuse; EOA-only signatures; constructed evaluation. The real chain adapter, owner-key
+and browser-wallet signing paths are implemented and exercised locally; B-15's full differential
+test and B-13 (LLM paraphrase/grounding) are not complete, A-09 was cut (D-034), and A-10/A-13
+(public-testnet deploy, public URL) are human-run and not done. Mainnet is out of scope.
 
 ## 11. References
 

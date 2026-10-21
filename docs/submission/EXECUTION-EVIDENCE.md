@@ -1,51 +1,81 @@
 # Execution Evidence — MarginPilot
 
-Network: **SIMULATED (`MockChainPort`)** · Explorer: **none** · Commit: `ee8c840` (code + evaluation docs; later commits may add documents only) · Date: 2026-10-20
+Date: 2026-10-21 · Default demo: **SIMULATED** · Real-EVM proof: **local anvil, chain 31338** ·
+Public testnet: **not deployed yet** (requires a funded testnet account and RPC from the human).
 
-The repository at this commit has no public-testnet deployment. Every row below is **SIMULATED**
-and has no explorer link. Hashes shown by the demo UI are synthetic and change per run; they are
-deliberately not copied here because they would not resolve on an explorer. No hash in this file was
-invented.
+This file separates three kinds of evidence:
 
-## Deployment
+1. **REAL EVM, LOCAL ANVIL** — transactions mined by a local anvil chain. The hashes resolve on that
+   chain's JSON-RPC while it runs; there is no public explorer. This proves the adapter, signing,
+   vault enforcement and receipt handling against real EVM bytecode, but it is **not** a public
+   testnet and must not be labelled `TESTNET`.
+2. **SIMULATED** — in-memory `MockChainPort`; hashes are synthetic and deliberately not listed here.
+3. **NOT RUN** — public-testnet deployment and public explorer links.
 
-| Contract | Address | Deploy tx | Verified source? |
-|---|---|---|---|
-| MandateVault (simulated fixture) | `0x00000000000000000000000000000000000000b2` | none — in-memory `MockChainPort` fixture | n/a |
-| LendingSim (simulated fixture) | `0x00000000000000000000000000000000000000b1` | none — in-memory fixture | n/a |
-| MockSwap (simulated fixture) | `0x00000000000000000000000000000000000000b3` | none — in-memory fixture | n/a |
-| mUSDC / mWETH / mWSTETH (simulated tokens) | `…a1` / `…a2` / `…a3` | none — in-memory fixture | n/a |
+No hash or address in this file was invented. The local-anvil hashes below are copied from
+[`evidence/anvil-e2e-20261021T060254Z.json`](../../evidence/anvil-e2e-20261021T060254Z.json).
 
-`TODO(human)/TODO(Dev A)`: A-07 is merged (`c7000f0`) with `contracts/script/Deploy.s.sol`,
-`scripts/deploy.sh`, `deployments/31337.json`, `packages/core/src/abi/` and `eval/fixtures/base.json`
-(local anvil only). A public-testnet deployment (A-10, human present) and the public URL (A-13) are
-still missing, so this file has no real tx hash or explorer link. B-08 (`ViemChainPort`) was deferred
-before the freeze; A-09 (anvil runner/liquidator) was cut (D-034).
+## 1. Real-EVM local-anvil run (ANVIL)
 
-## Role addresses (owner-provided testnet EOAs — **not contracts**)
+Command: `bash scripts/e2e-anvil.sh` (fresh anvil on `127.0.0.1:8547`, chain `31338`; deploys and
+seeds the simulator, starts the agent in explicit chain mode, shocks the oracle, refreshes price
+timestamps, installs an owner-signed EIP-712 mandate, runs the rescue, writes the JSON evidence).
 
-These are public addresses supplied by the owner for the testnet setup. **TODO(human): confirm they
-are still the addresses used.** No private key is stored in this repository.
+| Item | Value |
+|---|---|
+| Chain id | `31338` (local anvil; not a public testnet) |
+| Vault | `0x0165878A594ca255338adfa4d48449f69242Eb8F` |
+| Owner (EIP-712 signer) | `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266` |
+| Executor | `0x70997970C51812dc3A010C7d01b50e0d17dc79C8` |
+| Mandate | id `1`, installed by `setMandateWithSig` |
+| Mandate tx | `0x62dcec561944d41feaa58c6478eed968d8e86d7f88b16e0aeaef9fd68a30b8ad` |
+| Action 0 (REPAY pool 0) | `0x85136af6b11f657f05ae59d324593fa9de89529ec544a47d123aca3ce47d8366` |
+| Action 1 (REPAY pool 1) | `0x82088d70621d00cd312f9a2974613f7fae398e73520f6ee578dcfba56baf5225` |
+| Oracle shock tx 0 | `0xeff730a5f403a7ec38c2c9842285e3629ff9cff871b90aea3857fd48ec07cdbb` |
+| Oracle shock tx 1 | `0x1a3071f92832e1f688f7ac1482750b94da68eaef0aae3afdd08fd8778555f22e` |
+| Price refresh (mUSDC / mWETH / mWSTETH) | `0xc73f81b5…`, `0x9f89a08a…`, `0x5066b914…` (full hashes in the JSON) |
+| Run | `run-mvhph1yl-1`, state `COMPLETED`, two ledger entries `mined` |
+| Spend | `$86.57` + `$163.59` = `$250.16` of the `$260` cap (96.21%; gas excluded, reported separately) |
+| Health factors | pool 0: `0.942857…` → `1.005002…`; pool 1: `1.051428…` → `1.116670…` |
 
-| Role | Address | Kind |
-|---|---|---|
-| Deployer | `0xeD69109d369aac30b19A54c8FeCAebDC9f96fC34` | EOA (owner-provided) |
-| Executor | `0xe219FB396253ba14cD59a91D7C5B163Fd04BbD28` | EOA (owner-provided) |
-| Demo Owner | `0xcea5973F827E9Bc5885D8F5468d7631e16D02f39` | EOA (owner-provided) |
+The hashes are local-anvil receipts: they are real EVM transactions but cannot resolve on a public
+explorer. The UI badge for this mode is `ANVIL`, never `TESTNET`.
 
-## Mandate
+### Wallet signing
 
-| Event | Tx hash | Block | Notes (mandate id, owner signer) |
-|---|---|---|---|
-| SIMULATED mandate installed in demo fixture | none | 100 (mock) | mandate #1, preloaded; no owner signature event on a chain |
-| SIMULATED EIP-712 signature path exercised | none | 100 (mock) | API test `confirm fails closed with clarifications, then signs and installs a simulated mandate`; server-side demo signer, no broadcast |
-| `TODO(Dev A)` real `MandateSet` event | `TODO(Dev A)` | `TODO(Dev A)` | requires A-07 deployment + owner signature |
+The server-side owner key path is exercised by the anvil E2E. The browser-wallet path is implemented
+as prepare → `eth_signTypedData_v4` → relay, with server-side recovery against the deployment owner;
+it is covered by unit/API tests (`apps/agent/test/runtime.test.ts`,
+`apps/agent/test/api.test.ts`). A MetaMask extension run has not been recorded.
 
-## Scenario runs
+## 2. Public-testnet deployment (NOT RUN)
 
-All scenarios use the deterministic `ScriptedLlm` and `MockChainPort`; each was run once on
-2026-10-20. Results are from `apps/agent/test/orchestrator.test.ts` (12 tests) and the named tests
-below. "Result" is the asserted outcome, not a claim about a public chain.
+There is **no public-testnet deployment** in this repository and therefore **no explorer-resolvable
+transaction hash**. Public-testnet broadcast is blocked on:
+
+- a funded testnet deployer/owner account and a public RPC configured in `.env`;
+- a Foundry keystore or hardware signer (the deploy wrapper refuses `--private-key`);
+- an explicit human-present go-ahead.
+
+The guarded path is prepared:
+
+```bash
+# .env: CHAIN_ID=<testnet>, RPC_URL=<public RPC>, EXPLORER_BASE_URL=<explorer>,
+#       OWNER_ADDRESS=<owner EOA>, EXECUTOR_ADDRESS=<executor EOA>
+bash scripts/deploy-testnet.sh
+bash scripts/start-testnet.sh testnet
+```
+
+`deploy-testnet.sh` refuses mainnet chain ids and local chain ids, refuses `--private-key`, requires
+`SENDER` (a funded EOA), a Foundry account/hardware signer in `EXTRA_FORGE_ARGS`, owner ≠ executor,
+and EOAs for both roles. The agent refuses mainnet ids, verifies the RPC chain id, and checks that
+every deployment address has code before serving.
+
+## 3. Simulated scenario evidence (SIMULATED)
+
+All scenarios in this section use the deterministic `ScriptedLlm` and `MockChainPort`; each was run
+on 2026-10-20. Results are from `apps/agent/test/orchestrator.test.ts` and the named tests. “Result”
+is the asserted outcome, not a claim about a public chain.
 
 | Scenario | Step | Action / result | Tx hash | Explorer link | Real/Simulated |
 |---|---|---|---|---|---|
@@ -56,11 +86,11 @@ below. "Result" is the asserted outcome, not a claim about a public chain.
 | S5 | 1 | stale oracle; `StalePrice` blocks execution; zero transactions; halt recorded | none | none | SIMULATED |
 | S7 / T15 | 1 | config D direct SWAP rejected: `ActionNotAllowed`; SWAP-allowed-but-locked variant: `AssetLocked`; permissive config C mines (ablation) | none | none | SIMULATED |
 | S9 | 1–2 | kill switch after action 1; no action after pause; report remainder | none | none | SIMULATED |
-| T07 | — | on-chain target-revert atomicity **not run**: contracts/effects/#16 are merged (PR #1), but the testnet deploy (A-10) and `ViemChainPort` (B-08) are not available; SIMULATED S4 covers the wiring | none | none | not run |
+| T07 | — | contract-level target-revert atomicity passes in Foundry; local-anvil E2E mines two successful actions. No injected target failure was run on a public testnet | anvil hashes above are successful actions only | none | local ANVIL / public NOT RUN |
 | T08/T12 | — | end-to-end injected note vs control plan **not run**; only sanitizer/tripwire unit tests | none | none | not run |
 
-Part 2 (B-12, D-034) additionally ran 28 SIMULATED runs (configs A–D × S1–S5, S7/T15, S9) on
-`MockChainPort` with `ScriptedLlm`; results:
+Part 2 (B-12, D-034) ran 28 SIMULATED runs (configs A–D × S1–S5, S7/T15, S9) on `MockChainPort` with
+`ScriptedLlm`; results:
 [`eval/results/2026-10-20T14-11-32-655Z/summary.md`](../../eval/results/2026-10-20T14-11-32-655Z/summary.md).
 Config D: 0 hard-constraint violations, 7/7 acceptance passes. The 12 recorded violations all sit in
 the deliberately weak A/C configs. These are model metrics, not on-chain tx hashes.
@@ -69,7 +99,7 @@ For the forbidden-SWAP row the expected and observed error names are exactly `Ac
 (action bit off) and `AssetLocked` (token locked), asserted in
 `S7/T15 config D rejects direct SWAP; permissive C wiring mines (SIMULATED ablation)`.
 
-## Screenshots / recordings
+## 4. Screenshots / recordings
 
 Captured from the served SIMULATED demo on 2026-10-20 (`docs/submission/screenshots/`):
 
@@ -77,16 +107,17 @@ Captured from the served SIMULATED demo on 2026-10-20 (`docs/submission/screensh
 |---|---|
 | `console-desktop-1440.png` | Completed rescue run: plan with two REPAY actions, HF 0.943 → 1.005 and 1.051 → 1.117, cumulative spend $250.16 of $260 (96.21%), two SIMULATED ledger entries marked MINED |
 | `console-mobile-390.png` | The same console at 390px: no horizontal overflow, all three regions stacked |
-| `console-halt-budget-exhausted.png` | A second run after the first: `HALTED_NEEDS_OWNER — Budget insufficient: $113.43 needed, $9.84 available`, plan with 0 actions, no new ledger entry (the cumulative cap is not reset between runs) |
+| `console-halt-budget-exhausted.png` | A second run after the first: `HALTED_NEEDS_OWNER — Budget insufficient: $113.43 needed, $9.84 available`, plan with 0 actions, no new ledger entry |
 | `console-halt-stale-oracle.png` | Fresh state with a stale oracle price: `HALTED_NEEDS_OWNER — STALE_OR_CONFLICTING_DATA: simulation rejected: StalePrice`, no transaction sent |
 
-`TODO(human)`: the optional ≤5-minute demo video and final public-URL screenshots are not attached
+`TODO(human)`: the optional ≤5-minute demo video and the public-testnet screenshots are not attached
 yet.
 
-## What must change before this can be called real
+## 5. What is still missing
 
-1. A-07 deployment artifacts and a funded testnet deployer/executor.
-2. B-08 `ViemChainPort` with simulate-before-submit and unknown-hash reconciliation.
-3. A-09 anvil scenario runner and the real-hash evidence script.
-4. Re-run the same scenarios with REAL labels; every row keeps either an explorer-resolvable hash or
-   an explicit "not run". Do not reuse the simulated rows as real evidence.
+1. A funded public-testnet deployer/owner and RPC; run `scripts/deploy-testnet.sh` with the human
+   present.
+2. Re-run S1/S2/S7 (and the kill switch) against that deployment with `scripts/start-testnet.sh`,
+   then replace the “NOT RUN” row above with explorer-resolvable hashes.
+3. Keep the labels honest: `ANVIL` for the local run, `TESTNET` only after the public broadcast.
+4. Do not reuse the SIMULATED rows as public-testnet evidence.

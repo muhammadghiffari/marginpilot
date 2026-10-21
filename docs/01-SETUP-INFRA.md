@@ -48,7 +48,7 @@ Dev B boleh menunda Foundry; Dev A wajib.
    ```
    Jangan pakai key mainnet/MetaMask utama. `cast wallet *` sengaja di-deny untuk agent: hanya manusia.
 3. **Owner nyata (opsional P1):** akun MetaMask khusus testnet untuk demo wallet-mode; salin alamat publik ke `OWNER_ADDRESS`.
-4. **RPC:** daftar Alchemy/Infura (gratis) atau pakai RPC publik; isi `RPC_URL` dan `RPC_URL_FALLBACK` (dua penyedia berbeda). `EXPLORER_BASE_URL=https://sepolia.etherscan.io`. API key explorer (opsional, untuk verifikasi source) → `ETHERSCAN_API_KEY`.
+4. **RPC:** daftar Alchemy/Infura (gratis) atau pakai RPC publik; isi `RPC_URL` (satu RPC; fallback belum diimplementasikan). `EXPLORER_BASE_URL=https://sepolia.etherscan.io`. API key explorer (opsional, untuk verifikasi source) → `ETHERSCAN_API_KEY`.
 5. **LLM:** pilih provider/model (D-006). Buat API key **khusus proyek**, pasang **batas pemakaian/budget** di dashboard provider. Isi `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_MODEL`.
 6. `cp .env.example .env` di **masing-masing mesin** dan isi. `.env` tidak boleh di-commit (sudah di `.gitignore`). Bagikan key lewat password manager, bukan chat publik.
 7. Jalankan `scripts/preflight.sh` (tambah `--chain` untuk ping RPC). Harus `PREFLIGHT OK`. Untuk dev lokal awal pakai `CHAIN_ID=31337`, `RPC_URL=http://127.0.0.1:8545` dan key default anvil (publik; hanya lokal!).

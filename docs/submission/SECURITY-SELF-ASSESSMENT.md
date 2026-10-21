@@ -1,7 +1,8 @@
 # Security Self-Assessment — MarginPilot
 
-Commit: `ee8c840` (code + evaluation docs; later commits may add documents only) · Run date: 2026-10-20 · Chain: **SIMULATED (`MockChainPort`)**; no public
-testnet deployment at this commit (TODO(human)/TODO(Dev A): A-10 deploy, A-13 URL; A-09 cut, D-034).
+Date: 2026-10-21 · Chain: **SIMULATED by default**; a local-anvil real-EVM end-to-end run is
+recorded in `evidence/anvil-e2e-20261021T060254Z.json`. There is **no public-testnet deployment
+yet** (A-10/A-13 are human-run; D-034 cut only the anvil evaluation runner, not the chain adapter).
 
 Wording rule followed: no violations were found in the reported scenarios; this is **not** a claim
 that the system is secure. Contracts are unaudited and must not hold real funds.
@@ -57,10 +58,11 @@ owner may unpause.
 
 `tests_total=272 passed=272 scenarios=7 runs_per_scenario=1 any_failed=none`
 
-Breakdown: 128 Foundry, 89 core, 42 agent, 5 web, 8 eval (all run 2026-10-20; `scripts/verify-all.sh`
+Breakdown: 128 Foundry, 89 core, 74 agent, 5 web, 8 eval (all run 2026-10-21; `scripts/verify-all.sh`
 GREEN). The seven scenarios are S1–S5, S7, S9, each run once with `ScriptedLlm` on
-`MockChainPort`; the Part 2 ablation adds 28 SIMULATED runs (A–D × S1–S5/S7/S9/T15). This is **not**
-a repeated-run (pass^k) study and not on-chain evidence.
+`MockChainPort`; the Part 2 ablation adds 28 SIMULATED runs (A–D × S1–S5/S7/S9/T15). The separate
+local-anvil E2E installs a mandate and mines two rescue actions on chain 31338. This is **not** a
+repeated-run (pass^k) study and not public-testnet evidence.
 
 | ID | Status | Layer | Evidence / gap |
 |---|---|---|---|
@@ -71,7 +73,7 @@ a repeated-run (pass^k) study and not on-chain evidence.
 | T05 | pass | C, T | `Check11_Stale*`; agent `S5` zero transactions, halt recorded |
 | T05b | pass | C, T | `Check12_DeviationExceeded`; agent `S3` replans after price move |
 | T06 | pass | C | `Check15_SlippageExceeded`, `test_Swap_RevertsOneUnitAboveSlippage` |
-| T07 | **partial** | C, T | Off-chain half: agent `S4` simulate fails, no tx, ledger 0 spend, halt. On-chain target-revert atomicity is blocked on A-04.4 effects/check #16 (branch `dec5aae`, not merged) |
+| T07 | **partial** | C, T | Contract tests for target-revert atomicity pass (effects/check #16 merged); local-anvil E2E mines two successful actions. No injected target failure on a public testnet |
 | T08 | **partial** | T | Sanitizer/tripwire and m09 unit tests; no end-to-end injected-note run |
 | T09 | pass | C | `SetMandateWithSig_*` replay/wrong signer/expired; EIP-712 digest tests |
 | T09b | pass | C | `Check04_WrongMandateId`, `Check04_WrongNonce` |
@@ -83,10 +85,11 @@ a repeated-run (pass^k) study and not on-chain evidence.
 | T15 | pass (SIMULATED) | T | `S7/T15 config D rejects direct SWAP; permissive C wiring mines` on `MockChainPort` |
 | T16 | pass | C | `Pause_Executor` succeeds, `Unpause_OwnerOnly` reverts for executor |
 | T17 | pass | T | 7 audit/redaction tests; secret-shaped prompt test reports pattern ids only |
-| T18 | pass | T | API burst test returns 429; demo endpoints hidden when `DEMO_MODE=false` |
+| T18 | pass | T | API burst test returns 429; demo endpoints hidden unless demo controls are enabled |
 
-Not represented as passing: mainnet/testnet evidence, on-chain post-conditions, repeated-run
-consistency, injected-note plan comparison, indexer disagreement, wallet signing.
+Not represented as passing: public-testnet evidence, repeated-run consistency, injected-note plan
+comparison, indexer disagreement, browser-extension wallet E2E (the signing protocol is unit/API
+tested).
 
 ## 5. Failures found and fixed
 
@@ -109,7 +112,7 @@ consistency, injected-note plan comparison, indexer disagreement, wallet signing
 | R1 | Contracts unaudited, written in a day | funds loss on mainnet use | testnet only; Foundry tests + fuzz; adversarial suite | no formal verification, no external audit — **do not use with real funds** |
 | R2 | Simulated lending market and admin-set oracle | results don't transfer to real protocols | self-deployed sim documented as a simulation; loss model mirrors sim | real protocol interest, partial liquidations, oracle lag, MEV not modeled |
 | R3 | Executor is a hot key on a server | key leak lets attacker act within mandate | gate limits damage to the mandate; pause/revoke; funds withdrawable by owner | attacker can still spend up to the remaining budget on allowed actions |
-| R4 | Demo-owner key lives on the server | server compromise lets attacker set mandates | testnet only; labelled; wallet mode planned (B-15) | not suitable for production custody |
+| R4 | Demo-owner key lives on the server | server compromise lets attacker set mandates | testnet only; labelled; browser-wallet signing path implemented and signature-verified server-side (unit/API tests; no extension E2E) | not suitable for production custody |
 | R5 | Gas not counted in on-chain budget | spend slightly above stated budget in total cost | tracked off-chain per run and reported separately | no on-chain gas accounting |
 | R6 | USD valuation depends on oracle | wrong/stale price mis-sizes limits | freshness and deviation checks; fail closed | oracle compromise out of scope |
 | R7 | LLM variance and third-party dependency | inconsistent plan text/choices; provider downtime | numbers from code, gate independent, `ScriptedLlm` for tests, primary→fallback client (D-036) | live client is mock-tested only, never called live in this run; no pass^k study |
@@ -121,8 +124,8 @@ consistency, injected-note plan comparison, indexer disagreement, wallet signing
 
 ## 7. Not covered
 
-- Public-testnet deployment, explorer-resolvable hashes, wallet-mode signing (A-07/B-08/B-15).
-- `execute` effects and post-condition check #16 at the evaluated commit (A-04.4 branch only).
+- Public-testnet deployment and explorer-resolvable hashes. The local-anvil E2E covers the real-EVM
+  code path, and browser-wallet signing is unit/API tested, but neither is a public-testnet run.
 - Real protocol integration, mainnet, multi-chain, ERC-1271, on-chain gas accounting.
-- T12, T13, T14 and the end-to-end half of T07/T08; no k=5 repeated-run study.
+- T12, T13, T14 and the public-testnet half of T07/T08; no k=5 repeated-run study.
 - External audit, formal verification, load/DoS testing beyond a single 429 burst.
