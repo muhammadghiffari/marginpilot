@@ -1,6 +1,6 @@
 # STATUS (update at the end of every task; agents load this each session)
 
-Last updated: 2026-10-21 by integration. A-10 (`a/A-10-testnet`, `6505654`) is merged into main; local `a/A-05-adversarial` is reset to `origin/a/A-05-adversarial` (`ccc2b63`) and merged with main. The T09 wrong-domain Foundry case and the ViemChainPort/e2e work are in progress.
+Last updated: 2026-10-21 by integration. A-10 (`a/A-10-testnet`, `6505654`) is merged into main; local `a/A-05-adversarial` is reset to `origin/a/A-05-adversarial` (`ccc2b63`), merged with main, and extended with the T09 wrong-domain case. Step 1 gate is green: **145 Forge + 89 core + 42 agent + 5 web + 8 eval = 289 tests**; the ViemChainPort/e2e work is next.
 - **A-04 PR #1 merged** (`7039146` + `b01a970`): checks #1–#16, effects, `liquidReserveUsd8`, `ActionExecuted`, SWAP role probe at #9b (D-032), reserve token in the #11 price set (D-031), missing price → `StalePrice`; 125 Forge tests (`b01a970`).
 - **A-07 PR #2 merged** (`c7000f0`, branch `a/A-07-deploy`): fresh anvil + `scripts/deploy.sh` → `deployments/31337.json` (vault `0x0165...`, block 7), `eval/fixtures/base.json` (fresh `updatedAt` per price incl. mUSDC, `blockTimestamp`, `timestampUnit: "seconds"`, reserve + lockedToken, both positions, post-shock prices), 5 ABIs in `packages/core/src/abi/`; `forge test` = 128 passed (3 new `seedPosition` tests).
 - **A-10 merged** (`6505654`, PR #3): `scripts/testnet-evidence.sh`, `evidence/testnet-31337.json` / `TESTNET-EVIDENCE.md` (15 txs, H1 success + R1–R6 expected reverts), keystore mode via `OWNER_ACCOUNT`/`EXECUTOR_ACCOUNT` on chain 31337, and chain-specific testnet fixtures. Public-testnet run still pending funded keystores/RPC/human.
@@ -27,7 +27,7 @@ Last updated: 2026-10-21 by integration. A-10 (`a/A-10-testnet`, `6505654`) is m
 | A-02 | Dev A | P0 | done | f1d41c1 | LendingSim; HF 0.942857/1.051429, 11 tests |
 | A-03 | Dev A | P0 | done | a7893aa | MockSwap; 30 bps fee, slippage, setBroken, 5 tests |
 | A-04 | Dev A | P0 | done | #1 `7039146` + `b01a970` | Auth/pause/withdraw; EIP-712 mandate; checks #1–#16; effects + `ActionExecuted`; D-030/D-031/D-032 role + reserve-price parity; 125 Forge tests |
-| A-05 | Dev A | P0 | doing | `a/A-05-adversarial` | Adversarial T01–T16 suite; T09 wrong-vault/wrong-chain `BadSignature` case being added; merge with main in progress |
+| A-05 | Dev A | P0 | done | `a/A-05-adversarial` `2dd2611` | Adversarial T01–T16 suite; T09c rejects signatures bound to another vault or chainId with `BadSignature`; 145 Forge tests; merged with main |
 | A-06 | Dev A | P0 | todo | | |
 | A-07 | Dev A | P0 | done | #2 `c7000f0` | `Deploy.s.sol` + `scripts/deploy.sh`; `deployments/31337.json`, `eval/fixtures/base.json`, 5 ABIs; fresh-anvil evidence; 128 Forge tests |
 | A-08 | Dev A | P0 | todo | | |
