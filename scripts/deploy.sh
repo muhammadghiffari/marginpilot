@@ -6,6 +6,26 @@ set -eu
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 RPC_URL="${RPC_URL:-http://127.0.0.1:8545}"
 EXTRA_FORGE_ARGS="${EXTRA_FORGE_ARGS:-}"
+FIXTURE="$ROOT/eval/fixtures/base.json"
+FIXTURE_SNAPSHOT=""
+CHAIN_ID=""
+cleanup() {
+  if [ -n "$FIXTURE_SNAPSHOT" ]; then
+    # Restore the committed 31337 fixture on any exit, including a failed
+    # non-local deploy that wrote part-way through. A 31337 deploy updates it.
+    if [ "${CHAIN_ID:-}" != "31337" ]; then
+      cp "$FIXTURE_SNAPSHOT" "$FIXTURE" 2>/dev/null || true
+    fi
+    rm -f "$FIXTURE_SNAPSHOT"
+  fi
+}
+trap cleanup EXIT
+# The committed fixture describes the canonical local chain (31337). A testnet
+# or throwaway-chain deploy must not overwrite it with different addresses.
+if [ -f "$FIXTURE" ]; then
+  FIXTURE_SNAPSHOT="$(mktemp)"
+  cp "$FIXTURE" "$FIXTURE_SNAPSHOT"
+fi
 
 fail() { echo "deploy: $*" >&2; exit 1; }
 command -v forge >/dev/null || fail "forge not found"
@@ -35,8 +55,12 @@ forge script script/Deploy.s.sol:Deploy \
   $EXTRA_FORGE_ARGS \
   --broadcast -vv
 
+# Keep eval/fixtures/base.json pinned to the committed local deployment.
+if [ "$CHAIN_ID" != "31337" ] && [ -n "$FIXTURE_SNAPSHOT" ]; then
+  cp "$FIXTURE_SNAPSHOT" "$FIXTURE"
+fi
+
 DEPLOYMENT="$ROOT/deployments/$CHAIN_ID.json"
-FIXTURE="$ROOT/eval/fixtures/base.json"
 BROADCAST="$ROOT/contracts/broadcast/Deploy.s.sol/$CHAIN_ID/run-latest.json"
 [ -s "$DEPLOYMENT" ] || fail "missing $DEPLOYMENT"
 [ -s "$FIXTURE" ] || fail "missing $FIXTURE"

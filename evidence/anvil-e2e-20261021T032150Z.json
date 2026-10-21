@@ -1,0 +1,59 @@
+{
+  "chainId": 31338,
+  "market": "SIMULATED lending protocol on local anvil",
+  "runId": "run-mvhjpwyw-1",
+  "mandateTx": "0x47183ef39ed5c52d7ccc997e9f1112188541dc2a7b0fa85928ca5f234bd2e6b5",
+  "vault": "0x0165878A594ca255338adfa4d48449f69242Eb8F",
+  "owner": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "executor": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+  "recordedAt": "2026-10-21T03:21:50Z",
+  "ledger": [
+    {
+      "runId": "run-mvhjpwyw-1",
+      "actionIndex": 0,
+      "txHash": "0x50e91384380aba85ac3765108be378d4ab20f7260d3040826cea75d4c6075faf",
+      "mandateId": "1",
+      "spendUsd8": "8657000000",
+      "gasWei": "178587379289242",
+      "gasUsd8": null,
+      "status": "mined",
+      "ts": 1792552909
+    },
+    {
+      "runId": "run-mvhjpwyw-1",
+      "actionIndex": 1,
+      "txHash": "0x69df626c3708d81521b60a4a4706d1d14dbf788aef6f4a511ea106b850a7cba2",
+      "mandateId": "1",
+      "spendUsd8": "16359000000",
+      "gasWei": "160128072358752",
+      "gasUsd8": null,
+      "status": "mined",
+      "ts": 1792552910
+    }
+  ],
+  "healthFactors": [
+    {
+      "poolId": 0,
+      "collateralToken": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+      "debtToken": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      "collateral": "1000000000000000000",
+      "debt": "1313430000",
+      "healthFactor": "1005002169891048628",
+      "ltBps": 8250,
+      "liqBonusBps": 500,
+      "closeFactorBps": 5000
+    },
+    {
+      "poolId": 1,
+      "collateralToken": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+      "debtToken": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      "collateral": "2000000000000000000",
+      "debt": "2636410000",
+      "healthFactor": "1116670017182456446",
+      "ltBps": 8000,
+      "liqBonusBps": 700,
+      "closeFactorBps": 5000
+    }
+  ],
+  "mode": "ANVIL"
+}
