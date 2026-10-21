@@ -109,23 +109,46 @@ const AuditSchema = z.object({ runId: z.string(), entries: z.array(AuditEntrySch
 const DemoResponseSchema = z.object({ simulated: z.boolean() }).passthrough();
 
 export class ApiRequestError extends Error {
-  constructor(readonly status: number, readonly code: string) {
-    super(code === 'DemoSignerNotConfigured'
-      ? 'Owner signing is not configured on the server. Ask the operator for the owner key or use the simulated demo.'
-      : code === 'ClarificationsRequired'
-        ? 'Answer the open questions before signing a mandate.'
-        : code === 'InvalidOwnerSignature' || code === 'OwnerSignerMismatch'
-          ? 'This wallet is not the deployment owner, or the signature does not match. Switch accounts and retry.'
-          : code === 'WalletPreparationRequired' || code === 'MandateIdChanged'
-            ? 'The mandate changed while you were signing. Draft and sign again.'
-            : code === 'ChainTransactionFailed'
-              ? 'The chain transaction was broadcast but not confirmed. Check the explorer before retrying.'
-              : status === 429
-                ? 'Too many requests. Wait a moment and retry.'
-                : status >= 500
-                  ? 'The service is unavailable. Your draft is saved here; retry shortly.'
-                  : `The request could not be completed (${code}).`);
+  constructor(
+    readonly status: number,
+    readonly code: string,
+    readonly details: Record<string, unknown> = {},
+  ) {
+    super(
+      code === 'DemoSignerNotConfigured'
+        ? 'Owner signing is not configured on the server. Ask the operator for the owner key or use the simulated demo.'
+        : code === 'ClarificationsRequired'
+          ? 'Answer the open questions before signing a mandate.'
+          : code === 'InvalidOwnerSignature' || code === 'OwnerSignerMismatch'
+            ? signatureMismatchMessage(details)
+            : code === 'WalletPreparationRequired' || code === 'MandateIdChanged'
+              ? 'The mandate changed while you were signing. Draft and sign again.'
+              : code === 'ChainTransactionFailed'
+                ? 'The chain transaction was broadcast but not confirmed. Check the explorer before retrying.'
+                : status === 429
+                  ? 'Too many requests. Wait a moment and retry.'
+                  : status >= 500
+                    ? 'The service is unavailable. Your draft is saved here; retry shortly.'
+                    : `The request could not be completed (${code}).`,
+    );
   }
+}
+
+function isAddress(value: unknown): value is string {
+  return typeof value === 'string' && /^0x[0-9a-fA-F]{40}$/.test(value);
+}
+
+/** Say which account signed and which one owns the vault, so a wrong wallet is obvious. */
+function signatureMismatchMessage(details: Record<string, unknown>): string {
+  const recovered = isAddress(details.recovered) ? details.recovered : null;
+  const expected = isAddress(details.expected) ? details.expected : null;
+  if (recovered && expected) {
+    return `Signed by ${recovered}, but the deployment owner is ${expected}. Select the owner account in your wallet and sign again.`;
+  }
+  if (recovered) {
+    return `Signed by ${recovered}, which is not the deployment owner. Select the owner account in your wallet and sign again.`;
+  }
+  return 'This wallet is not the deployment owner, or the signature does not match. Switch accounts and retry.';
 }
 
 async function request<T>(url: string, schema: { parse(input: unknown): unknown }, init?: RequestInit): Promise<T> {
@@ -135,8 +158,9 @@ async function request<T>(url: string, schema: { parse(input: unknown): unknown 
   });
   const body: unknown = await response.json();
   if (!response.ok) {
-    const error = z.object({ error: z.string() }).safeParse(body);
-    throw new ApiRequestError(response.status, error.success ? error.data.error : 'Unknown');
+    const error = z.object({ error: z.string() }).passthrough().safeParse(body);
+    const details = error.success ? (error.data as Record<string, unknown>) : {};
+    throw new ApiRequestError(response.status, error.success ? error.data.error : 'Unknown', details);
   }
   return schema.parse(body) as T;
 }

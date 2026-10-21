@@ -206,7 +206,12 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
       return sendJson(reply, 503, { error: 'OwnerSignerMismatch' });
     }
     if (error instanceof InvalidOwnerSignatureError) {
-      return sendJson(reply, 400, { error: 'InvalidOwnerSignature' });
+      const signatureError: InvalidOwnerSignatureError = error;
+      return sendJson(reply, 400, {
+        error: 'InvalidOwnerSignature',
+        ...(signatureError.recovered ? { recovered: signatureError.recovered } : {}),
+        ...(signatureError.expected ? { expected: signatureError.expected } : {}),
+      });
     }
     if (error instanceof MandateDraftMismatchError) {
       return sendJson(reply, 400, { error: 'MandateDraftMismatch' });

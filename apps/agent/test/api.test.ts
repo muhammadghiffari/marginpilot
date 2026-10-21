@@ -335,6 +335,14 @@ describe('API contract (SIMULATED demo runtime)', () => {
     });
     expect(rejected.statusCode).toBe(400);
     expect(rejected.json()).toMatchObject({ error: 'InvalidOwnerSignature' });
+    // The response names who actually signed, so a wallet that signed with the
+    // wrong account is diagnosable instead of guessable.
+    const wrongSigner = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
+    expect(rejected.json()).toMatchObject({
+      error: 'InvalidOwnerSignature',
+      recovered: wrongSigner,
+      expected: ANVIL_OWNER,
+    });
 
     const signature = await privateKeyToAccount(ANVIL_KEY).signTypedData(prepared.typedData);
     const confirmed = await app.inject({

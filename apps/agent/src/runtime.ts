@@ -109,7 +109,7 @@ export class OwnerSignerMismatchError extends Error {
 }
 
 export class InvalidOwnerSignatureError extends Error {
-  constructor() {
+  constructor(readonly recovered?: Address, readonly expected?: Address) {
     super('The browser-wallet signature does not recover to the deployment owner');
     this.name = 'InvalidOwnerSignatureError';
   }
@@ -278,7 +278,11 @@ export class AgentRuntime {
         ...this.typedData(mandate, deadline),
         signature,
       });
-      if (recovered.toLowerCase() !== owner.toLowerCase()) throw new InvalidOwnerSignatureError();
+      if (recovered.toLowerCase() !== owner.toLowerCase()) {
+        // Report who actually signed: a wallet that signs with a different
+        // account is the usual cause and the operator has to see it.
+        throw new InvalidOwnerSignatureError(recovered, owner);
+      }
     }
     return this.install(mandate, deadline, signature);
   }

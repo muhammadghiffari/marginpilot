@@ -47,10 +47,19 @@ explorer. The UI badge for this mode is `ANVIL`, never `TESTNET`.
 
 ### Wallet signing
 
-The server-side owner key path is exercised by the anvil E2E. The browser-wallet path is implemented
-as prepare → `eth_signTypedData_v4` → relay, with server-side recovery against the deployment owner;
-it is covered by unit/API tests (`apps/agent/test/runtime.test.ts`,
-`apps/agent/test/api.test.ts`). A MetaMask extension run has not been recorded.
+The server-side owner key path is exercised by the anvil E2E and by the Sepolia runs. The
+browser-wallet path (prepare → `eth_signTypedData_v4` → relay, with server-side recovery against
+the deployment owner) is implemented and covered by unit/API tests
+(`apps/agent/test/runtime.test.ts`, `apps/agent/test/api.test.ts`) and was exercised **in a real
+browser** against the Sepolia deployment with a stub EIP-1193 signer: mandate **#7** was signed
+through the page and mined ([0xe8946541ad85df68a638f62f56916e629e8b73bb50413c7595e15447d84b3961](https://sepolia.etherscan.io/tx/0xe8946541ad85df68a638f62f56916e629e8b73bb50413c7595e15447d84b3961)),
+which proves the page's prepare → sign → relay plumbing.
+
+A **real MetaMask extension** run is still not recorded. One attempt in this environment was
+rejected with `InvalidOwnerSignature` — the signature did not recover to the deployment owner. The
+server now answers with the address that actually signed, so the console shows
+“Signed by 0x…, but the deployment owner is 0x…”, and the most likely cause (the wallet signing
+with a different account than the one the page requested) is visible instead of guessable.
 
 ## 2. Ethereum Sepolia runs (TESTNET; simulator market)
 
