@@ -14,16 +14,30 @@ using an ignored temporary override file (without duplicating keys).
   Evidence: `evidence/anvil-e2e-20261021T060254Z.json` (mandate
   `0x62dcec…0b8ad`, actions `0x85136a…d8366` and `0x82088d…f5225`). This is REAL EVM on anvil,
   **not public testnet**; the UI labels it `ANVIL`.
-- **Current gate:** `scripts/verify-all.sh` GREEN = 128 Forge + 89 core + 76 agent + 5 web + 8 eval =
-  **306 tests**; `check-secrets: clean`; workspace typechecks green (2026-10-21).
-- **Public Sepolia S1-like proof:** vault `0x2014c1F2f3175f46f9b2158fe68510Dc3F05fFA1`,
-  owner-signed mandate tx `0xa01bc7…22e1d`, two REPAY action receipts `0x72abb3…e640c2` and
-  `0xe43f22…ca103a`, `spentUsd(1) = $250.16 / $260`, pool HFs `0.942857… → 1.005002…` and
-  `1.051428… → 1.116670…`. The first run stopped action 2 at the two-block plan-age limit;
-  a second run replanned and mined it. **Both run reports say COMPLETED_PARTIAL** because pool 0
-  does not reach the planner's stricter stress target. Verified receipt summaries, deployment and
-  both run reports: `evidence/sepolia-e2e-20261021.json`. Read-only
-  `scripts/verify-sepolia-bytecode.sh` matched all seven on-chain creation inputs to pinned source.
+- **Current gate:** `scripts/verify-all.sh` GREEN = 128 Forge + 89 core + 79 agent + 6 web + 8 eval =
+  **310 tests**; `check-secrets: clean`; workspace typechecks green (2026-10-21).
+- **Public Sepolia run driven from the browser (primary proof):** vault
+  `0xd7FC116f1acaE8cE017114aD7E41F132a998743C` on chain `11155111`. A Playwright session against
+  the served console shocked the market with the owner controls, drafted and signed mandate #2
+  (tx `0x0a8673…6e39`) and ran the rescue: **run `run-mvi45nsz-2` = `COMPLETED`**, two mined
+  REPAY actions `0xbf947b…fe19` ($86.57) and `0xef8876…bcab` ($163.59),
+  `spentUsd(2) = $250.16 / $260`, pool HFs `0.942857… → 1.005002…` and `1.051428… → 1.116670…`,
+  audit chain verified. 27 receipts re-read from a second public RPC:
+  `evidence/sepolia-ui-e2e-20261021.json`. Screenshots:
+  `docs/submission/screenshots/testnet-sepolia-{desktop,mobile}.png`.
+- **UI now links the explorer:** the `TESTNET` badge opens the vault, a **Deployment** card links
+  all seven contracts, the owner-signed mandate transaction is linked, and every mined action links
+  to Etherscan (`apps/web/src/app.tsx`).
+- **Agent now completes a rescue in one run on a slow chain:** a plan that ages past
+  `MAX_PLAN_AGE_BLOCKS` is **replanned** (fresh observe → fresh plan → continue) instead of ending
+  the run; the stale action is never broadcast. Covered by
+  `apps/agent/test/run-session.test.ts` (a chain that advances four blocks per mined action).
+- **First Sepolia deployment (API-driven):** vault `0x2014c1F2f3175f46f9b2158fe68510Dc3F05fFA1`,
+  mandate tx `0xa01bc7…22e1d`, REPAY receipts `0x72abb3…e640c2` and `0xe43f22…ca103a`, both runs
+  `COMPLETED_PARTIAL` (the run stopped at the plan-age limit before the replan fix). Verified
+  receipts: `evidence/sepolia-e2e-20261021.json`; the archived record is
+  `deployments/11155111-run1.json`. Read-only `scripts/verify-sepolia-bytecode.sh` matched all
+  seven on-chain creation inputs to pinned source.
 - **Sepolia deployment caveat:** Forge's gas estimates produced failed creation transactions;
   successful contracts were deployed with explicit per-tx `cast` gas limits and an optimized
   via-IR vault. `scripts/deploy-testnet.sh` now **refuses Sepolia before broadcast** rather than
@@ -37,8 +51,8 @@ using an ignored temporary override file (without duplicating keys).
 - [ ] M0 Setup done (both machines pass `scripts/preflight.sh`; repo pushed; keys funded) — Owner; push still blocked
 - [x] M1 Foundations: contracts compile + core types/optimizer tests green; `MockChainPort` ready
 - [x] M2 End-to-end on anvil: S1 + S7 automated, agent drives vault via `ViemChainPort` (2026-10-21)
-- [ ] M3 Testnet: Sepolia deployed and two REPAYs proven; S2/S7 (+S3/S4) and reproducible guarded deploy remain
-- [ ] M4 Eval + docs: `pnpm eval:run` results, security self-assessment, tech doc filled — eval done; public-testnet evidence pending
+- [ ] M3 Testnet: Sepolia deployed and a **browser-driven rescue completed** (run `run-mvi45nsz-2`, `COMPLETED`, two mined REPAYs); S2/S7 (+S3/S4) and a reproducible guarded deploy remain
+- [ ] M4 Eval + docs: `pnpm eval:run` results, security self-assessment, tech doc filled — eval done; public-testnet evidence recorded in `evidence/sepolia-ui-e2e-20261021.json`
 - [ ] M5 Public URL live, final verification, submitted
 
 ## Task board (ids and deliverables in tasks/*.md; states: todo / doing / blocked / done)
@@ -54,6 +68,7 @@ using an ignored temporary override file (without duplicating keys).
 | A-08 | Dev A | P0 | todo | | |
 | A-09 | Dev A | P0 | cut | D-034 | anvil runner + liquidator bot cut to protect the deadline; Part 2 runs SIMULATED on `MockChainPort` |
 | A-10 | Dev A | P0 | doing | local evidence | Sepolia vault + two REPAY receipts recorded; S2/S7 and reproducible deploy wrapper outstanding |
+| B-18 | Dev B | P0 | doing | local | Browser-driven Sepolia rescue (`COMPLETED`) + explorer links in the console + replan-on-stale-plan fix; docs/commits pending |
 | A-11 | Dev A | P1 | todo | | |
 | A-12 | Dev A | P1 | todo | | |
 | A-13 | Dev A | P0 | todo | | |

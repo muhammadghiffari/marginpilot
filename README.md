@@ -7,8 +7,9 @@ The agent proposes and executes only inside a mandate; the vault enforces the li
 market in this repository is **SIMULATED** (D-002). The agent can run against a **real EVM chain**
 through `ViemChainPort`: local-anvil and public Ethereum Sepolia runs each mined owner-mandated
 rescue actions ([local evidence](evidence/anvil-e2e-20261021T060254Z.json),
-[Sepolia evidence](evidence/sepolia-e2e-20261021.json)). The transactions are real, **not real
-lending-protocol rescues**. Sepolia required two partial runs to rescue both positions; see
+[Sepolia evidence](evidence/sepolia-ui-e2e-20261021.json)). The transactions are real, **not real
+lending-protocol rescues**. The Sepolia run was driven **from the console in a browser** and
+finished `COMPLETED` with both positions rescued; see
 [Execution Evidence](docs/submission/EXECUTION-EVIDENCE.md).
 
 ## What works at this commit
@@ -16,16 +17,16 @@ lending-protocol rescues**. Sepolia required two partial runs to rescue both pos
 | Area | State |
 |---|---|
 | Core policy, loss model, exhaustive planner, audit chain, ledger | Implemented, 89 tests |
-| Deterministic `ScriptedLlm`, mandate compiler, clarification gate, prompt sanitizer | Implemented, agent suite 76 tests |
-| Orchestrator: fixed tools, plan binding, replans on remaining budget, unknown-tx reconciliation, halt/kill switch | Implemented; S1–S5, S7, S9 on `MockChainPort`, plus local-anvil E2E |
-| Fastify API + SSE + zod boundaries + always-on 429 limits + demo signing | Implemented, 9 API tests |
-| Web console (instruction → mandate → plan → live state → ledger) | Implemented, 5 tests; verified at 1440px and 390px |
+| Deterministic `ScriptedLlm`, mandate compiler, clarification gate, prompt sanitizer | Implemented, agent suite 79 tests |
+| Orchestrator: fixed tools, plan binding, replans on remaining budget, replan-on-stale-plan, unknown-tx reconciliation, halt/kill switch | Implemented; S1–S5, S7, S9 on `MockChainPort`, plus local-anvil and Sepolia E2Es |
+| Fastify API + SSE + zod boundaries + always-on 429 limits + demo signing | Implemented, 10 API tests |
+| Web console (instruction → mandate → plan → live state → ledger) with **block-explorer links** | Implemented, 6 tests; verified at 1440px and 390px on Sepolia |
 | Seeded Part 1 evaluation and generated report | Implemented, 500 cases |
 | Part 2 ablation runner (configs A–D × S1–S5/S7/S9/T15) | Implemented on `MockChainPort`, **SIMULATED**; 8 eval tests |
 | `ViemChainPort`: reads, simulate-before-submit, receipts, unknown reconciliation, owner/executor writes | Implemented; real local-anvil and public Sepolia receipts |
 | Owner signing: server owner key and browser-wallet EIP-712 relay | Implemented; unit/API tested (no MetaMask extension run recorded) |
 | OpenAI-compatible LLM client (tools, JSON-schema retry, primary→fallback) | Implemented, mock-HTTP tests only; **no live model call** (D-036) |
-| Public testnet deployment and public URL | Sepolia chain 11155111 deployed with two mined REPAYs; **public URL not live** (A-13), S2/S7 not yet broadcast |
+| Public testnet deployment and public URL | Sepolia chain 11155111 deployed; a **browser-driven rescue completed** (`COMPLETED`, two mined REPAYs, Etherscan links in the UI); **public URL not live** (A-13), S2/S7 not yet broadcast |
 | On-chain `execute` effects and post-condition check #16 | Merged (PR #1 `7039146`, PR #2 `c7000f0`); direct anvil receipts above |
 
 ## Quick start (setup in fewer than ten commands)
@@ -67,14 +68,19 @@ For an interactive UI on anvil, deploy on 31337 (`bash scripts/dev-anvil.sh` in 
 
 ### Ethereum Sepolia (public testnet; simulated lending market)
 
-The vault at [`0x2014c1F2f3175f46f9b2158fe68510Dc3F05fFA1`](https://sepolia.etherscan.io/address/0x2014c1F2f3175f46f9b2158fe68510Dc3F05fFA1)
-on chain `11155111` executed two REPAY transactions under owner-signed mandate #1. Both positions
-ended above HF 1.0; the agent reported `COMPLETED_PARTIAL` because pool 0 did not reach its
-stricter stress target within the $260 mandate. See the [15 verified receipt summaries and both
-run reports](evidence/sepolia-e2e-20261021.json). These are real **Sepolia EVM transactions**
+The live vault is
+[`0xd7FC116f1acaE8cE017114aD7E41F132a998743C`](https://sepolia.etherscan.io/address/0xd7FC116f1acaE8cE017114aD7E41F132a998743C)
+on chain `11155111`. A **browser session against the served console** shocked the market, signed
+mandate #2 and ran the rescue: run `run-mvi45nsz-2` finished **`COMPLETED`** with two mined REPAY
+transactions ([$86.57](https://sepolia.etherscan.io/tx/0xbf947b0ca3a35b3b8c89e846318faf9ef5ca53c7f4e28896f56df55dddd5fe19),
+[$163.59](https://sepolia.etherscan.io/tx/0xef8876ded2846a06c51aec2708e61d1fe1f3d98eb1389071f3beaf97997cbcab))
+and both health factors above 1.0 (`0.943 → 1.005`, `1.051 → 1.117`), spending `$250.16` of the
+`$260` mandate. Evidence: [27 receipts re-read from a second public RPC](evidence/sepolia-ui-e2e-20261021.json)
+and the screenshots in `docs/submission/screenshots/`. These are real **Sepolia EVM transactions**
 against self-deployed simulator contracts, **not real DeFi positions**.
-Run `bash scripts/verify-sepolia-bytecode.sh` for a read-only comparison of the seven public
-creation transactions with bytecode compiled from this repository.
+
+In the console the chain badge links to the vault, a **Deployment** card links all seven contracts,
+the owner-signed mandate transaction is linked, and every mined action links to Etherscan.
 
 To use the existing deployment, supply public Sepolia overrides **after** sourcing your ignored
 `.env` (which holds the testnet-only keys). `scripts/start-testnet.sh` supports `ENV_FILE` pointing
@@ -86,6 +92,14 @@ proxy that configuration to a public URL. Run
 `ENV_FILE=<your-ignored-config> bash scripts/start-testnet.sh testnet`.
 The oracle refresh CLI now selects a configured key matching the oracle's **on-chain admin**;
 the executor cannot refresh this admin-controlled oracle.
+
+`apps/web/test/browser_testnet.py` replays the whole browser flow against a running testnet agent
+(shock → draft → sign → run → check the explorer links, 390 px layout, no page errors):
+
+```bash
+source ~/.local/opencode-venv/bin/activate
+python3 apps/web/test/browser_testnet.py --base-url http://127.0.0.1:8790
+```
 
 **Deployment caveat:** Sepolia's observed gas schedule caused earlier `scripts/deploy-testnet.sh`
 Forge broadcasts to fail; it now refuses Sepolia before any RPC/broadcast. The recorded deployment

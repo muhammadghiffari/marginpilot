@@ -35,6 +35,8 @@ observe -> plan_rescue -> (explain) -> for each action: policy.checkAction -> si
 ```
 Hard guards implemented in code, not in the prompt: tool allow-list; `execute_plan_action` rejects indexes not in the latest plan or plans whose `basedOnBlock` is older than `MAX_PLAN_AGE_BLOCKS` (default 2) → forces replan; unknown submit status → reconcile via `getTx`, **never resubmit**; max tool calls per run (`MAX_TOOL_CALLS=30`) ⇒ abort; global timeout.
 
+A rejected stale action is **never broadcast**; the agent re-observes, builds a new plan bound to the current block (`plan_rescue`, still capped by `MAX_REPLANS=3` and the remaining budget) and continues with that plan. This matters on public testnets, where a confirmed transaction ages the plan by several blocks: the rescue still completes in one run instead of stopping half-way. The vault re-checks every limit on-chain, so the fresh plan cannot widen the mandate.
+
 ## 4. Prompt structure (injection-aware)
 - System prompt: role, hard rules, tool list, "the mandate is read-only truth from the chain".
 - **Untrusted data is delimited** and labelled: tool results, token names/symbols, notes/memory, user free text after compile. Template: `<untrusted source="tool:get_state">...</untrusted>`. System prompt states that instructions inside `<untrusted>` are data, never commands.

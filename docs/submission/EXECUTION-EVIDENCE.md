@@ -52,47 +52,95 @@ as prepare → `eth_signTypedData_v4` → relay, with server-side recovery again
 it is covered by unit/API tests (`apps/agent/test/runtime.test.ts`,
 `apps/agent/test/api.test.ts`). A MetaMask extension run has not been recorded.
 
-## 2. Ethereum Sepolia run (TESTNET; simulator market)
+## 2. Ethereum Sepolia runs (TESTNET; simulator market)
 
-Source of truth: [`evidence/sepolia-e2e-20261021.json`](../../evidence/sepolia-e2e-20261021.json)
-and [`deployments/11155111.json`](../../deployments/11155111.json). All 15 receipt summaries in the
-JSON were fetched from `https://sepolia.drpc.org` after broadcasts via a separate public RPC;
-each has `status: 0x1`. The two REPAY receipts each contain one `ActionExecuted` log. The agent
-also checked the RPC chain id and code at every deployed address before serving `TESTNET` mode.
-`bash scripts/verify-sepolia-bytecode.sh` independently matched the exact compiled creation input
-and successful on-chain receipt for **all seven contracts** against `https://sepolia.drpc.org`.
-The six simulator contracts use the pinned `sepolia_simulator_20261021` Foundry profile; the vault
-uses the smaller default via-IR profile.
+Two public-chain deployments were used, both with the same owner/executor EOAs and both recorded
+here. The lending market is our own **simulator** in both cases; only the transactions are real.
+
+### 2a. Browser-driven run on the current deployment (primary proof)
+
+Source of truth: [`evidence/sepolia-ui-e2e-20261021.json`](../../evidence/sepolia-ui-e2e-20261021.json)
+and [`deployments/11155111.json`](../../deployments/11155111.json). All **27** receipt summaries in
+the JSON were re-read from `https://sepolia.drpc.org` after the broadcasts went out through a
+different public RPC; every one has `status: 0x1`. The two REPAY receipts each contain one
+`ActionExecuted` log and the mandate receipt contains one `MandateSet` log.
+
+The whole flow was driven **from the console in a browser** (Playwright against the served page):
+shock the market with the owner controls → draft the mandate → sign it with the server owner key →
+run the rescue.
+
+| Item | Public-chain evidence |
+|---|---|
+| Vault (enforcer) | [`0xd7FC116f1acaE8cE017114aD7E41F132a998743C`](https://sepolia.etherscan.io/address/0xd7FC116f1acaE8cE017114aD7E41F132a998743C), deployment [receipt](https://sepolia.etherscan.io/tx/0xfbcd9ea5e9cc14daa3bd32695a9779e1fc708b37bc7afeeb12cfe6899c792cea) |
+| Owner / executor | `0xdcf89b628aaee7b4C91Ce3d594049E596Dd9c85C` / `0xe219FB396253ba14cD59a91D7C5B163Fd04BbD28` |
+| Market reset to the SCENARIOS base state | [mUSDC](https://sepolia.etherscan.io/tx/0xd6fe905b524855328b04bd8ce16eb30056ba185ff9298420dae658913a46b8fa), [mWETH](https://sepolia.etherscan.io/tx/0x0420f9008d7876550a1677fe04a71697b4ad96160564caeae1f76d6288e7f839), [mWSTETH](https://sepolia.etherscan.io/tx/0xf5c2bf4b1d883328d569c81bad30b654e3e47ef6be94910a46fc7011e82902dc), [positions](https://sepolia.etherscan.io/tx/0xd03ecf612d10ebd3745658fc06891afde5baa8da8a9b29e2c6791e985c4783ec) / [positions](https://sepolia.etherscan.io/tx/0x1b6fdd9a6cc3d96f8d47564697c9ecdb119c2209efca44b90b1efa756b741604) |
+| UI shock buttons (−20 % on both pools) | [mWETH](https://sepolia.etherscan.io/tx/0x7f15e63cfddb8343d92d017717ee252796e4fc85426e8f5da082a9a3ab54fa79), [mWSTETH](https://sepolia.etherscan.io/tx/0xe9df8e223af79fb175884c231189ab1ca8d7015c163677637d185348fe7ed7b7) |
+| Oracle re-stamp (on-chain admin key) | [mUSDC](https://sepolia.etherscan.io/tx/0x23eddb83938bd8eef3c548f32ffeb40d435e156c25a96ce0fbd95284ba9e286e), [mWETH](https://sepolia.etherscan.io/tx/0x5157c713e9c4698c033dacbd236f9636031c3dde003a200b1da05dd283b9a2f5), [mWSTETH](https://sepolia.etherscan.io/tx/0x8be25b6ef17174264aeb2e7a807d8e15b4f0b7b42c6c24c91a9715ae17bd0c7e) |
+| Owner-signed mandate #2 | [setMandateWithSig receipt](https://sepolia.etherscan.io/tx/0x0a86732fa755613865b4b27ce6d16d091d46bfbb787e1df514290a9992fc6e39) |
+| REPAY pool 0 | [receipt](https://sepolia.etherscan.io/tx/0xbf947b0ca3a35b3b8c89e846318faf9ef5ca53c7f4e28896f56df55dddd5fe19), `$86.57` |
+| REPAY pool 1 | [receipt](https://sepolia.etherscan.io/tx/0xef8876ded2846a06c51aec2708e61d1fe1f3d98eb1389071f3beaf97997cbcab), `$163.59` |
+| Run | `run-mvi45nsz-2`, state **`COMPLETED`**, two ledger entries `mined`, audit chain verified |
+| On-chain budget and nonce | `spentUsd(2) = 25016000000` USD8 = **$250.16 of $260**; `actionNonce() = 4` |
+| Health factors after shocks → after both actions | pool 0: `0.942857… → 1.005002…`; pool 1: `1.051428… → 1.116670…` |
+
+Screenshots of that browser session are in
+[`docs/submission/screenshots/testnet-sepolia-desktop.png`](screenshots/testnet-sepolia-desktop.png)
+and [`…-mobile.png`](screenshots/testnet-sepolia-mobile.png) (390 px, no horizontal overflow). The
+console shows the `TESTNET` badge linking to the vault, a **Deployment** card with explorer links
+for all seven contracts, the owner-signed mandate transaction, and every mined action linking to
+Etherscan.
+
+Two honest caveats from that session:
+
+1. The **first** browser attempt halted with `HALTED_NEEDS_OWNER` and reason `StalePrice`: the
+   market reset had stamped the mUSDC price more than the mandate's 600 s freshness window earlier.
+   No transaction was broadcast (the ledger entry shows `$0.00` spend and no hash), the oracle was
+   re-stamped by its on-chain admin, and the next attempt completed. The fail-closed path worked.
+2. The simulated market was reset to the SCENARIOS base state through the **admin-only simulator
+   helpers** (`setPrice`, `seedPosition`, `mint`) before the run — the same state a fresh deployment
+   starts from. The reset transactions are listed above.
+
+An earlier rehearsal run on the same deployment is also in the JSON (`rehearsal_*` receipts):
+mandate #1 and two REPAY actions, both mined, but reported `COMPLETED_PARTIAL` because the run
+stopped at the two-block plan-age limit. The agent now replans instead of stopping, which is why
+the recorded browser run finishes in one pass.
+
+### 2b. First API-driven run on the earlier deployment
+
+Source of truth: [`evidence/sepolia-e2e-20261021.json`](../../evidence/sepolia-e2e-20261021.json) and
+the archived record [`deployments/11155111-run1.json`](../../deployments/11155111-run1.json). All 15
+receipt summaries were fetched from `https://sepolia.drpc.org`; each has `status: 0x1`.
 
 | Item | Public-chain evidence |
 |---|---|
 | Vault | [`0x2014c1F2f3175f46f9b2158fe68510Dc3F05fFA1`](https://sepolia.etherscan.io/address/0x2014c1F2f3175f46f9b2158fe68510Dc3F05fFA1), deployment [receipt](https://sepolia.etherscan.io/tx/0x839337f711ac2110e5963fd32d7328fbb081f6e3d3364204b770c7be604d3436) |
-| Owner / executor | `0xdcf89b628aaee7b4C91Ce3d594049E596Dd9c85C` / `0xe219FB396253ba14cD59a91D7C5B163Fd04BbD28` |
 | Oracle shocks | [mWETH](https://sepolia.etherscan.io/tx/0x8293309987708e48ce0c3af629b3cbcbf68ac65fb93059ab53d8e9b29a9b30b6), [mWSTETH](https://sepolia.etherscan.io/tx/0x99a5d2e8430a120694228605ede8e8953aa55e0ed2391577b63aafd55ae8d228) |
 | Owner-signed mandate #1 | [setMandateWithSig receipt](https://sepolia.etherscan.io/tx/0xa01bc76d034806cb9f93b924278ee49d2509f3ad21b8ea64e2a61548b0222e1d) |
 | REPAY pool 0 | [receipt](https://sepolia.etherscan.io/tx/0x72abb3c8c2aa09cd3a01fcc5b83354c8d6e5576450d1d4881ca3d7fa5de640c2), `$86.57` |
 | REPAY pool 1 | [receipt](https://sepolia.etherscan.io/tx/0xe43f22d952ee1b8f72c0fbc3d9e205578ebff82c6a1fd44fe49ae779caca103a), `$163.59` |
-| On-chain budget and nonce | `spentUsd(1) = 25016000000` USD8 = **$250.16 of $260**; `actionNonce() = 2` |
-| Health factors after shocks → after both actions | pool 0: `0.942857… → 1.005002…`; pool 1: `1.051428… → 1.116670…` |
+| Runs | `run-mvhvo8xg-1` and `run-mvhvtky7-2`, both `COMPLETED_PARTIAL`; spend `$250.16` of `$260` |
 
-The agent made **two runs**, `run-mvhvo8xg-1` and `run-mvhvtky7-2`. Run 1 mined the first action,
-then **refused** its second action when the original plan aged three blocks (limit: two); it did not
-resubmit the first transaction. After oracle timestamps were refreshed by the on-chain oracle admin,
-run 2 replanned against the updated nonce and spent the remaining `$163.59` on pool 1. Both runs
-reported `COMPLETED_PARTIAL`: pool 0 is above HF 1 but below the planner's stricter stress target
-with only `$9.84` remaining. **This is two real rescues, not a claim that the full stress objective
-was achieved.** Gas is separate from the on-chain USD budget. Both audit chains verified locally.
+Run 1 mined the first action and then **refused** its second action when the plan aged three blocks
+(limit: two); it never resubmitted the first transaction. Run 2 replanned against the updated nonce
+and mined the second action. Both reported `COMPLETED_PARTIAL` because pool 0 stayed below the
+planner's stricter stress target with only `$9.84` of budget left. The replan-on-stale behaviour
+described in §2a was added afterwards and is what the browser run in §2a exercises.
 
-The `scripts/deploy-testnet.sh` Forge path **did not** produce this deployment. Two Forge
+`bash scripts/verify-sepolia-bytecode.sh` independently matched the exact compiled creation input
+and successful on-chain receipt for **all seven contracts** of the §2b deployment against
+`https://sepolia.drpc.org`. The six simulator contracts of that deployment use the pinned
+`sepolia_simulator_20261021` Foundry profile; the vault uses the smaller default via-IR profile.
+
+### 2c. How the deployments were made (and what still fails)
+
+The `scripts/deploy-testnet.sh` Forge path **did not** produce either deployment. Two Forge
 broadcast attempts ran out of gas; the original vault bytecode also exceeded the observed
-16,777,216 gas-per-transaction execution ceiling on this Sepolia deployment. The successful
-deployment used a temporary Foundry-compatible encrypted keystore (no raw key on the command
-line), explicit per-transaction `cast send` gas limits for the simulator contracts, and a smaller
-vault compiled with `via_ir = true`, `optimizer_runs = 1`. The six simulator contracts were compiled
-before that profile change. The deployed addresses, successful creation receipts, and vault source
-are recorded above; a reusable guarded manual-deploy wrapper has **not** been added yet. Do not
-rerun `deploy-testnet.sh` expecting these same addresses or a successful Sepolia deployment; it
-now fails closed for chain `11155111` before any RPC or broadcast.
+16,777,216 gas-per-transaction execution ceiling on this Sepolia network. The successful
+deployments used a temporary Foundry-compatible encrypted keystore (no raw key on the command line),
+explicit per-transaction `cast send` gas limits for the simulator contracts, and a smaller vault
+compiled with `via_ir = true`, `optimizer_runs = 1`. Do not rerun `deploy-testnet.sh` expecting
+these addresses or a successful Sepolia deployment; it now fails closed for chain `11155111`
+before any RPC or broadcast. A reusable guarded explicit-gas deploy wrapper is still missing.
 
 ## 3. Simulated scenario evidence (SIMULATED)
 
@@ -132,16 +180,20 @@ Captured from the served SIMULATED demo on 2026-10-20 (`docs/submission/screensh
 | `console-mobile-390.png` | The same console at 390px: no horizontal overflow, all three regions stacked |
 | `console-halt-budget-exhausted.png` | A second run after the first: `HALTED_NEEDS_OWNER — Budget insufficient: $113.43 needed, $9.84 available`, plan with 0 actions, no new ledger entry |
 | `console-halt-stale-oracle.png` | Fresh state with a stale oracle price: `HALTED_NEEDS_OWNER — STALE_OR_CONFLICTING_DATA: simulation rejected: StalePrice`, no transaction sent |
+| `testnet-sepolia-desktop.png` | **Public testnet**: the same console against the Sepolia deployment — `TESTNET · sepolia.etherscan.io` badge, mandate #2 active with its signed transaction, plan with two REPAYs (HF 0.943 → 1.005, 1.051 → 1.117), spend $250.16 of $260, `Deployment` card with explorer links for all seven contracts, ledger with two MINED actions linking to Etherscan |
+| `testnet-sepolia-mobile.png` | The same Sepolia session at 390px: no horizontal overflow, all regions stacked |
 
-`TODO(human)`: the optional ≤5-minute demo video and public-testnet screenshots are not attached yet.
+`TODO(human)`: the optional ≤5-minute demo video is not attached yet. The public-testnet
+screenshots above are attached.
 
 ## 5. What is still missing
 
 1. Public-testnet S2/S7, the injected target-failure and kill-switch scenarios have **not** been
-   exercised; the two real REPAY transactions above are the only on-chain rescue actions evidenced.
+   exercised; the four real REPAY transactions above are the only on-chain rescue actions evidenced.
 2. Automate the explicit-gas deployment path; Forge's current gas estimates are inadequate on this
    Sepolia network. The local `.env` still points at anvil; public settings were supplied through
    an ignored, temporary shell config file.
-3. Capture a public-testnet UI walkthrough or video. The screenshots above remain SIMULATED.
+3. Record the optional ≤5-minute demo video; the Sepolia UI walkthrough itself is captured in the
+   two screenshots and reproducible with `apps/web/test/browser_testnet.py`.
 4. Keep the labels honest: `ANVIL` locally, `TESTNET` only for Sepolia, and **SIMULATED lending
    market** in both modes. The browser-wallet extension path is still unit/API-tested only.

@@ -2,8 +2,9 @@
 
 Date: 2026-10-21 · Chain: **SIMULATED by default**. Local-anvil and public Ethereum Sepolia real-EVM
 runs are recorded in `evidence/anvil-e2e-20261021T060254Z.json` and
-`evidence/sepolia-e2e-20261021.json`. Sepolia hosts our **simulated** lending market; A-13 (public
-URL) remains human-run.
+`evidence/sepolia-ui-e2e-20261021.json`. The Sepolia run was driven from the console in a browser and
+finished `COMPLETED` with two mined REPAY transactions; the lending market is our own simulator.
+A-13 (public URL) remains human-run.
 
 Wording rule followed: no violations were found in the reported scenarios; this is **not** a claim
 that the system is secure. Contracts are unaudited and must not hold real funds.
@@ -57,14 +58,16 @@ owner may unpause.
 
 ## 4. Test results
 
-`tests_total=306 passed=306 scenarios=7 runs_per_scenario=1 any_failed=none`
+`tests_total=310 passed=310 scenarios=7 runs_per_scenario=1 any_failed=none`
 
-Breakdown: 128 Foundry, 89 core, 76 agent, 5 web, 8 eval (all run 2026-10-21; `scripts/verify-all.sh`
+Breakdown: 128 Foundry, 89 core, 79 agent, 6 web, 8 eval (all run 2026-10-21; `scripts/verify-all.sh`
 GREEN). The seven scenarios are S1–S5, S7, S9, each run once with `ScriptedLlm` on
 `MockChainPort`; the Part 2 ablation adds 28 SIMULATED runs (A–D × S1–S5/S7/S9/T15). The separate
-local-anvil E2E installs a mandate and mines two rescue actions on chain 31338. On public Sepolia
-the agent mined two REPAY actions across two runs; both reported `COMPLETED_PARTIAL`, not a fully
-stress-safe result. This is **not** a repeated-run (pass^k) study.
+local-anvil E2E installs a mandate and mines two rescue actions on chain 31338. On public Sepolia a
+browser-driven run mined two REPAY actions in one run and reported `COMPLETED`; the earlier
+API-driven run needed two runs and reported `COMPLETED_PARTIAL` because the agent stopped at the
+two-block plan-age limit before the replan-on-stale-plan fix. This is **not** a repeated-run
+(pass^k) study.
 
 | ID | Status | Layer | Evidence / gap |
 |---|---|---|---|

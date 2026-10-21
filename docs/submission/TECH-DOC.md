@@ -5,9 +5,9 @@ Team: **MarginPilot** (D-035) · Topic F · Date: 2026-10-21
 This document describes the repository working tree at the time of writing and what was measured;
 where an artifact is missing, it says so. The lending market is **SIMULATED** (D-002). The vault and
 agent can run against a real EVM chain: local-anvil and public Ethereum Sepolia runs are recorded in
-`evidence/anvil-e2e-20261021T060254Z.json` and `evidence/sepolia-e2e-20261021.json`. Sepolia
-transactions are real; the lending market is still a self-deployed simulator. The Sepolia runs
-reported `COMPLETED_PARTIAL` (see `docs/submission/EXECUTION-EVIDENCE.md`).
+`evidence/anvil-e2e-20261021T060254Z.json` and `evidence/sepolia-ui-e2e-20261021.json`. The Sepolia
+run was driven from the console in a browser and finished `COMPLETED` with two mined REPAY
+transactions. The lending market is still a self-deployed simulator.
 
 ## 1. Problem & motivation
 
@@ -89,8 +89,9 @@ receipt handling, unknown-transaction reconciliation and owner/executor writes a
 contracts. `scripts/e2e-anvil.sh` deploys a fresh chain, installs an owner-signed mandate, runs the
 two-action rescue and records mined transaction hashes (local anvil, chain 31338). The TypeScript
 policy mirror implements the same ordering plus `checkPostConditions`; the full differential test is
-B-15. On Sepolia, two real REPAY transactions were mined in separate runs after the agent refused
-to submit a plan that had aged past the two-block limit. The market remains simulated.
+B-15. On Sepolia, a browser-driven run signed mandate #2 and mined both REPAY actions in one run
+after the agent replanned when the first plan aged past the two-block limit; the stale action was
+never broadcast. The market remains simulated.
 
 Permission tiers (`docs/security/PERMISSION-TIERS.md`): L0 read, L1 plan/simulate (no submit path),
 L2 bounded execution inside the mandate, L3 owner-only decisions such as more budget, unlock,
@@ -153,13 +154,15 @@ Fastify; React 19 + Vite; pnpm workspaces; Vitest.
 Repository map and run instructions are in the root `README.md` (setup in fewer than ten commands).
 `.env.example` lists names only. `scripts/verify-all.sh` is the green gate.
 
-Deployment addresses: `deployments/31337.json` (local anvil) and `deployments/11155111.json`
-(public Sepolia). `scripts/e2e-anvil.sh` deploys a throwaway chain 31338 and records local receipts
-under `evidence/`. Sepolia deployed contract receipts and both run reports are in
-`evidence/sepolia-e2e-20261021.json`. `scripts/deploy-testnet.sh` is a guarded wrapper but its
-Forge gas estimation **failed** on Sepolia; the successful deployment used an encrypted keystore,
-explicit `cast send` gas limits, and the smaller via-IR vault. `scripts/start-testnet.sh` starts the
-agent against `deployments/<chainId>.json`. The wrapper refuses mainnet chain ids, local chain ids, a
+Deployment addresses: `deployments/31337.json` (local anvil), `deployments/11155111.json` (public
+Sepolia, the vault the console now serves) and `deployments/11155111-run1.json` (the first Sepolia
+deployment, kept so its recorded receipts stay verifiable). `scripts/e2e-anvil.sh` deploys a
+throwaway chain 31338 and records local receipts under `evidence/`. The Sepolia receipts and the
+browser-driven run report are in `evidence/sepolia-ui-e2e-20261021.json`. `scripts/deploy-testnet.sh`
+is a guarded wrapper but its Forge gas estimation **failed** on Sepolia; the successful deployment
+used an encrypted keystore, explicit `cast send` gas limits, and the smaller via-IR vault.
+`scripts/start-testnet.sh` starts the agent against `deployments/<chainId>.json`. The wrapper refuses
+mainnet chain ids, local chain ids, a
 `--private-key` argument, an owner equal to the executor, and contract accounts as owner/executor.
 It requires a Foundry keystore or hardware signer, a funded `SENDER`, and a matching RPC chain id.
 The agent refuses mainnet ids, verifies the RPC chain id, and checks that code exists at every
@@ -235,7 +238,7 @@ generated `summary.md`; do not copy numbers from this prose without regenerating
 ## 9. Security
 
 `docs/submission/SECURITY-SELF-ASSESSMENT.md` reports controls and T01–T18 status honestly. The
-current tree has 306 passing automated tests: 128 Foundry, 89 core, 76 agent, 5 web, 8 eval
+current tree has 310 passing automated tests: 128 Foundry, 89 core, 79 agent, 6 web, 8 eval
 (`scripts/verify-all.sh`, 2026-10-21). Seven scenarios (S1–S5, S7, S9) run once each with
 `ScriptedLlm` on `MockChainPort`, plus the 28-run Part 2 ablation. Config D records 0
 hard-constraint violations and 7/7 acceptance passes in that SIMULATED study; this is not a k=5
