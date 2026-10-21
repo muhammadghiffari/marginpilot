@@ -1505,14 +1505,34 @@ contract MandateVaultTest is Test {
         return abi.encodePacked(r, s, v);
     }
 
+    function _signForDomain(
+        uint256 pk,
+        MandateVault.Mandate memory m,
+        uint256 deadline,
+        uint256 chainId,
+        address verifyingContract
+    ) private pure returns (bytes memory) {
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, _digestForDomain(m, deadline, chainId, verifyingContract));
+        return abi.encodePacked(r, s, v);
+    }
+
     function _digest(MandateVault.Mandate memory m, uint256 deadline) private view returns (bytes32) {
+        return _digestForDomain(m, deadline, block.chainid, address(vault));
+    }
+
+    function _digestForDomain(
+        MandateVault.Mandate memory m,
+        uint256 deadline,
+        uint256 chainId,
+        address verifyingContract
+    ) private pure returns (bytes32) {
         bytes32 domainSeparator = keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
                 keccak256("MarginPilotVault"),
                 keccak256("1"),
-                block.chainid,
-                address(vault)
+                chainId,
+                verifyingContract
             )
         );
         bytes32 structHash = keccak256(abi.encode(SET_MANDATE_TYPEHASH, _mandateStructHash(m), deadline));
@@ -1674,6 +1694,23 @@ contract MandateVaultTest is Test {
         vm.prank(alice);
         vm.expectRevert(MandateVault.SignatureExpired.selector);
         vault.setMandateWithSig(m2, block.timestamp - 1, expired);
+    }
+
+    function test_T09c_WrongVaultOrChainDomainRejected() public {
+        uint256 deadline = block.timestamp + 1 hours;
+        MandateVault.Mandate memory m = _mandate(1);
+
+        bytes memory wrongVault = _signForDomain(OWNER_PK, m, deadline, block.chainid, address(0xBEEF));
+        vm.prank(alice);
+        vm.expectRevert(MandateVault.BadSignature.selector);
+        vault.setMandateWithSig(m, deadline, wrongVault);
+
+        bytes memory wrongChain = _signForDomain(OWNER_PK, m, deadline, block.chainid + 1, address(vault));
+        vm.prank(alice);
+        vm.expectRevert(MandateVault.BadSignature.selector);
+        vault.setMandateWithSig(m, deadline, wrongChain);
+
+        assertEq(vault.activeMandateId(), 0);
     }
 
     function test_T09b_StaleActionAfterNonceUsed() public {
