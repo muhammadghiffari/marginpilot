@@ -3,8 +3,6 @@ pragma solidity 0.8.24;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {MockERC20} from "./MockERC20.sol";
 import {MockOracle} from "./MockOracle.sol";
@@ -12,7 +10,7 @@ import {LendingSim} from "./LendingSim.sol";
 import {MockSwap} from "./MockSwap.sol";
 
 /// @notice Owner-mandated vault; the agent only holds the executor hot key (CONTRACTS §2.5).
-contract MandateVault is EIP712, ReentrancyGuard {
+contract MandateVault is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     error NotOwner();
@@ -80,6 +78,9 @@ contract MandateVault is EIP712, ReentrancyGuard {
     bytes32 public constant SET_MANDATE_TYPEHASH = keccak256(
         "SetMandate(Mandate mandate,uint256 deadline)Mandate(uint64 id,uint64 validFrom,uint64 validUntil,uint128 maxTotalSpendUsd,uint128 maxPerActionUsd,uint128 minLiquidReserveUsd,uint32 maxSlippageBps,uint32 maxPriceAgeSec,uint32 maxPriceDeviationBps,uint8 allowedActions,bool allowBorrow,address[] allowedTargets,address[] lockedTokens)"
     );
+    bytes32 private constant DOMAIN_TYPEHASH =
+        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+    bytes32 private immutable _DOMAIN_SEPARATOR;
 
     address public owner;
     address public executor;
@@ -110,9 +111,16 @@ contract MandateVault is EIP712, ReentrancyGuard {
         uint256 spentUsd8After
     );
 
-    constructor(address owner_, address executor_, address oracle_, address reserveToken_)
-        EIP712("MarginPilotVault", "1")
-    {
+    constructor(address owner_, address executor_, address oracle_, address reserveToken_) {
+        _DOMAIN_SEPARATOR = keccak256(
+            abi.encode(
+                DOMAIN_TYPEHASH,
+                keccak256(bytes("MarginPilotVault")),
+                keccak256(bytes("1")),
+                block.chainid,
+                address(this)
+            )
+        );
         owner = owner_;
         executor = executor_;
         oracle = MockOracle(oracle_);
@@ -175,7 +183,7 @@ contract MandateVault is EIP712, ReentrancyGuard {
         if (m.id != nextMandateId) revert BadNonce();
 
         bytes32 digest = _hashTypedDataV4(keccak256(abi.encode(SET_MANDATE_TYPEHASH, _mandateStructHash(m), deadline)));
-        if (ECDSA.recover(digest, sig) != owner) revert BadSignature();
+        if (_recover(digest, sig) != owner) revert BadSignature();
 
         _activateMandate(m);
     }
@@ -328,6 +336,31 @@ contract MandateVault is EIP712, ReentrancyGuard {
                 _hashAddressArray(m.lockedTokens)
             )
         );
+    }
+
+    /// @dev EIP-712 domain is fixed at deployment; the demo never changes chain id.
+    function _hashTypedDataV4(bytes32 structHash) internal view returns (bytes32) {
+        return keccak256(abi.encodePacked("\x19\x01", _DOMAIN_SEPARATOR, structHash));
+    }
+
+    /// @dev Minimal 65-byte secp256k1 recovery with the EIP-2 low-s rule.
+    function _recover(bytes32 digest, bytes calldata sig) private pure returns (address signer) {
+        if (sig.length != 65) revert BadSignature();
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+        assembly {
+            r := calldataload(sig.offset)
+            s := calldataload(add(sig.offset, 32))
+            v := byte(0, calldataload(add(sig.offset, 64)))
+        }
+        if (v < 27) v += 27;
+        if (v != 27 && v != 28) revert BadSignature();
+        if (uint256(s) > 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0) {
+            revert BadSignature();
+        }
+        signer = ecrecover(digest, v, r, s);
+        if (signer == address(0)) revert BadSignature();
     }
 
     /// @dev EIP-712 array hash: keccak256 of the 32-byte-padded elements (viem-compatible).

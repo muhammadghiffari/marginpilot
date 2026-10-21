@@ -6,11 +6,19 @@ out = "out"
 libs = ["lib"]
 solc_version = "0.8.24"
 optimizer = true
-optimizer_runs = 200
+optimizer_runs = 1
+via_ir = true
 fs_permissions = [
     { access = "read-write", path = "../deployments" },
     { access = "read-write", path = "../eval/fixtures" },
 ]
+
+# The six Sepolia simulator contracts were created before the vault was
+# size-optimized. Preserve their compilation settings for bytecode review;
+# the Sepolia vault uses the default via-IR profile above.
+[profile.sepolia_simulator_20261021]
+optimizer_runs = 200
+via_ir = false
 
 [fuzz]
 runs = 256
