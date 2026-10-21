@@ -4,17 +4,18 @@
 #   bash scripts/start-testnet.sh            # CHAIN_MODE=testnet
 #   bash scripts/start-testnet.sh anvil      # local anvil deployment
 #
-# Reads .env, builds the web bundle once if needed, and never prints secrets.
+# Reads $ENV_FILE (default .env), builds the web bundle once if needed, and never prints secrets.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 MODE="${1:-testnet}"
 case "$MODE" in anvil|testnet) ;; *) echo "start-testnet: mode must be anvil or testnet" >&2; exit 1;; esac
-[ -f .env ] || { echo "start-testnet: .env is missing (copy .env.example)" >&2; exit 1; }
+ENV_FILE="${ENV_FILE:-.env}"
+[ -f "$ENV_FILE" ] || { echo "start-testnet: $ENV_FILE is missing (copy .env.example)" >&2; exit 1; }
 set -a
 # shellcheck disable=SC1091
-. ./.env
+. "$ENV_FILE"
 set +a
 
 CHAIN_ID="${CHAIN_ID:-}"
@@ -40,9 +41,10 @@ export HOST="${HOST:-127.0.0.1}"
 
 if [ ! -s "$ROOT/apps/web/dist/index.html" ] || [ "${FORCE_BUILD:-0}" = "1" ]; then
   echo "start-testnet: building the web console"
-  pnpm --filter @marginpilot/web build >/dev/null
+  (cd "$ROOT/apps/web" && ./node_modules/.bin/vite build >/dev/null)
 fi
 
 echo "start-testnet: chain $CHAIN_ID ($MODE), listening on http://${HOST}:${PORT}"
 echo "start-testnet: owner signing is browser-wallet EIP-712, or a server key from .env that must match the deployment owner"
-exec pnpm --filter @marginpilot/agent start
+cd "$ROOT/apps/agent"
+exec ./node_modules/.bin/tsx src/server.ts

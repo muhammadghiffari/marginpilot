@@ -4,6 +4,7 @@ import {
   ConfigError,
   loadConfig,
   modeFromEnv,
+  selectOracleAdminKey,
   selectSigners,
 } from '../src/config.js';
 
@@ -92,6 +93,19 @@ describe('environment config', () => {
 });
 
 describe('signer selection', () => {
+  test('oracle refresh chooses its on-chain admin instead of the executor', () => {
+    const config = loadConfig({
+      CHAIN_MODE: 'chain',
+      CHAIN_ID: '11155111',
+      RPC_URL: 'https://example.invalid',
+      DEMO_OWNER_PRIVATE_KEY: ANVIL_OWNER_KEY,
+      EXECUTOR_PRIVATE_KEY: ANVIL_EXECUTOR_KEY,
+    });
+    expect(selectOracleAdminKey(config, ANVIL_OWNER).address).toBe(ANVIL_OWNER);
+    expect(selectOracleAdminKey(config, ANVIL_EXECUTOR).address).toBe(ANVIL_EXECUTOR);
+    expect(() => selectOracleAdminKey(config, OTHER)).toThrow(/oracle admin/);
+  });
+
   test('uses the deployer key as owner only when its address matches', () => {
     const config = loadConfig({
       CHAIN_MODE: 'chain',
@@ -115,6 +129,23 @@ describe('signer selection', () => {
       EXECUTOR_PRIVATE_KEY: ANVIL_EXECUTOR_KEY,
     });
     expect(() => selectSigners(config, { owner: OTHER, executor: ANVIL_EXECUTOR })).toThrow(/owner key/);
+  });
+
+  test('accepts a 32-byte key without the 0x prefix', () => {
+    const config = loadConfig({
+      CHAIN_MODE: 'chain',
+      CHAIN_ID: '31337',
+      RPC_URL: 'http://127.0.0.1:8545',
+      DEMO_OWNER_PRIVATE_KEY: ANVIL_OWNER_KEY.slice(2),
+      EXECUTOR_PRIVATE_KEY: ANVIL_EXECUTOR_KEY.slice(2),
+    });
+    const selected = selectSigners(config, { owner: ANVIL_OWNER, executor: ANVIL_EXECUTOR });
+    expect(selected.ownerSigner?.kind).toBe('privateKey');
+    if (selected.ownerSigner?.kind === 'privateKey') expect(selected.ownerSigner.address).toBe(ANVIL_OWNER);
+    expect(selected.executorSigner.kind).toBe('privateKey');
+    if (selected.executorSigner.kind === 'privateKey') {
+      expect(selected.executorSigner.address).toBe(ANVIL_EXECUTOR);
+    }
   });
 
   test('rejects an executor key that does not match the deployment executor', () => {

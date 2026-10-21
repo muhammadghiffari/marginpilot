@@ -16,10 +16,11 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-if [ ! -f .env ]; then echo "deploy-testnet: .env is missing (copy .env.example)" >&2; exit 1; fi
+ENV_FILE="${ENV_FILE:-.env}"
+if [ ! -f "$ENV_FILE" ]; then echo "deploy-testnet: $ENV_FILE is missing (copy .env.example)" >&2; exit 1; fi
 set -a
 # shellcheck disable=SC1091
-. ./.env
+. "$ENV_FILE"
 set +a
 export PATH="$HOME/.foundry/bin:$PATH"
 
@@ -46,6 +47,7 @@ case "$CHAIN_ID" in
   1|10|25|56|100|128|137|169|250|324|1284|1285|5000|8217|8453|9001|1101|2222|34443|42161|43114|42220|59144|81457|534352|7777777)
     fail "chain $CHAIN_ID is a mainnet; only testnets and anvil are allowed" ;;
   31337|31338) fail "chain $CHAIN_ID is local; use scripts/deploy.sh" ;;
+  11155111) fail "Sepolia Forge gas estimates failed on this network; use the existing deployment or a separately reviewed explicit-gas deploy path (see EXECUTION-EVIDENCE.md)" ;;
 esac
 
 if [ -n "${EXPLORER_BASE_URL:-}" ] && [[ ! "$EXPLORER_BASE_URL" =~ ^https?:// ]]; then

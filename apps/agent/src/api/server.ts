@@ -252,6 +252,7 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
       );
       return sendJson(reply, 200, confirmed);
     }
+    if (!options.demoMode) return sendJson(reply, 404, { error: 'DemoModeDisabled' });
     const confirmed = await runtime.confirm(body.draft);
     return sendJson(reply, 200, confirmed);
   });

@@ -229,6 +229,18 @@ describe('API contract (SIMULATED demo runtime)', () => {
   test('demo endpoints are hidden when DEMO_MODE is false', async () => {
     await app.close();
     app = await makeApp({ demoMode: false });
+    const compiled = await app.inject({
+      method: 'POST',
+      url: '/api/mandate/compile',
+      payload: { text: DEMO_TEXT },
+    });
+    const confirm = await app.inject({
+      method: 'POST',
+      url: '/api/mandate/confirm',
+      payload: { draft: compiled.json(), ownerMode: 'demo' },
+    });
+    expect(confirm.statusCode).toBe(404);
+    expect(confirm.json()).toMatchObject({ error: 'DemoModeDisabled' });
     const shock = await app.inject({
       method: 'POST',
       url: '/api/demo/shock',

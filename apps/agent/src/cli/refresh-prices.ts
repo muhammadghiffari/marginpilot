@@ -11,11 +11,11 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { MOCK_ORACLE_ABI, type Address } from '@marginpilot/core';
+import { AddressSchema, MOCK_ORACLE_ABI, type Address } from '@marginpilot/core';
 import { createPublicClient, createWalletClient, defineChain, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
-import { loadConfig, loadDotEnv, signerPrivateKey } from '../config.js';
+import { loadConfig, loadDotEnv, selectOracleAdminKey } from '../config.js';
 import { loadTokenRegistry } from '../mandate/registry.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
@@ -27,17 +27,6 @@ async function main(): Promise<void> {
 
   const registry = await loadTokenRegistry(config.chainId, { root: ROOT });
 
-  // MockOracle.setPrice is deliberately permissionless: this is a simulator
-  // oracle, not a production price feed. Any funded hot key can re-stamp it,
-  // so a browser-wallet/hardware owner does not need to expose an owner key.
-  const candidates = [config.executorSigner, config.ownerSigner, config.deployerSigner];
-  const key = candidates.find((candidate) => candidate?.kind === 'privateKey');
-  const privateKey = signerPrivateKey(key);
-  if (!privateKey) {
-    throw new Error('no funded private key for the oracle refresh (set EXECUTOR_PRIVATE_KEY or DEMO_OWNER_PRIVATE_KEY)');
-  }
-  const account = privateKeyToAccount(privateKey);
-
   const chain = defineChain({
     id: config.chainId,
     name: `chain-${config.chainId}`,
@@ -45,11 +34,17 @@ async function main(): Promise<void> {
     rpcUrls: { default: { http: [config.rpcUrl] } },
   });
   const publicClient = createPublicClient({ chain, transport: http(config.rpcUrl) });
-  const wallet = createWalletClient({ account, chain, transport: http(config.rpcUrl) });
   const remoteChainId = await publicClient.getChainId();
   if (remoteChainId !== config.chainId) {
     throw new Error(`RPC chain id ${remoteChainId} does not match CHAIN_ID ${config.chainId}`);
   }
+  const oracleAdmin = AddressSchema.parse(await publicClient.readContract({
+    address: registry.targets.oracle,
+    abi: MOCK_ORACLE_ABI,
+    functionName: 'admin',
+  }));
+  const account = privateKeyToAccount(selectOracleAdminKey(config, oracleAdmin).value);
+  const wallet = createWalletClient({ account, chain, transport: http(config.rpcUrl) });
 
   const tokens: { symbol: string; address: Address }[] = [
     { symbol: 'mUSDC', address: registry.tokens.mUSDC },

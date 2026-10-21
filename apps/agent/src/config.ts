@@ -54,6 +54,11 @@ export interface AgentConfig {
 const KEY_PATTERN = /^0x[0-9a-fA-F]{64}$/;
 const ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/;
 
+/** Accept either a 0x-prefixed key or the bare 64-hex form used by some wallets. */
+function normalizePrivateKey(raw: string): string {
+  return `0x${raw.trim().replace(/^0x/i, '')}`;
+}
+
 /** AGENTS.md: mainnet is out of bounds. Refuse the well-known public mainnets. */
 const MAINNET_CHAIN_IDS = new Set([
   1, 10, 25, 56, 100, 128, 137, 169, 250, 324, 1284, 1285, 5000, 8217, 8453,
@@ -102,20 +107,22 @@ function keySigner(raw: string | undefined, label: string, required: boolean): S
     if (required) throw new ConfigError(`${label} is required in chain mode`);
     return undefined;
   }
-  if (!KEY_PATTERN.test(raw)) throw new ConfigError(`${label} is not a 32-byte hex key`);
-  return deriveSigner(raw, label);
+  const normalized = normalizePrivateKey(raw);
+  if (!KEY_PATTERN.test(normalized)) throw new ConfigError(`${label} is not a 32-byte hex key`);
+  return deriveSigner(normalized, label);
 }
 
 function optionalKey(raw: string | undefined, label: string): SignerSpec | undefined {
   if (raw === undefined || raw.trim() === '') return undefined;
   // A malformed optional owner key is ignored, never echoed; deployment-owner
   // matching below still decides whether another key may sign.
-  if (!KEY_PATTERN.test(raw)) {
+  const normalized = normalizePrivateKey(raw);
+  if (!KEY_PATTERN.test(normalized)) {
     void label;
     return undefined;
   }
   try {
-    return deriveSigner(raw, label);
+    return deriveSigner(normalized, label);
   } catch {
     void label;
     return undefined;
@@ -215,6 +222,16 @@ export function signerPrivateKey(signer: Signer | undefined): Hex | undefined {
 
 function sameAddress(left: Address | undefined, right: Address | undefined): boolean {
   return left !== undefined && right !== undefined && left.toLowerCase() === right.toLowerCase();
+}
+
+/** Oracle writes must be signed by the on-chain admin, not merely a funded key. */
+export function selectOracleAdminKey(config: AgentConfig, oracleAdmin: Address): SignerSpec {
+  const candidate = [config.ownerSigner, config.deployerSigner, config.executorSigner].find(
+    (signer): signer is SignerSpec =>
+      signer?.kind === 'privateKey' && sameAddress(signer.address, oracleAdmin),
+  );
+  if (!candidate) throw new ConfigError('no configured private key matches the on-chain oracle admin');
+  return candidate;
 }
 
 /**
