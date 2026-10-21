@@ -2,7 +2,7 @@
 
 Date: 2026-10-21 · Chain: **SIMULATED by default**. Local-anvil and public Ethereum Sepolia real-EVM
 runs are recorded in `evidence/anvil-e2e-20261021T060254Z.json` and
-`evidence/sepolia-ui-e2e-20261021.json`. The Sepolia run was driven from the console in a browser and
+`evidence/sepolia-ui-e2e-20261022.json`. The Sepolia run was driven from the console in a browser and
 finished `COMPLETED` with two mined REPAY transactions; the lending market is our own simulator.
 A-13 (public URL) remains human-run.
 
@@ -61,9 +61,9 @@ owner may unpause.
 
 ## 4. Test results
 
-`tests_total=329 passed=329 scenarios=7 runs_per_scenario=1 any_failed=none`
+`tests_total=331 passed=331 scenarios=7 runs_per_scenario=1 any_failed=none`
 
-Breakdown: 145 Foundry, 89 core, 79 agent, 8 web, 8 eval (all run 2026-10-21; `scripts/verify-all.sh`
+Breakdown: 145 Foundry, 89 core, 81 agent, 8 web, 8 eval (all run 2026-10-21; `scripts/verify-all.sh`
 GREEN). The seven scenarios are S1–S5, S7, S9, each run once with `ScriptedLlm` on
 `MockChainPort`; the Part 2 ablation adds 28 SIMULATED runs (A–D × S1–S5/S7/S9/T15). The separate
 local-anvil E2E installs a mandate and mines two rescue actions on chain 31338. On public Sepolia a

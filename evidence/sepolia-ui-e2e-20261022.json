@@ -1,0 +1,216 @@
+{
+  "chainId": 11155111,
+  "mode": "TESTNET",
+  "market": "SIMULATED lending market; REAL Ethereum Sepolia transactions",
+  "drivenBy": "browser (Playwright) against the served console",
+  "recordedAt": "2026-10-21T19:09:55Z",
+  "agentFix": "State snapshots are read at one explicit block and a stale post-action read is retried, so the ledger and check #16 use the state that includes the mined action.",
+  "explorerBase": "https://sepolia.etherscan.io",
+  "deployment": {
+    "chainId": 11155111,
+    "deployedAt": "2026-10-21T12:11:28Z",
+    "deployer": "0xdcf89b628aaee7b4C91Ce3d594049E596Dd9c85C",
+    "owner": "0xdcf89b628aaee7b4C91Ce3d594049E596Dd9c85C",
+    "executor": "0xe219FB396253ba14cD59a91D7C5B163Fd04BbD28",
+    "contracts": {
+      "mUSDC": "0x1C607da83d50042Bd8f95D60BAB6b4c05176a594",
+      "mWETH": "0x42Ced87749C804fdaeC947f06729b80C1097d1a9",
+      "mWSTETH": "0xdB0c886ABd84b099f8C7340D9dcBA25c286d7656",
+      "oracle": "0x17EA917eB8FF260594147C6eA212f87DaA541ca3",
+      "lending": "0x62374321D6c69B1A211E304D189b29daFa9d3739",
+      "swap": "0xc16DF2B3635eC4A869f139a2a4EB83AB72d666a9",
+      "vault": "0xd7FC116f1acaE8cE017114aD7E41F132a998743C"
+    },
+    "blocks": {
+      "vault": 11962314
+    },
+    "explorerBase": "https://sepolia.etherscan.io",
+    "deploymentTx": "0xfbcd9ea5e9cc14daa3bd32695a9779e1fc708b37bc7afeeb12cfe6899c792cea"
+  },
+  "receipts": [
+    {
+      "label": "reset_price_usdc",
+      "txHash": "0x95ce31e97326d7c32acbd72af4834cc71034a762dfabdf216dac03a622a0f818",
+      "status": "0x1",
+      "blockNumber": "0xb68fcd",
+      "gasUsed": "0x85b5",
+      "from": "0xdcf89b628aaee7b4c91ce3d594049e596dd9c85c",
+      "contractAddress": null,
+      "actionExecutedEvents": 0,
+      "mandateSetEvents": 0
+    },
+    {
+      "label": "reset_price_weth",
+      "txHash": "0x200e7060d9b06001b0471f3db18f7a6d2f2898f266b0797dc4b0dc8e4ed8b39b",
+      "status": "0x1",
+      "blockNumber": "0xb68fce",
+      "gasUsed": "0xacd1",
+      "from": "0xdcf89b628aaee7b4c91ce3d594049e596dd9c85c",
+      "contractAddress": null,
+      "actionExecutedEvents": 0,
+      "mandateSetEvents": 0
+    },
+    {
+      "label": "reset_price_wsteth",
+      "txHash": "0x1491efd10c695a854f89a493d8365098544badf4486fea7665b9761b77b5fb5e",
+      "status": "0x1",
+      "blockNumber": "0xb68fcf",
+      "gasUsed": "0xacd1",
+      "from": "0xdcf89b628aaee7b4c91ce3d594049e596dd9c85c",
+      "contractAddress": null,
+      "actionExecutedEvents": 0,
+      "mandateSetEvents": 0
+    },
+    {
+      "label": "reset_topup_vault",
+      "txHash": "0x827414d771e8541aa56f2bc6f4d1fe3c23194ef28a82f04eadd5a6c99e3e84c7",
+      "status": "0x1",
+      "blockNumber": "0xb68fd0",
+      "gasUsed": "0xa5b7",
+      "from": "0xdcf89b628aaee7b4c91ce3d594049e596dd9c85c",
+      "contractAddress": null,
+      "actionExecutedEvents": 0,
+      "mandateSetEvents": 0
+    },
+    {
+      "label": "reset_topup_lending",
+      "txHash": "0xe7775c8c6b21cfbf1d49085c38c1de6dbfcfe6340655a250daeec3c97ab8de98",
+      "status": "0x1",
+      "blockNumber": "0xb68fd1",
+      "gasUsed": "0xa5b7",
+      "from": "0xdcf89b628aaee7b4c91ce3d594049e596dd9c85c",
+      "contractAddress": null,
+      "actionExecutedEvents": 0,
+      "mandateSetEvents": 0
+    },
+    {
+      "label": "reset_seed_pool0",
+      "txHash": "0x2fffdd7e0ca14ed799f7a5d398c9d19a85360c47b22a09b4bbfc988bfa0f922c",
+      "status": "0x1",
+      "blockNumber": "0xb68fd3",
+      "gasUsed": "0x5b98",
+      "from": "0xdcf89b628aaee7b4c91ce3d594049e596dd9c85c",
+      "contractAddress": null,
+      "actionExecutedEvents": 0,
+      "mandateSetEvents": 0
+    },
+    {
+      "label": "reset_seed_pool1",
+      "txHash": "0x1b3836da35bd2a620dd9bb17afcb16db5eff968994e98936639a3eb0f10ab278",
+      "status": "0x1",
+      "blockNumber": "0xb68fd4",
+      "gasUsed": "0x5b98",
+      "from": "0xdcf89b628aaee7b4c91ce3d594049e596dd9c85c",
+      "contractAddress": null,
+      "actionExecutedEvents": 0,
+      "mandateSetEvents": 0
+    },
+    {
+      "label": "reset_withdraw_excess",
+      "txHash": "0x38c3f952b9d77f685f076d3675484659a02545502f7eae0f1de253b8fc4c961f",
+      "status": "0x1",
+      "blockNumber": "0xb68fd7",
+      "gasUsed": "0xc0fc",
+      "from": "0xdcf89b628aaee7b4c91ce3d594049e596dd9c85c",
+      "contractAddress": null,
+      "actionExecutedEvents": 0,
+      "mandateSetEvents": 0
+    },
+    {
+      "label": "ui_shock_weth",
+      "txHash": "0x8c1f074316a9c33d7203d1d3520530593cff754af54441b9c7153cc5eb29a579",
+      "status": "0x1",
+      "blockNumber": "0xb68fda",
+      "gasUsed": "0xacd1",
+      "from": "0xdcf89b628aaee7b4c91ce3d594049e596dd9c85c",
+      "contractAddress": null,
+      "actionExecutedEvents": 0,
+      "mandateSetEvents": 0
+    },
+    {
+      "label": "ui_shock_wsteth",
+      "txHash": "0xaa3b6121dd6f9c7979c689cab94e198241317a629ef790e83ea9588c86471b6e",
+      "status": "0x1",
+      "blockNumber": "0xb68fdb",
+      "gasUsed": "0xacd1",
+      "from": "0xdcf89b628aaee7b4c91ce3d594049e596dd9c85c",
+      "contractAddress": null,
+      "actionExecutedEvents": 0,
+      "mandateSetEvents": 0
+    },
+    {
+      "label": "ui_mandate_13",
+      "txHash": "0xe70ba8018e05028f8d91b757a165bcd35b8df823eb95bb0fdadaa9cbfcf2f5a8",
+      "status": "0x1",
+      "blockNumber": "0xb68fdc",
+      "gasUsed": "0x160ce",
+      "from": "0xdcf89b628aaee7b4c91ce3d594049e596dd9c85c",
+      "contractAddress": null,
+      "actionExecutedEvents": 0,
+      "mandateSetEvents": 1
+    },
+    {
+      "label": "ui_repay_pool0",
+      "txHash": "0x756b52c8f4292c6ef918331d84fa710a31616cf8955faa588eabd82634016e04",
+      "status": "0x1",
+      "blockNumber": "0xb68fde",
+      "gasUsed": "0x43624",
+      "from": "0xe219fb396253ba14cd59a91d7c5b163fd04bbd28",
+      "contractAddress": null,
+      "actionExecutedEvents": 1,
+      "mandateSetEvents": 0
+    },
+    {
+      "label": "ui_repay_pool1",
+      "txHash": "0xadb2d86c3906fe9a8ec4d5f108732866817160e545becc0ac8078830d5df5fb9",
+      "status": "0x1",
+      "blockNumber": "0xb68fdf",
+      "gasUsed": "0x2b7b0",
+      "from": "0xe219fb396253ba14cd59a91d7c5b163fd04bbd28",
+      "contractAddress": null,
+      "actionExecutedEvents": 1,
+      "mandateSetEvents": 0
+    }
+  ],
+  "uiRun": {
+    "runId": "run-mvihf91d-1",
+    "state": "COMPLETED",
+    "auditVerified": true,
+    "report": {
+      "state": "COMPLETED",
+      "planId": "[REDACTED_KEY]",
+      "spentUsd8": "25016000000",
+      "remainingUsd8": "984000000",
+      "unsavedPools": [],
+      "healthFactors": [
+        {
+          "poolId": 0,
+          "healthFactor": "1005002169891048628"
+        },
+        {
+          "poolId": 1,
+          "healthFactor": "1116670017182456446"
+        }
+      ],
+      "actionsMined": 2,
+      "actionsRejected": 0,
+      "actionsUnknown": 0,
+      "remainingActions": 0,
+      "txHashes": [
+        "[REDACTED_KEY]",
+        "[REDACTED_KEY]"
+      ],
+      "summary": "COMPLETED: spent $250.16 of $260.00; 2 mined, 0 rejected, 0 unknown."
+    }
+  },
+  "chainState": {
+    "spentUsd8": "25016000000",
+    "actionNonce": "8",
+    "healthFactorPool0": "1005002169891048628",
+    "healthFactorPool1": "1116670017182456446"
+  },
+  "notes": [
+    "The simulated market was reset to the SCENARIOS base state through the admin-only simulator helpers before the browser run.",
+    "A public RPC load-balances over nodes with different sync heights; an earlier run mixed a fresh head with a lagging node state and the planner saw a spent budget that belonged to the previous mandate. The agent now reads every snapshot at one block, re-reads until a mined action is visible, and fails closed if the mandate read does not match the active mandate."
+  ]
+}

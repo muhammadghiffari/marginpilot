@@ -14,17 +14,17 @@ using an ignored temporary override file (without duplicating keys).
   Evidence: `evidence/anvil-e2e-20261021T060254Z.json` (mandate
   `0x62dcec…0b8ad`, actions `0x85136a…d8366` and `0x82088d…f5225`). This is REAL EVM on anvil,
   **not public testnet**; the UI labels it `ANVIL`.
-- **Current gate:** `scripts/verify-all.sh` GREEN = 145 Forge + 89 core + 79 agent + 8 web + 8 eval =
-  **329 tests**; `check-secrets: clean`; workspace typechecks green (2026-10-21). The merged
+- **Current gate:** `scripts/verify-all.sh` GREEN = 145 Forge + 89 core + 81 agent + 8 web + 8 eval =
+  **331 tests**; `check-secrets: clean`; workspace typechecks green (2026-10-21). The merged
   `a/A-05-adversarial` branch adds 15 Foundry adversarial tests and 3 A-06 invariants.
 - **Public Sepolia run driven from the browser (primary proof):** vault
   `0xd7FC116f1acaE8cE017114aD7E41F132a998743C` on chain `11155111`. A Playwright session against
-  the served console shocked the market with the owner controls, drafted and signed mandate #2
-  (tx `0x0a8673…6e39`) and ran the rescue: **run `run-mvi45nsz-2` = `COMPLETED`**, two mined
-  REPAY actions `0xbf947b…fe19` ($86.57) and `0xef8876…bcab` ($163.59),
+  the served console shocked the market with the owner controls, drafted and signed mandate #13
+  (tx `0xe70ba8…f5a8`) and ran the rescue: **run `run-mvihf91d-1` = `COMPLETED`**, two mined
+  REPAY actions `0x756b52…6e04` ($86.57) and `0xadb2d8…5fb9` ($163.59),
   `spentUsd(2) = $250.16 / $260`, pool HFs `0.942857… → 1.005002…` and `1.051428… → 1.116670…`,
-  audit chain verified. 27 receipts re-read from a second public RPC:
-  `evidence/sepolia-ui-e2e-20261021.json`. Screenshots:
+  audit chain verified. 13 receipts re-read from a second public RPC:
+  `evidence/sepolia-ui-e2e-20261022.json`. Screenshots:
   `docs/submission/screenshots/testnet-sepolia-{desktop,mobile}.png`.
 - **UI now links the explorer:** the `TESTNET` badge opens the vault, a **Deployment** card links
   all seven contracts, the owner-signed mandate transaction is linked, and every mined action links
@@ -33,6 +33,11 @@ using an ignored temporary override file (without duplicating keys).
   `MAX_PLAN_AGE_BLOCKS` is **replanned** (fresh observe → fresh plan → continue) instead of ending
   the run; the stale action is never broadcast. Covered by
   `apps/agent/test/run-session.test.ts` (a chain that advances four blocks per mined action).
+- **Read-consistency fix (2026-10-22):** a public RPC load-balances over nodes with different
+  sync heights, so mixed snapshots caused a `$0.00` ledger row for a real `$163.59` action and a
+  planner that read a spent budget from the previous mandate. The agent now reads every
+  snapshot at one explicit block, re-reads until a mined action is visible, and fails closed when
+  the mandate does not match the vault's active mandate (2 new agent tests).
 - **First Sepolia deployment (API-driven):** vault `0x2014c1F2f3175f46f9b2158fe68510Dc3F05fFA1`,
   mandate tx `0xa01bc7…22e1d`, REPAY receipts `0x72abb3…e640c2` and `0xe43f22…ca103a`, both runs
   `COMPLETED_PARTIAL` (the run stopped at the plan-age limit before the replan fix). Verified

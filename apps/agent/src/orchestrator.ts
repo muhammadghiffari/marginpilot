@@ -236,6 +236,7 @@ export class RescueOrchestrator {
       this.abort(`initial observation failed: ${errorMessage(error)}`);
       return this.finalize();
     }
+    if (this.halted) return this.finalize();
     this.state = 'PLANNING';
 
     const messages: LlmMessage[] = [{ role: 'user', content: ORCHESTRATOR_USER_PROMPT }];
@@ -303,8 +304,23 @@ export class RescueOrchestrator {
   }
 
   private async observe(withAudit: boolean): Promise<Snapshot> {
-    const vault = await this.chain.getVault();
-    const mandate = await this.chain.getMandate();
+    let vault = await this.chain.getVault();
+    let mandate = await this.chain.getMandate();
+    // The mandate and the vault snapshot must describe the same mandate. A
+    // public RPC can answer the two reads from different blocks, and planning
+    // against a foreign budget would be wrong, so re-read and then fail closed.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      if (mandate === null || mandate.id === vault.activeMandateId) break;
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      vault = await this.chain.getVault();
+      mandate = await this.chain.getMandate();
+    }
+    if (mandate !== null && mandate.id !== vault.activeMandateId) {
+      this.halt({
+        kind: 'STALE_OR_CONFLICTING_DATA',
+        detail: `mandate ${mandate.id.toString()} does not match the active mandate ${vault.activeMandateId.toString()}`,
+      });
+    }
     const positions = await this.chain.getPositions();
     const tokens = uniqueAddresses([
       ...positions.flatMap((position) => [position.collateralToken, position.debtToken]),
@@ -449,6 +465,7 @@ export class RescueOrchestrator {
 
   private async planRescue(): Promise<unknown> {
     const snapshot = await this.observe(false);
+    if (this.halted) return { ok: false, error: 'StaleAction', needsReplan: false };
     if (!snapshot.mandate) {
       this.halt({ kind: 'MANDATE_INVALID', error: 'MandateInactive' });
       return { ok: false, error: 'MandateInactive' };
@@ -589,6 +606,7 @@ export class RescueOrchestrator {
     }
 
     const snapshot = await this.observe(false);
+    if (this.halted) return { ok: false, error: 'StaleAction', needsReplan: false };
     if (!snapshot.mandate) {
       this.halt({ kind: 'MANDATE_INVALID', error: 'MandateInactive' });
       return { ok: false, error: 'MandateInactive' };
@@ -786,7 +804,7 @@ export class RescueOrchestrator {
     before: Snapshot,
     reconciled: boolean,
   ): Promise<ExecuteResult> {
-    const after = await this.observe(false);
+    const after = await this.observeAfterAction(entry, result);
     const spendUsd8 =
       after.vault.spentUsd8 >= before.vault.spentUsd8
         ? after.vault.spentUsd8 - before.vault.spentUsd8
@@ -870,6 +888,30 @@ export class RescueOrchestrator {
       planId: this.currentPlanValue?.planId,
       actionIndex: entry.index,
     };
+  }
+
+  /**
+   * Re-read the chain until the mined action is visible in the state. A
+   * load-balanced RPC can answer the first read after a receipt with the
+   * pre-action state; recording that would report a $0 spend and would judge
+   * the post-condition check (#16) against a stale health factor. If the
+   * effect never shows up, the run fails closed and asks the owner.
+   */
+  private async observeAfterAction(
+    entry: PlanAction,
+    result: Extract<SubmitResult, { status: 'mined' }>,
+  ): Promise<Snapshot> {
+    let snapshot = await this.observe(false);
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      if (snapshot.vault.actionNonce > entry.action.nonce) return snapshot;
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      snapshot = await this.observe(false);
+    }
+    this.halt({
+      kind: 'STALE_OR_CONFLICTING_DATA',
+      detail: `post-action state did not include block ${result.blockNumber.toString()}`,
+    });
+    return snapshot;
   }
 
   private async onUnknown(

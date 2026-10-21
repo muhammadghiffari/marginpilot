@@ -90,7 +90,7 @@ oracle timestamps and run again."
 ### 9. Evidence and limits — 3:40
 **Do:** show the Deployment card (vault, oracle, lending, swap, three tokens — each a link), then the
 known-risks slide.
-**Say:** "Seven contracts, every one verifiable, plus 329 automated tests. Be clear about the
+**Say:** "Seven contracts, every one verifiable, plus 331 automated tests. Be clear about the
 limits: the contracts are unaudited, the lending market is our own simulator, the agent only ever
 sees prices through the vault's checks, and we have not run a browser-wallet extension end to end."
 
@@ -166,7 +166,7 @@ timestamp oracle, jalannya bersih lagi."
 ### 9. Bukti dan batas — 3:40
 **Do:** tunjukkan kartu Deployment (vault, oracle, lending, swap, tiga token — semuanya ber-link),
 lalu slide known-risks.
-**Say:** "Tujuh kontrak, semuanya bisa diverifikasi, plus 312 tes otomatis. Dan saya harus jelas
+**Say:** "Tujuh kontrak, semuanya bisa diverifikasi, plus 331 tes otomatis. Dan saya harus jelas
 batasnya: kontrak belum diaudit, pasar pinjamnya simulator milik kami sendiri, agent hanya melihat
 harga lewat pemeriksaan vault, dan jalur browser-wallet belum pernah kita jalankan penuh."
 
@@ -196,12 +196,12 @@ menegakkan, explorer membuktikan."
 | Chain | Ethereum Sepolia, chain id `11155111` | `deployments/11155111.json` |
 | Vault | `0xd7FC116f1acaE8cE017114aD7E41F132a998743C` | deployment receipt `0xfbcd9ea5…c792cea` |
 | Owner / executor | `0xdcf89b62…9c85C` / `0xe219FB39…BbD28` | `deployments/11155111.json` |
-| Recorded run | `run-mvi45nsz-2`, state `COMPLETED`, audit chain verified | `evidence/sepolia-ui-e2e-20261021.json` |
-| Mandate transaction | `0x0a86732fa755613865b4b27ce6d16d091d46bfbb787e1df514290a9992fc6e39` | same JSON |
-| REPAY pool 0 / pool 1 | `0xbf947b0c…d5fe19` ($86.57) / `0xef8876de…97cbcab` ($163.59) | same JSON |
-| Spend | `$250.16` of `$260` (96.21 %), gas tracked separately | same JSON (`spentUsd(2) = 25016000000` USD8) |
+| Recorded run | `run-mvihf91d-1`, state `COMPLETED`, audit chain verified | `evidence/sepolia-ui-e2e-20261022.json` |
+| Mandate transaction | `0xe70ba8018e05028f8d91b757a165bcd35b8df823eb95bb0fdadaa9cbfcf2f5a8` | same JSON |
+| REPAY pool 0 / pool 1 | `0x756b52c8…34016e04` ($86.57) / `0xadb2d86c…0d5df5fb9` ($163.59) | same JSON |
+| Spend | `$250.16` of `$260` (96.21 %), gas tracked separately | same JSON (`spentUsd(13) = 25016000000` USD8) |
 | Health factors | pool 0 `0.942857… → 1.005002…`, pool 1 `1.051428… → 1.116670…` | same JSON |
-| Tests | 329 (145 Forge, 89 core, 79 agent, 8 web, 8 eval) | `scripts/verify-all.sh` output |
+| Tests | 331 (145 Forge, 89 core, 81 agent, 8 web, 8 eval) | `scripts/verify-all.sh` output |
 | Second deployment (first run) | `0x2014c1F2…fFA1`, two runs, both `COMPLETED_PARTIAL` | `evidence/sepolia-e2e-20261021.json` |
 
 ---

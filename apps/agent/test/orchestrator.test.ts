@@ -216,8 +216,76 @@ class ShockAfterFirstMined implements ChainPort {
   }
 }
 
-class PausePoolAfterFirstMined implements ChainPort {
-  private changed = false;
+/** Serves a mandate whose id does not match the vault's active mandate. */
+class MismatchedMandateChain implements ChainPort {
+  constructor(private readonly inner: MockChainPort) {}
+
+  getVault = () => this.inner.getVault();
+  getPositions = () => this.inner.getPositions();
+  getPrices = (tokens: Address[]) => this.inner.getPrices(tokens);
+  async getMandate(): Promise<Mandate | null> {
+    const mandate = await this.inner.getMandate();
+    return mandate === null ? null : { ...mandate, id: mandate.id + 98n };
+  }
+  simulate = (action: Action) => this.inner.simulate(action);
+  getTx = (hash: `0x${string}`): Promise<TxStatus> => this.inner.getTx(hash);
+  pause = () => this.inner.pause();
+  demoSetPrice = (token: Address, value: bigint, updatedAt?: bigint) =>
+    this.inner.demoSetPrice(token, value, updatedAt);
+  demoSetPoolPaused = (pool: number, paused: boolean) => this.inner.demoSetPoolPaused(pool, paused);
+  submit = (action: Action) => this.inner.submit(action);
+}
+
+/**
+ * Serves the pre-action state for the first read after a mined action, the way
+ * a load-balanced RPC node can answer with a lagging state.
+ */
+class LaggingReadChain implements ChainPort {
+  private staleVault?: VaultSnapshot;
+  private stalePositions?: PositionSnapshot[];
+
+  constructor(private readonly inner: MockChainPort) {}
+
+  async getVault(): Promise<VaultSnapshot> {
+    if (this.staleVault) {
+      const stale = this.staleVault;
+      this.staleVault = undefined;
+      return stale;
+    }
+    return this.inner.getVault();
+  }
+
+  async getPositions(): Promise<PositionSnapshot[]> {
+    if (this.stalePositions) {
+      const stale = this.stalePositions;
+      this.stalePositions = undefined;
+      return stale;
+    }
+    return this.inner.getPositions();
+  }
+
+  getPrices = (tokens: Address[]) => this.inner.getPrices(tokens);
+  getMandate = () => this.inner.getMandate();
+  simulate = (action: Action) => this.inner.simulate(action);
+  getTx = (hash: `0x${string}`): Promise<TxStatus> => this.inner.getTx(hash);
+  pause = () => this.inner.pause();
+  demoSetPrice = (token: Address, value: bigint, updatedAt?: bigint) =>
+    this.inner.demoSetPrice(token, value, updatedAt);
+  demoSetPoolPaused = (pool: number, paused: boolean) => this.inner.demoSetPoolPaused(pool, paused);
+
+  async submit(action: Action): Promise<SubmitResult> {
+    const beforeVault = await this.inner.getVault();
+    const beforePositions = await this.inner.getPositions();
+    const result = await this.inner.submit(action);
+    if (result.status === 'mined') {
+      this.staleVault = beforeVault;
+      this.stalePositions = beforePositions;
+    }
+    return result;
+  }
+}
+
+class PausePoolAfterFirstMined implements ChainPort {  private changed = false;
   constructor(private readonly inner: MockChainPort) {}
   getVault = () => this.inner.getVault();
   getPositions = () => this.inner.getPositions();
@@ -491,8 +559,42 @@ describe('B-09 scenarios on MockChainPort (SIMULATED)', () => {
     expect(result.audit.some((entry) => entry.kind === 'action.rejected')).toBe(true);
   });
 
-  test('MAX_PLAN_AGE_BLOCKS forces a replan and never submits the stale action', async () => {
-    const chain = new MockChainPort(chainConfig());
+  test('a mandate that does not match the active mandate on chain fails closed', async () => {
+    // A load-balanced RPC can answer the mandate read from a different block
+    // than the vault read. Planning against that budget would be wrong, so the
+    // run must stop instead of acting.
+    const inner = new MockChainPort(chainConfig());
+    const chain = new MismatchedMandateChain(inner);
+    let orch!: RescueOrchestrator;
+    const llm = new ScriptedLlm([...runTrace(), executeAll(orch), step(tool('finish_run'))]);
+    orch = orchestrator(chain, llm as never);
+    const result = await orch.run();
+
+    expect(inner.stats.submissions).toBe(0);
+    expect(result.state).toBe('HALTED_NEEDS_OWNER');
+    expect(result.report.haltReason?.kind).toBe('STALE_OR_CONFLICTING_DATA');
+  });
+
+  test('a stale post-action read is retried, never recorded as a $0 spend', async () => {
+    // A load-balanced RPC can answer the first read after a mined action with
+    // the pre-action state. The agent must re-read instead of recording a $0
+    // spend (and instead of judging check #16 against a stale health factor).
+    const inner = new MockChainPort(chainConfig());
+    const chain = new LaggingReadChain(inner);
+    let orch!: RescueOrchestrator;
+    const llm = new ScriptedLlm([...runTrace(), executeAll(orch), step(tool('finish_run'))]);
+    orch = orchestrator(chain, llm as never);
+    const result = await orch.run();
+    const finalVault = await chain.getVault();
+
+    expect(result.ledger).toHaveLength(2);
+    expect(result.ledger.every((entry) => entry.status === 'mined' && entry.spendUsd8 > 0n)).toBe(true);
+    expect(result.ledger.reduce((sum, entry) => sum + entry.spendUsd8, 0n)).toBe(finalVault.spentUsd8);
+    expect(result.report.spentUsd8).toBe(finalVault.spentUsd8);
+    expect(result.state).not.toBe('HALTED_NEEDS_OWNER');
+  });
+
+  test('MAX_PLAN_AGE_BLOCKS forces a replan and never submits the stale action', async () => {    const chain = new MockChainPort(chainConfig());
     let orch!: RescueOrchestrator;
     const llm = new ScriptedLlm([
       ...runTrace(),

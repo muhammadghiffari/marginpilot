@@ -73,11 +73,11 @@ For an interactive UI on anvil, deploy on 31337 (`bash scripts/dev-anvil.sh` in 
 The live vault is
 [`0xd7FC116f1acaE8cE017114aD7E41F132a998743C`](https://sepolia.etherscan.io/address/0xd7FC116f1acaE8cE017114aD7E41F132a998743C)
 on chain `11155111`. A **browser session against the served console** shocked the market, signed
-mandate #2 and ran the rescue: run `run-mvi45nsz-2` finished **`COMPLETED`** with two mined REPAY
-transactions ([$86.57](https://sepolia.etherscan.io/tx/0xbf947b0ca3a35b3b8c89e846318faf9ef5ca53c7f4e28896f56df55dddd5fe19),
-[$163.59](https://sepolia.etherscan.io/tx/0xef8876ded2846a06c51aec2708e61d1fe1f3d98eb1389071f3beaf97997cbcab))
+mandate #13 and ran the rescue: run `run-mvihf91d-1` finished **`COMPLETED`** with two mined REPAY
+transactions ([$86.57](https://sepolia.etherscan.io/tx/0x756b52c8f4292c6ef918331d84fa710a31616cf8955faa588eabd82634016e04),
+[$163.59](https://sepolia.etherscan.io/tx/0xadb2d86c3906fe9a8ec4d5f108732866817160e545becc0ac8078830d5df5fb9))
 and both health factors above 1.0 (`0.943 → 1.005`, `1.051 → 1.117`), spending `$250.16` of the
-`$260` mandate. Evidence: [27 receipts re-read from a second public RPC](evidence/sepolia-ui-e2e-20261021.json)
+`$260` mandate. Evidence: [13 receipts re-read from a second public RPC](evidence/sepolia-ui-e2e-20261022.json)
 and the screenshots in `docs/submission/screenshots/`. These are real **Sepolia EVM transactions**
 against self-deployed simulator contracts, **not real DeFi positions**.
 

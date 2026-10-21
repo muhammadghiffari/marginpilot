@@ -68,7 +68,9 @@ here. The lending market is our own **simulator** in both cases; only the transa
 
 ### 2a. Browser-driven run on the current deployment (primary proof)
 
-Source of truth: [`evidence/sepolia-ui-e2e-20261021.json`](../../evidence/sepolia-ui-e2e-20261021.json)
+Source of truth: [`evidence/sepolia-ui-e2e-20261022.json`](../../evidence/sepolia-ui-e2e-20261022.json)
+(the latest, fixed-agent run) and the earlier
+[`evidence/sepolia-ui-e2e-20261021.json`](../../evidence/sepolia-ui-e2e-20261021.json)
 and [`deployments/11155111.json`](../../deployments/11155111.json). All **27** receipt summaries in
 the JSON were re-read from `https://sepolia.drpc.org` after the broadcasts went out through a
 different public RPC; every one has `status: 0x1`. The two REPAY receipts each contain one
@@ -85,11 +87,11 @@ run the rescue.
 | Market reset to the SCENARIOS base state | [mUSDC](https://sepolia.etherscan.io/tx/0xd6fe905b524855328b04bd8ce16eb30056ba185ff9298420dae658913a46b8fa), [mWETH](https://sepolia.etherscan.io/tx/0x0420f9008d7876550a1677fe04a71697b4ad96160564caeae1f76d6288e7f839), [mWSTETH](https://sepolia.etherscan.io/tx/0xf5c2bf4b1d883328d569c81bad30b654e3e47ef6be94910a46fc7011e82902dc), [positions](https://sepolia.etherscan.io/tx/0xd03ecf612d10ebd3745658fc06891afde5baa8da8a9b29e2c6791e985c4783ec) / [positions](https://sepolia.etherscan.io/tx/0x1b6fdd9a6cc3d96f8d47564697c9ecdb119c2209efca44b90b1efa756b741604) |
 | UI shock buttons (−20 % on both pools) | [mWETH](https://sepolia.etherscan.io/tx/0x7f15e63cfddb8343d92d017717ee252796e4fc85426e8f5da082a9a3ab54fa79), [mWSTETH](https://sepolia.etherscan.io/tx/0xe9df8e223af79fb175884c231189ab1ca8d7015c163677637d185348fe7ed7b7) |
 | Oracle re-stamp (on-chain admin key) | [mUSDC](https://sepolia.etherscan.io/tx/0x23eddb83938bd8eef3c548f32ffeb40d435e156c25a96ce0fbd95284ba9e286e), [mWETH](https://sepolia.etherscan.io/tx/0x5157c713e9c4698c033dacbd236f9636031c3dde003a200b1da05dd283b9a2f5), [mWSTETH](https://sepolia.etherscan.io/tx/0x8be25b6ef17174264aeb2e7a807d8e15b4f0b7b42c6c24c91a9715ae17bd0c7e) |
-| Owner-signed mandate #2 | [setMandateWithSig receipt](https://sepolia.etherscan.io/tx/0x0a86732fa755613865b4b27ce6d16d091d46bfbb787e1df514290a9992fc6e39) |
-| REPAY pool 0 | [receipt](https://sepolia.etherscan.io/tx/0xbf947b0ca3a35b3b8c89e846318faf9ef5ca53c7f4e28896f56df55dddd5fe19), `$86.57` |
-| REPAY pool 1 | [receipt](https://sepolia.etherscan.io/tx/0xef8876ded2846a06c51aec2708e61d1fe1f3d98eb1389071f3beaf97997cbcab), `$163.59` |
-| Run | `run-mvi45nsz-2`, state **`COMPLETED`**, two ledger entries `mined`, audit chain verified |
-| On-chain budget and nonce | `spentUsd(2) = 25016000000` USD8 = **$250.16 of $260**; `actionNonce() = 4` |
+| Owner-signed mandate #13 | [setMandateWithSig receipt](https://sepolia.etherscan.io/tx/0xe70ba8018e05028f8d91b757a165bcd35b8df823eb95bb0fdadaa9cbfcf2f5a8) |
+| REPAY pool 0 | [receipt](https://sepolia.etherscan.io/tx/0x756b52c8f4292c6ef918331d84fa710a31616cf8955faa588eabd82634016e04), `$86.57` |
+| REPAY pool 1 | [receipt](https://sepolia.etherscan.io/tx/0xadb2d86c3906fe9a8ec4d5f108732866817160e545becc0ac8078830d5df5fb9), `$163.59` |
+| Run | `run-mvihf91d-1`, state **`COMPLETED`**, two ledger entries `mined` with the correct spend ($86.57 and $163.59), audit chain verified |
+| On-chain budget and nonce | `spentUsd(13) = 25016000000` USD8 = **$250.16 of $260**; `actionNonce() = 8` |
 | Health factors after shocks → after both actions | pool 0: `0.942857… → 1.005002…`; pool 1: `1.051428… → 1.116670…` |
 
 Screenshots of that browser session are in
@@ -109,10 +111,21 @@ Two honest caveats from that session:
    helpers** (`setPrice`, `seedPosition`, `mint`) before the run — the same state a fresh deployment
    starts from. The reset transactions are listed above.
 
-An earlier rehearsal run on the same deployment is also in the JSON (`rehearsal_*` receipts):
-mandate #1 and two REPAY actions, both mined, but reported `COMPLETED_PARTIAL` because the run
-stopped at the two-block plan-age limit. The agent now replans instead of stopping, which is why
-the recorded browser run finishes in one pass.
+An earlier rehearsal run on the same deployment is also in the 2026-10-21 JSON (`rehearsal_*`
+receipts): mandate #1 and two REPAY actions, both mined, but reported `COMPLETED_PARTIAL` because
+the run stopped at the two-block plan-age limit. The agent now replans instead of stopping, which
+is why the recorded browser run finishes in one pass.
+
+**Two read-consistency bugs were found and fixed while running this on a public RPC.** A public
+RPC load-balances over nodes with different sync heights, so a snapshot assembled from separate
+"latest" calls can mix a fresh head with a lagging node's state. That produced (a) a ledger row
+that showed `$0.00` for a `$163.59` action and a post-condition check judged against a stale
+health factor, and (b) a planner that read the previous mandate's spend and refused to act on a
+budget that was still free. The agent now reads every snapshot at one explicit block, re-reads
+until a mined action is visible in the state, and **fails closed** if the mandate it read does not
+match the vault's active mandate. Regression tests:
+`apps/agent/test/orchestrator.test.ts` ("a stale post-action read is retried, never recorded as a
+$0 spend", "a mandate that does not match the active mandate on chain fails closed").
 
 ### 2b. First API-driven run on the earlier deployment
 

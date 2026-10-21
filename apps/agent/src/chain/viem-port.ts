@@ -278,118 +278,160 @@ export class ViemChainPort implements ChainPort, MandateWriter {
     return signer.kind === 'privateKey' ? privateKeyToAccount(signer.value) : signer.value;
   }
 
+  /**
+   * Reads a state snapshot at one explicit block.
+   *
+   * A public RPC is usually load-balanced over nodes with different sync
+   * heights, so a snapshot assembled from separate "latest" calls can mix a
+   * fresh head with a lagging node's state. That produced a vault snapshot
+   * whose `activeMandateId` and `spentUsd` came from different mandates, and
+   * the planner then refused to act on a budget that was already spent.
+   * Reading every field at the same block removes that class of mismatch: if
+   * the node cannot serve the block, the read fails and is retried.
+   */
+  private async snapshotAt<T>(read: (blockNumber: bigint) => Promise<T>): Promise<T> {
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const blockNumber = await this.publicClient.getBlockNumber();
+      try {
+        return await read(blockNumber);
+      } catch (error) {
+        lastError = error;
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      }
+    }
+    throw lastError instanceof Error
+      ? lastError
+      : new Error('could not read a consistent chain snapshot');
+  }
+
   async getVault(): Promise<VaultSnapshot> {
-    const [headBlockNumber, paused, activeMandateId, actionNonce, liquidReserveUsd8] = await Promise.all([
-      this.publicClient.getBlockNumber(),
-      this.publicClient.readContract({
-        address: this.config.vault,
-        abi: MANDATE_VAULT_ABI,
-        functionName: 'paused',
-      }) as Promise<boolean>,
-      this.publicClient.readContract({
-        address: this.config.vault,
-        abi: MANDATE_VAULT_ABI,
-        functionName: 'activeMandateId',
-      }) as Promise<bigint>,
-      this.publicClient.readContract({
-        address: this.config.vault,
-        abi: MANDATE_VAULT_ABI,
-        functionName: 'actionNonce',
-      }) as Promise<bigint>,
-      this.publicClient.readContract({
-        address: this.config.vault,
-        abi: MANDATE_VAULT_ABI,
-        functionName: 'liquidReserveUsd8',
-      }) as Promise<bigint>,
-    ]);
-    const block = await this.publicClient.getBlock({ blockNumber: headBlockNumber });
-    const [spentUsd8, balances] = await Promise.all([
-      this.publicClient.readContract({
-        address: this.config.vault,
-        abi: MANDATE_VAULT_ABI,
-        functionName: 'spentUsd',
-        args: [activeMandateId],
-      }) as Promise<bigint>,
-      Promise.all(
-        this.config.tokens.map(
-          async (token) =>
-            [
-              token,
-              (await this.publicClient.readContract({
-                address: token,
-                abi: MOCK_ERC20_ABI,
-                functionName: 'balanceOf',
-                args: [this.config.vault],
-              })) as bigint,
-            ] as const,
+    return this.snapshotAt(async (headBlockNumber) => {
+      const [paused, activeMandateId, actionNonce, liquidReserveUsd8] = await Promise.all([
+        this.publicClient.readContract({
+          address: this.config.vault,
+          abi: MANDATE_VAULT_ABI,
+          functionName: 'paused',
+          blockNumber: headBlockNumber,
+        }) as Promise<boolean>,
+        this.publicClient.readContract({
+          address: this.config.vault,
+          abi: MANDATE_VAULT_ABI,
+          functionName: 'activeMandateId',
+          blockNumber: headBlockNumber,
+        }) as Promise<bigint>,
+        this.publicClient.readContract({
+          address: this.config.vault,
+          abi: MANDATE_VAULT_ABI,
+          functionName: 'actionNonce',
+          blockNumber: headBlockNumber,
+        }) as Promise<bigint>,
+        this.publicClient.readContract({
+          address: this.config.vault,
+          abi: MANDATE_VAULT_ABI,
+          functionName: 'liquidReserveUsd8',
+          blockNumber: headBlockNumber,
+        }) as Promise<bigint>,
+      ]);
+      const block = await this.publicClient.getBlock({ blockNumber: headBlockNumber });
+      const [spentUsd8, balances] = await Promise.all([
+        this.publicClient.readContract({
+          address: this.config.vault,
+          abi: MANDATE_VAULT_ABI,
+          functionName: 'spentUsd',
+          args: [activeMandateId],
+          blockNumber: headBlockNumber,
+        }) as Promise<bigint>,
+        Promise.all(
+          this.config.tokens.map(
+            async (token) =>
+              [
+                token,
+                (await this.publicClient.readContract({
+                  address: token,
+                  abi: MOCK_ERC20_ABI,
+                  functionName: 'balanceOf',
+                  args: [this.config.vault],
+                  blockNumber: headBlockNumber,
+                })) as bigint,
+              ] as const,
+          ),
         ),
-      ),
-    ]);
-    return {
-      blockNumber: headBlockNumber,
-      blockTimestamp: block.timestamp,
-      paused,
-      activeMandateId,
-      actionNonce,
-      spentUsd8,
-      liquidReserveUsd8,
-      balances: Object.fromEntries(balances) as Record<Address, bigint>,
-    };
+      ]);
+      return {
+        blockNumber: headBlockNumber,
+        blockTimestamp: block.timestamp,
+        paused,
+        activeMandateId,
+        actionNonce,
+        spentUsd8,
+        liquidReserveUsd8,
+        balances: Object.fromEntries(balances) as Record<Address, bigint>,
+      };
+    });
   }
 
   async getPositions(): Promise<PositionSnapshot[]> {
-    const positions: PositionSnapshot[] = [];
-    for (const poolId of [0, 1] as const) {
-      const [pool, position, healthFactor] = await Promise.all([
-        this.publicClient.readContract({
-          address: this.config.lending,
-          abi: LENDING_SIM_ABI,
-          functionName: 'pools',
-          args: [poolId],
-        }),
-        this.publicClient.readContract({
-          address: this.config.lending,
-          abi: LENDING_SIM_ABI,
-          functionName: 'positionOf',
-          args: [poolId, this.config.vault],
-        }),
-        this.publicClient.readContract({
-          address: this.config.lending,
-          abi: LENDING_SIM_ABI,
-          functionName: 'healthFactor',
-          args: [poolId, this.config.vault],
-        }) as Promise<bigint>,
-      ]);
-      positions.push({
-        poolId,
-        collateralToken: addressField(pool, 'collateralToken', 0),
-        debtToken: addressField(pool, 'debtToken', 1),
-        collateral: bigintField(position, 'collateral', 0),
-        debt: bigintField(position, 'debt', 1),
-        healthFactor,
-        ltBps: numberField(pool, 'ltBps', 2),
-        liqBonusBps: numberField(pool, 'liqBonusBps', 3),
-        closeFactorBps: numberField(pool, 'closeFactorBps', 4),
-      });
-    }
-    return positions;
+    return this.snapshotAt(async (headBlockNumber) => {
+      const positions: PositionSnapshot[] = [];
+      for (const poolId of [0, 1] as const) {
+        const [pool, position, healthFactor] = await Promise.all([
+          this.publicClient.readContract({
+            address: this.config.lending,
+            abi: LENDING_SIM_ABI,
+            functionName: 'pools',
+            args: [poolId],
+            blockNumber: headBlockNumber,
+          }),
+          this.publicClient.readContract({
+            address: this.config.lending,
+            abi: LENDING_SIM_ABI,
+            functionName: 'positionOf',
+            args: [poolId, this.config.vault],
+            blockNumber: headBlockNumber,
+          }),
+          this.publicClient.readContract({
+            address: this.config.lending,
+            abi: LENDING_SIM_ABI,
+            functionName: 'healthFactor',
+            args: [poolId, this.config.vault],
+            blockNumber: headBlockNumber,
+          }) as Promise<bigint>,
+        ]);
+        positions.push({
+          poolId,
+          collateralToken: addressField(pool, 'collateralToken', 0),
+          debtToken: addressField(pool, 'debtToken', 1),
+          collateral: bigintField(position, 'collateral', 0),
+          debt: bigintField(position, 'debt', 1),
+          healthFactor,
+          ltBps: numberField(pool, 'ltBps', 2),
+          liqBonusBps: numberField(pool, 'liqBonusBps', 3),
+          closeFactorBps: numberField(pool, 'closeFactorBps', 4),
+        });
+      }
+      return positions;
+    });
   }
 
   async getPrices(tokens: Address[]): Promise<PriceSnapshot[]> {
-    return Promise.all(
-      tokens.map(async (token) => {
-        const price = await this.publicClient.readContract({
-          address: this.config.oracle,
-          abi: MOCK_ORACLE_ABI,
-          functionName: 'getPrice',
-          args: [token],
-        });
-        return {
-          token,
-          priceUsd8: bigintField(price, 'priceUsd8', 0),
-          updatedAt: bigintField(price, 'updatedAt', 1),
-        };
-      }),
+    return this.snapshotAt(async (headBlockNumber) =>
+      Promise.all(
+        tokens.map(async (token) => {
+          const price = await this.publicClient.readContract({
+            address: this.config.oracle,
+            abi: MOCK_ORACLE_ABI,
+            functionName: 'getPrice',
+            args: [token],
+            blockNumber: headBlockNumber,
+          });
+          return {
+            token,
+            priceUsd8: bigintField(price, 'priceUsd8', 0),
+            updatedAt: bigintField(price, 'updatedAt', 1),
+          };
+        }),
+      ),
     );
   }
 
