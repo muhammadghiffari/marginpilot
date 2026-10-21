@@ -22,3 +22,5 @@ evidence/audit.jsonl
 .secrets/
 submission-*.zip
 .playwright-mcp/
+# Local branding asset, not referenced by the served bundle; keep the tree clean
+apps/web/asset/
