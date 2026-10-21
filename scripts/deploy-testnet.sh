@@ -54,7 +54,7 @@ fi
 
 SIGNER_ARGS="${EXTRA_FORGE_ARGS:-}"
 case "$SIGNER_ARGS" in
-  *--private-key*) fail "refusing --private-key; use a Foundry keystore (--account) or a hardware wallet" ;;
+  *--private-key*|*--mnemonic*) fail "refusing key material on the command line; use a Foundry keystore (--account) or a hardware wallet" ;;
   *--rpc-url*|*--fork-url*|*--chain*|*--chain-id*)
     fail "EXTRA_FORGE_ARGS must not override the RPC/chain selected by .env" ;;
   *--account*|*--ledger*|*--trezor*|*--keystore*) ;;

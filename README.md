@@ -79,8 +79,8 @@ CHAIN_MODE=testnet pnpm --filter @marginpilot/agent prices:refresh  # executor k
 bash scripts/start-testnet.sh testnet
 ```
 
-The wrappers refuse mainnet chain ids, local chain ids as testnet, `--private-key`, owner = executor,
-and contract accounts as owner/executor. The agent verifies the RPC chain id and that every deployed
+The wrappers refuse well-known mainnet chain ids, local chain ids as testnet, `--private-key`,
+owner = executor, and contract accounts as owner/executor. The agent verifies the RPC chain id and that every deployed
 address has code before serving. See
 [Execution Evidence](docs/submission/EXECUTION-EVIDENCE.md) for the exact remaining blocker.
 

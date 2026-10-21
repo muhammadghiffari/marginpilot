@@ -16,8 +16,8 @@ blocker**: `.env` still points at local anvil and no funded public-testnet accou
 - **Current gate:** `scripts/verify-all.sh` GREEN = 128 Forge + 89 core + 74 agent + 5 web + 8 eval =
   **304 tests**; `check-secrets: clean`; `pnpm -r typecheck` green (2026-10-21).
 - **Public testnet (A-10) still not run.** `scripts/deploy-testnet.sh` and
-  `scripts/start-testnet.sh` are ready and refuse mainnet/local chain ids, `--private-key`, owner =
-  executor, and contract accounts. They need the human's funded testnet RPC/keys and presence.
+  `scripts/start-testnet.sh` are ready and refuse well-known mainnet/local chain ids, key material on
+  the command line, owner = executor, and contract accounts. They need the human's funded testnet RPC/keys and presence.
 - **Earlier validation (2026-10-20):** Part 2 remains SIMULATED (`MockChainPort`, D-034);
   D-036 LLM client is mock-tested only; the web console was verified at 1440px/390px; A-04/A-07 are
   merged (`7039146`/`c7000f0`); push credentials are still missing.

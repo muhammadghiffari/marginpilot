@@ -68,7 +68,8 @@ CHAIN_MODE=testnet pnpm --filter @marginpilot/agent prices:refresh
 bash scripts/start-testnet.sh testnet
 ```
 
-`deploy-testnet.sh` refuses mainnet chain ids and local chain ids, refuses `--private-key`, requires
+`deploy-testnet.sh` refuses well-known mainnet chain ids and local chain ids, refuses key material on
+the command line, requires
 `SENDER` (a funded EOA), a Foundry account/hardware signer in `EXTRA_FORGE_ARGS`, owner ≠ executor,
 and EOAs for both roles. The agent refuses mainnet ids, verifies the RPC chain id, and checks that
 every deployment address has code before serving.
