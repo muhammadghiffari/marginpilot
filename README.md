@@ -68,12 +68,14 @@ For an interactive UI on anvil, deploy on 31337 (`bash scripts/dev-anvil.sh` in 
 
 ### Public testnet (human-present, funded account)
 
-This is **not run** in the repository. After filling `.env` with a public testnet `CHAIN_ID`,
-`RPC_URL`, `EXPLORER_BASE_URL`, public `OWNER_ADDRESS`/`EXECUTOR_ADDRESS`, and a funded `SENDER`:
+This is **not run** in the repository. After filling `.env` with `CHAIN_MODE=testnet`, a public
+testnet `CHAIN_ID`, `RPC_URL`, `EXPLORER_BASE_URL`, public `OWNER_ADDRESS`/`EXECUTOR_ADDRESS`, and a
+funded `SENDER`:
 
 ```bash
 # The signer is a Foundry keystore/hardware account; never --private-key.
 EXTRA_FORGE_ARGS='--account <keystore-name>' bash scripts/deploy-testnet.sh
+CHAIN_MODE=testnet pnpm --filter @marginpilot/agent prices:refresh  # executor key re-stamps the simulator oracle
 bash scripts/start-testnet.sh testnet
 ```
 

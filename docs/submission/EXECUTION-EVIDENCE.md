@@ -60,9 +60,11 @@ transaction hash**. Public-testnet broadcast is blocked on:
 The guarded path is prepared:
 
 ```bash
-# .env: CHAIN_ID=<testnet>, RPC_URL=<public RPC>, EXPLORER_BASE_URL=<explorer>,
-#       OWNER_ADDRESS=<owner EOA>, EXECUTOR_ADDRESS=<executor EOA>
+# .env: CHAIN_MODE=testnet, CHAIN_ID=<testnet>, RPC_URL=<public RPC>,
+#       EXPLORER_BASE_URL=<explorer>, OWNER_ADDRESS=<owner EOA>,
+#       EXECUTOR_ADDRESS=<executor EOA>
 bash scripts/deploy-testnet.sh
+CHAIN_MODE=testnet pnpm --filter @marginpilot/agent prices:refresh
 bash scripts/start-testnet.sh testnet
 ```
 
