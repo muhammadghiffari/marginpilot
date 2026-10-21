@@ -4,10 +4,10 @@ Team: **MarginPilot** (D-035) · Topic F · Date: 2026-10-21
 
 This document describes the repository working tree at the time of writing and what was measured;
 where an artifact is missing, it says so. The lending market is **SIMULATED** (D-002). The vault and
-agent can run against a real EVM chain: a local-anvil end-to-end run is recorded in
-`evidence/anvil-e2e-20261021T060254Z.json`. The repository still has **no public-testnet deployment**
-(see §7 and `docs/submission/EXECUTION-EVIDENCE.md`); that broadcast needs a funded public-testnet
-account and RPC supplied by the human.
+agent can run against a real EVM chain: local-anvil and public Ethereum Sepolia runs are recorded in
+`evidence/anvil-e2e-20261021T060254Z.json` and `evidence/sepolia-e2e-20261021.json`. Sepolia
+transactions are real; the lending market is still a self-deployed simulator. The Sepolia runs
+reported `COMPLETED_PARTIAL` (see `docs/submission/EXECUTION-EVIDENCE.md`).
 
 ## 1. Problem & motivation
 
@@ -51,7 +51,7 @@ Trust zones (`docs/spec/ARCHITECTURE.md`):
 
 | Component | Path | Role |
 |---|---|---|
-| Contracts | `contracts/src/MandateVault.sol`, `LendingSim.sol`, `MockSwap.sol` | EIP-712 mandate, execution check gate (#1–#15 at this commit; effects/#16 on Dev A's branch), pause/withdraw, simulated two-pool market |
+| Contracts | `contracts/src/MandateVault.sol`, `LendingSim.sol`, `MockSwap.sol` | EIP-712 mandate, execution check gate #1–#16, pause/withdraw, simulated two-pool market |
 | Core | `packages/core/src/policy.ts`, `optimizer.ts`, `mock-chain-port.ts`, `audit.ts`, `ledger.ts` | Pure policy mirror, loss model and exhaustive planner, typed chain port, hash-chained audit, redaction |
 | Agent | `apps/agent/src/orchestrator.ts`, `llm/`, `mandate/`, `api/`, `demo/` | Fixed tool loop, deterministic `ScriptedLlm`, mandate compiler, Fastify API/SSE, demo runtime |
 | Web | `apps/web/src/` | One Vite/React page for instruction → mandate → plan → verified state |
@@ -89,7 +89,8 @@ receipt handling, unknown-transaction reconciliation and owner/executor writes a
 contracts. `scripts/e2e-anvil.sh` deploys a fresh chain, installs an owner-signed mandate, runs the
 two-action rescue and records mined transaction hashes (local anvil, chain 31338). The TypeScript
 policy mirror implements the same ordering plus `checkPostConditions`; the full differential test is
-B-15. A public-testnet broadcast (A-10) has not been run.
+B-15. On Sepolia, two real REPAY transactions were mined in separate runs after the agent refused
+to submit a plan that had aged past the two-block limit. The market remains simulated.
 
 Permission tiers (`docs/security/PERMISSION-TIERS.md`): L0 read, L1 plan/simulate (no submit path),
 L2 bounded execution inside the mandate, L3 owner-only decisions such as more budget, unlock,
@@ -152,11 +153,13 @@ Fastify; React 19 + Vite; pnpm workspaces; Vitest.
 Repository map and run instructions are in the root `README.md` (setup in fewer than ten commands).
 `.env.example` lists names only. `scripts/verify-all.sh` is the green gate.
 
-Deployment addresses: the committed local record is `deployments/31337.json` (anvil chain 31337).
-`scripts/e2e-anvil.sh` deploys a throwaway chain 31338, writes no permanent deployment record, and
-records its real receipts under `evidence/`. There is **no public-testnet deployment yet**;
-`scripts/deploy-testnet.sh` is the guarded wrapper and `scripts/start-testnet.sh` starts the agent
-against `deployments/<chainId>.json`. The wrapper refuses mainnet chain ids, local chain ids, a
+Deployment addresses: `deployments/31337.json` (local anvil) and `deployments/11155111.json`
+(public Sepolia). `scripts/e2e-anvil.sh` deploys a throwaway chain 31338 and records local receipts
+under `evidence/`. Sepolia deployed contract receipts and both run reports are in
+`evidence/sepolia-e2e-20261021.json`. `scripts/deploy-testnet.sh` is a guarded wrapper but its
+Forge gas estimation **failed** on Sepolia; the successful deployment used an encrypted keystore,
+explicit `cast send` gas limits, and the smaller via-IR vault. `scripts/start-testnet.sh` starts the
+agent against `deployments/<chainId>.json`. The wrapper refuses mainnet chain ids, local chain ids, a
 `--private-key` argument, an owner equal to the executor, and contract accounts as owner/executor.
 It requires a Foundry keystore or hardware signer, a funded `SENDER`, and a matching RPC chain id.
 The agent refuses mainnet ids, verifies the RPC chain id, and checks that code exists at every
@@ -232,7 +235,7 @@ generated `summary.md`; do not copy numbers from this prose without regenerating
 ## 9. Security
 
 `docs/submission/SECURITY-SELF-ASSESSMENT.md` reports controls and T01–T18 status honestly. The
-current tree has 304 passing automated tests: 128 Foundry, 89 core, 74 agent, 5 web, 8 eval
+current tree has 306 passing automated tests: 128 Foundry, 89 core, 76 agent, 5 web, 8 eval
 (`scripts/verify-all.sh`, 2026-10-21). Seven scenarios (S1–S5, S7, S9) run once each with
 `ScriptedLlm` on `MockChainPort`, plus the 28-run Part 2 ablation. Config D records 0
 hard-constraint violations and 7/7 acceptance passes in that SIMULATED study; this is not a k=5
@@ -244,10 +247,11 @@ real funds.
 From `docs/security/KNOWN-RISKS.md`: unaudited contracts; simulated market and oracle; hot executor
 key; server-held demo-owner key; gas outside the on-chain budget; oracle dependence; LLM/provider
 variance; injection robustness relies on the gate; one chain, one simulated protocol, two pools;
-public-demo abuse; EOA-only signatures; constructed evaluation. The real chain adapter, owner-key
-and browser-wallet signing paths are implemented and exercised locally; B-15's full differential
-test and B-13 (LLM paraphrase/grounding) are not complete, A-09 was cut (D-034), and A-10/A-13
-(public-testnet deploy, public URL) are human-run and not done. Mainnet is out of scope.
+public-demo abuse; EOA-only signatures; constructed evaluation. The real chain adapter and
+server-side owner signing were exercised on Sepolia; browser-wallet extension E2E was not.
+B-15's full differential test and B-13 (LLM paraphrase/grounding) are not complete, A-09 was
+cut (D-034), and A-10 still needs public S2/S7 cases plus a reproducible deployment path.
+A-13 (public URL) is human-run and not done. Mainnet is out of scope.
 
 ## 11. References
 

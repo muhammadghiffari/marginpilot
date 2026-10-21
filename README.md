@@ -5,11 +5,10 @@ on-chain-enforced budget.** FinTechathon 2026, Topic F.
 
 The agent proposes and executes only inside a mandate; the vault enforces the limits. The lending
 market in this repository is **SIMULATED** (D-002). The agent can run against a **real EVM chain**
-through `ViemChainPort`: a fresh local-anvil end-to-end run installs an owner-signed mandate and
-mines two rescue actions
-([`evidence/anvil-e2e-20261021T060254Z.json`](evidence/anvil-e2e-20261021T060254Z.json)). There is
-still **no public-testnet deployment**, because that broadcast needs a funded public-testnet account
-and RPC from the human. See
+through `ViemChainPort`: local-anvil and public Ethereum Sepolia runs each mined owner-mandated
+rescue actions ([local evidence](evidence/anvil-e2e-20261021T060254Z.json),
+[Sepolia evidence](evidence/sepolia-e2e-20261021.json)). The transactions are real, **not real
+lending-protocol rescues**. Sepolia required two partial runs to rescue both positions; see
 [Execution Evidence](docs/submission/EXECUTION-EVIDENCE.md).
 
 ## What works at this commit
@@ -17,16 +16,16 @@ and RPC from the human. See
 | Area | State |
 |---|---|
 | Core policy, loss model, exhaustive planner, audit chain, ledger | Implemented, 89 tests |
-| Deterministic `ScriptedLlm`, mandate compiler, clarification gate, prompt sanitizer | Implemented, agent suite 74 tests |
+| Deterministic `ScriptedLlm`, mandate compiler, clarification gate, prompt sanitizer | Implemented, agent suite 76 tests |
 | Orchestrator: fixed tools, plan binding, replans on remaining budget, unknown-tx reconciliation, halt/kill switch | Implemented; S1–S5, S7, S9 on `MockChainPort`, plus local-anvil E2E |
 | Fastify API + SSE + zod boundaries + always-on 429 limits + demo signing | Implemented, 9 API tests |
 | Web console (instruction → mandate → plan → live state → ledger) | Implemented, 5 tests; verified at 1440px and 390px |
 | Seeded Part 1 evaluation and generated report | Implemented, 500 cases |
 | Part 2 ablation runner (configs A–D × S1–S5/S7/S9/T15) | Implemented on `MockChainPort`, **SIMULATED**; 8 eval tests |
-| `ViemChainPort`: reads, simulate-before-submit, receipts, unknown reconciliation, owner/executor writes | Implemented; real local-anvil E2E (chain 31338) |
+| `ViemChainPort`: reads, simulate-before-submit, receipts, unknown reconciliation, owner/executor writes | Implemented; real local-anvil and public Sepolia receipts |
 | Owner signing: server owner key and browser-wallet EIP-712 relay | Implemented; unit/API tested (no MetaMask extension run recorded) |
 | OpenAI-compatible LLM client (tools, JSON-schema retry, primary→fallback) | Implemented, mock-HTTP tests only; **no live model call** (D-036) |
-| Public testnet deployment and public URL | **Not run**: needs the human's funded testnet RPC/keys (A-10/A-13) |
+| Public testnet deployment and public URL | Sepolia chain 11155111 deployed with two mined REPAYs; **public URL not live** (A-13), S2/S7 not yet broadcast |
 | On-chain `execute` effects and post-condition check #16 | Merged (PR #1 `7039146`, PR #2 `c7000f0`); direct anvil receipts above |
 
 ## Quick start (setup in fewer than ten commands)
@@ -66,23 +65,35 @@ For an interactive UI on anvil, deploy on 31337 (`bash scripts/dev-anvil.sh` in 
 `CHAIN_MODE=anvil CHAIN_ID=31337 RPC_URL=http://127.0.0.1:8545`, and run
 `bash scripts/start-testnet.sh anvil`. The UI badge is `ANVIL`.
 
-### Public testnet (human-present, funded account)
+### Ethereum Sepolia (public testnet; simulated lending market)
 
-This is **not run** in the repository. After filling `.env` with `CHAIN_MODE=testnet`, a public
-testnet `CHAIN_ID`, `RPC_URL`, `EXPLORER_BASE_URL`, public `OWNER_ADDRESS`/`EXECUTOR_ADDRESS`, and a
-funded `SENDER`:
+The vault at [`0x2014c1F2f3175f46f9b2158fe68510Dc3F05fFA1`](https://sepolia.etherscan.io/address/0x2014c1F2f3175f46f9b2158fe68510Dc3F05fFA1)
+on chain `11155111` executed two REPAY transactions under owner-signed mandate #1. Both positions
+ended above HF 1.0; the agent reported `COMPLETED_PARTIAL` because pool 0 did not reach its
+stricter stress target within the $260 mandate. See the [15 verified receipt summaries and both
+run reports](evidence/sepolia-e2e-20261021.json). These are real **Sepolia EVM transactions**
+against self-deployed simulator contracts, **not real DeFi positions**.
+Run `bash scripts/verify-sepolia-bytecode.sh` for a read-only comparison of the seven public
+creation transactions with bytecode compiled from this repository.
 
-```bash
-# The signer is a Foundry keystore/hardware account; never --private-key.
-EXTRA_FORGE_ARGS='--account <keystore-name>' bash scripts/deploy-testnet.sh
-CHAIN_MODE=testnet pnpm --filter @marginpilot/agent prices:refresh  # executor key re-stamps the simulator oracle
-bash scripts/start-testnet.sh testnet
-```
+To use the existing deployment, supply public Sepolia overrides **after** sourcing your ignored
+`.env` (which holds the testnet-only keys). `scripts/start-testnet.sh` supports `ENV_FILE` pointing
+to an ignored shell file that sources `.env` and then sets `CHAIN_ID=11155111`, Sepolia `RPC_URL`,
+`EXPLORER_BASE_URL=https://sepolia.etherscan.io`, the public `OWNER_ADDRESS`/`EXECUTOR_ADDRESS`,
+and `PORT`. Keep `HOST=127.0.0.1`; set `ALLOW_DEMO_CONTROLS=true` only for a loopback demo because
+the shock controls and server-key mandate confirmation are not authenticated in demo mode. Never
+proxy that configuration to a public URL. Run
+`ENV_FILE=<your-ignored-config> bash scripts/start-testnet.sh testnet`.
+The oracle refresh CLI now selects a configured key matching the oracle's **on-chain admin**;
+the executor cannot refresh this admin-controlled oracle.
 
-The wrappers refuse well-known mainnet chain ids, local chain ids as testnet, `--private-key`,
-owner = executor, and contract accounts as owner/executor. The agent verifies the RPC chain id and that every deployed
-address has code before serving. See
-[Execution Evidence](docs/submission/EXECUTION-EVIDENCE.md) for the exact remaining blocker.
+**Deployment caveat:** Sepolia's observed gas schedule caused earlier `scripts/deploy-testnet.sh`
+Forge broadcasts to fail; it now refuses Sepolia before any RPC/broadcast. The recorded deployment
+used an encrypted keystore and explicit per-transaction
+`cast send` gas limits; the vault was compiled with `via_ir = true`, `optimizer_runs = 1` to fit the
+observed 16,777,216 gas ceiling. A reusable manual-deploy wrapper is pending. Do not claim that
+`deploy-testnet.sh` reproduced this deployment. The agent validates chain id, contract code, and
+owner/executor roles at startup. Details: [Execution Evidence](docs/submission/EXECUTION-EVIDENCE.md).
 
 `pnpm eval:run` writes `eval/results/<timestamp>/{results.json,summary.md,run-meta.json}`. Use the
 generated summary; never hand-edit results. Part 2 runs the A–D ablation on `MockChainPort` only:
@@ -111,8 +122,8 @@ deterministic script.
 - **REAL code paths:** EIP-712 mandate signing (server key or browser wallet with server-side
   recovery), vault enforcement, policy checks, orchestrator gating, audit hashing, API validation,
   receipt handling and unknown-transaction reconciliation.
-- **PUBLIC TESTNET:** not run yet. `TESTNET` is reserved for a chain that is actually a public
-  testnet; the source tree contains no public-testnet address or explorer link.
+- **PUBLIC TESTNET:** real Ethereum Sepolia transactions on chain `11155111`; the lending protocol
+  remains a self-deployed **simulator**. See `deployments/11155111.json` and `evidence/sepolia-e2e-20261021.json`.
 - **Not claimed:** production security, real-protocol performance, per-case optimizer dominance, or
   rescue of real DeFi positions. Contracts are unaudited; do not use with real funds.
 

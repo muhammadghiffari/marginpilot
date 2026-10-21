@@ -1,8 +1,9 @@
 # STATUS (update at the end of every task; agents load this each session)
 
-Last updated: 2026-10-21 by the audit agent. The real-EVM path is implemented and green on local
-anvil; the default demo remains SIMULATED. **Public-testnet broadcast is the remaining external
-blocker**: `.env` still points at local anvil and no funded public-testnet account/RPC is configured.
+Last updated: 2026-10-21. The default demo remains SIMULATED. Real EVM transactions have now
+mined on **Ethereum Sepolia 11155111** against a self-deployed SIMULATED lending market; local
+anvil 31338 remains separate evidence. The local `.env` still points at anvil; Sepolia was run
+using an ignored temporary override file (without duplicating keys).
 - **Real chain adapter (2026-10-21):** `apps/agent/src/chain/viem-port.ts` implements reads,
   simulate-before-submit, receipt handling, unknown-tx reconciliation, owner/executor writes and
   custom-error decoding. `AgentRuntime` serves both modes; `CHAIN_MODE=simulated|anvil|testnet|chain`
@@ -13,11 +14,21 @@ blocker**: `.env` still points at local anvil and no funded public-testnet accou
   Evidence: `evidence/anvil-e2e-20261021T060254Z.json` (mandate
   `0x62dcec…0b8ad`, actions `0x85136a…d8366` and `0x82088d…f5225`). This is REAL EVM on anvil,
   **not public testnet**; the UI labels it `ANVIL`.
-- **Current gate:** `scripts/verify-all.sh` GREEN = 128 Forge + 89 core + 74 agent + 5 web + 8 eval =
-  **304 tests**; `check-secrets: clean`; `pnpm -r typecheck` green (2026-10-21).
-- **Public testnet (A-10) still not run.** `scripts/deploy-testnet.sh` and
-  `scripts/start-testnet.sh` are ready and refuse well-known mainnet/local chain ids, key material on
-  the command line, owner = executor, and contract accounts. They need the human's funded testnet RPC/keys and presence.
+- **Current gate:** `scripts/verify-all.sh` GREEN = 128 Forge + 89 core + 76 agent + 5 web + 8 eval =
+  **306 tests**; `check-secrets: clean`; workspace typechecks green (2026-10-21).
+- **Public Sepolia S1-like proof:** vault `0x2014c1F2f3175f46f9b2158fe68510Dc3F05fFA1`,
+  owner-signed mandate tx `0xa01bc7…22e1d`, two REPAY action receipts `0x72abb3…e640c2` and
+  `0xe43f22…ca103a`, `spentUsd(1) = $250.16 / $260`, pool HFs `0.942857… → 1.005002…` and
+  `1.051428… → 1.116670…`. The first run stopped action 2 at the two-block plan-age limit;
+  a second run replanned and mined it. **Both run reports say COMPLETED_PARTIAL** because pool 0
+  does not reach the planner's stricter stress target. Verified receipt summaries, deployment and
+  both run reports: `evidence/sepolia-e2e-20261021.json`. Read-only
+  `scripts/verify-sepolia-bytecode.sh` matched all seven on-chain creation inputs to pinned source.
+- **Sepolia deployment caveat:** Forge's gas estimates produced failed creation transactions;
+  successful contracts were deployed with explicit per-tx `cast` gas limits and an optimized
+  via-IR vault. `scripts/deploy-testnet.sh` now **refuses Sepolia before broadcast** rather than
+  risk another failed deployment; a reviewed explicit-gas replacement remains outstanding. The
+  current oracle refresh CLI selects the on-chain admin key (the executor is not the admin).
 - **Earlier validation (2026-10-20):** Part 2 remains SIMULATED (`MockChainPort`, D-034);
   D-036 LLM client is mock-tested only; the web console was verified at 1440px/390px; A-04/A-07 are
   merged (`7039146`/`c7000f0`); push credentials are still missing.
@@ -26,7 +37,7 @@ blocker**: `.env` still points at local anvil and no funded public-testnet accou
 - [ ] M0 Setup done (both machines pass `scripts/preflight.sh`; repo pushed; keys funded) — Owner; push still blocked
 - [x] M1 Foundations: contracts compile + core types/optimizer tests green; `MockChainPort` ready
 - [x] M2 End-to-end on anvil: S1 + S7 automated, agent drives vault via `ViemChainPort` (2026-10-21)
-- [ ] M3 Testnet: deployed, S1/S2/S7 (+S3/S4) with real tx hashes in `evidence/` — blocked on human RPC/funding
+- [ ] M3 Testnet: Sepolia deployed and two REPAYs proven; S2/S7 (+S3/S4) and reproducible guarded deploy remain
 - [ ] M4 Eval + docs: `pnpm eval:run` results, security self-assessment, tech doc filled — eval done; public-testnet evidence pending
 - [ ] M5 Public URL live, final verification, submitted
 
@@ -42,7 +53,7 @@ blocker**: `.env` still points at local anvil and no funded public-testnet accou
 | A-07 | Dev A | P0 | done | #2 `c7000f0` | `Deploy.s.sol` + `scripts/deploy.sh`; `deployments/31337.json`, `eval/fixtures/base.json`, 5 ABIs; 128 Forge tests |
 | A-08 | Dev A | P0 | todo | | |
 | A-09 | Dev A | P0 | cut | D-034 | anvil runner + liquidator bot cut to protect the deadline; Part 2 runs SIMULATED on `MockChainPort` |
-| A-10 | Dev A | P0 | todo | | |
+| A-10 | Dev A | P0 | doing | local evidence | Sepolia vault + two REPAY receipts recorded; S2/S7 and reproducible deploy wrapper outstanding |
 | A-11 | Dev A | P1 | todo | | |
 | A-12 | Dev A | P1 | todo | | |
 | A-13 | Dev A | P0 | todo | | |
@@ -83,11 +94,10 @@ blocker**: `.env` still points at local anvil and no funded public-testnet accou
 - **Missing price (D-032):** the vault maps a missing oracle price in the #11 price set (including the reserve token) to `StalePrice`; it no longer leaks `MockOracle.UnknownToken`.
 
 ## Blockers
-- **Public-testnet broadcast (A-10) is blocked on external inputs:** `.env` still has
-  `CHAIN_ID=31337`/local anvil RPC, no funded public-testnet owner/executor is confirmed, and the
-  `mp-owner` Foundry keystore password is unknown. Needed from the human: a public testnet chain id +
-  RPC, a funded `SENDER` EOA, public `OWNER_ADDRESS`/`EXECUTOR_ADDRESS`, a keystore/hardware signer
-  (or its password entered interactively), and explicit go-ahead with the human present.
+- **M3 completion still pending:** S2/S7/kill-switch public-testnet cases have not been broadcast;
+  `scripts/deploy-testnet.sh` refuses Sepolia after its earlier Forge gas failures, so a
+  reproducible guarded explicit-gas path is still needed. The existing Sepolia deployment and
+  public receipts are real; do not conflate this tooling gap with a missing broadcast.
 - **Push still needs the human's terminal:** agent-side git has no cached credential
   (`could not read Username for 'https://github.com'` with `GIT_TERMINAL_PROMPT=0`); no credential
   may be pasted to an agent. Local work is committed in small commits; push remains the human's.

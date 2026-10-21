@@ -1,0 +1,359 @@
+{
+  "chainId": 11155111,
+  "mode": "TESTNET",
+  "market": "SIMULATED lending market; REAL Ethereum Sepolia transactions",
+  "recordedAt": "2026-10-21T09:16:01Z",
+  "explorerBase": "https://sepolia.etherscan.io",
+  "deployment": {
+    "chainId": 11155111,
+    "deployedAt": "2026-10-21T07:56:00Z",
+    "deployer": "0xdcf89b628aaee7b4C91Ce3d594049E596Dd9c85C",
+    "owner": "0xdcf89b628aaee7b4C91Ce3d594049E596Dd9c85C",
+    "executor": "0xe219FB396253ba14cD59a91D7C5B163Fd04BbD28",
+    "contracts": {
+      "mUSDC": "0xC4F2Eaf3b0E1EF5F8B67270f896E9ad6Ce42A0E0",
+      "mWETH": "0x4af3390E7230C1fd030C5298C3c802a2aFB9d8C3",
+      "mWSTETH": "0x2D241203242594fd305AaeEd482DA5e9C7D1072c",
+      "oracle": "0x7A0716f915E6e9560E8bD05d05A63d192D1c3FB1",
+      "lending": "0xa73052A152Fd764Fb399f1F857E95289568eafCE",
+      "swap": "0xc7b7F3E6F25E43e7d7cf225af5D2145D5c307bcB",
+      "vault": "0x2014c1F2f3175f46f9b2158fe68510Dc3F05fFA1"
+    },
+    "blocks": {
+      "vault": 11961071
+    },
+    "explorerBase": "https://sepolia.etherscan.io"
+  },
+  "receipts": [
+    {
+      "label": "token_usdc_deploy",
+      "txHash": "0x0d7e23a73b6d4010bb33b6e7f7d211e7a2e78e3107926e361de77a2a0981b01a",
+      "status": "0x1",
+      "blockNumber": "0xb6829e",
+      "gasUsed": "0x31da3e",
+      "contractAddress": "0xc4f2eaf3b0e1ef5f8b67270f896e9ad6ce42a0e0",
+      "actionExecutedEvents": 0
+    },
+    {
+      "label": "token_weth_deploy",
+      "txHash": "0x542e6a9bf134595e536f428a006cbd3225c7a788a08c69b45ed70662bd151497",
+      "status": "0x1",
+      "blockNumber": "0xb6829f",
+      "gasUsed": "0x31da7a",
+      "contractAddress": "0x4af3390e7230c1fd030c5298c3c802a2afb9d8c3",
+      "actionExecutedEvents": 0
+    },
+    {
+      "label": "token_wsteth_deploy",
+      "txHash": "0x2b9ad5f19263426b8dae714a1fa962a801bf69f5a21b1677c5d802109f47ad4b",
+      "status": "0x1",
+      "blockNumber": "0xb682a1",
+      "gasUsed": "0x31da92",
+      "contractAddress": "0x2d241203242594fd305aaeed482da5e9c7d1072c",
+      "actionExecutedEvents": 0
+    },
+    {
+      "label": "oracle_deploy",
+      "txHash": "0xfef91b8a573c33a717b7ae1d5f2b2c5d84d40e66292016880af6eed5ea521d8d",
+      "status": "0x1",
+      "blockNumber": "0xb682a2",
+      "gasUsed": "0x155bc8",
+      "contractAddress": "0x7a0716f915e6e9560e8bd05d05a63d192d1c3fb1",
+      "actionExecutedEvents": 0
+    },
+    {
+      "label": "lending_deploy",
+      "txHash": "0x1af1cc5d1030ccf2cb92b221c84ac03f9800adb8e9c68095c8bb6f9e86414330",
+      "status": "0x1",
+      "blockNumber": "0xb682a3",
+      "gasUsed": "0x6f096a",
+      "contractAddress": "0xa73052a152fd764fb399f1f857e95289568eafce",
+      "actionExecutedEvents": 0
+    },
+    {
+      "label": "swap_deploy",
+      "txHash": "0x0f24dbc4c05902253ed005e28a420d6d56978b87179d8569c78fdc326b83857d",
+      "status": "0x1",
+      "blockNumber": "0xb682a4",
+      "gasUsed": "0x31754c",
+      "contractAddress": "0xc7b7f3e6f25e43e7d7cf225af5d2145d5c307bcb",
+      "actionExecutedEvents": 0
+    },
+    {
+      "label": "vault_deploy",
+      "txHash": "0x839337f711ac2110e5963fd32d7328fbb081f6e3d3364204b770c7be604d3436",
+      "status": "0x1",
+      "blockNumber": "0xb682ef",
+      "gasUsed": "0xf27a1b",
+      "contractAddress": "0x2014c1f2f3175f46f9b2158fe68510dc3f05ffa1",
+      "actionExecutedEvents": 0
+    },
+    {
+      "label": "shock_weth",
+      "txHash": "0x8293309987708e48ce0c3af629b3cbcbf68ac65fb93059ab53d8e9b29a9b30b6",
+      "status": "0x1",
+      "blockNumber": "0xb683ff",
+      "gasUsed": "0xad3d",
+      "contractAddress": null,
+      "actionExecutedEvents": 0
+    },
+    {
+      "label": "shock_wsteth",
+      "txHash": "0x99a5d2e8430a120694228605ede8e8953aa55e0ed2391577b63aafd55ae8d228",
+      "status": "0x1",
+      "blockNumber": "0xb68400",
+      "gasUsed": "0xad3d",
+      "contractAddress": null,
+      "actionExecutedEvents": 0
+    },
+    {
+      "label": "mandate",
+      "txHash": "0xa01bc76d034806cb9f93b924278ee49d2509f3ad21b8ea64e2a61548b0222e1d",
+      "status": "0x1",
+      "blockNumber": "0xb6840b",
+      "gasUsed": "0xae721",
+      "contractAddress": null,
+      "actionExecutedEvents": 0
+    },
+    {
+      "label": "repay_pool0",
+      "txHash": "0x72abb3c8c2aa09cd3a01fcc5b83354c8d6e5576450d1d4881ca3d7fa5de640c2",
+      "status": "0x1",
+      "blockNumber": "0xb6841d",
+      "gasUsed": "0x43ce7",
+      "contractAddress": null,
+      "actionExecutedEvents": 1
+    },
+    {
+      "label": "repay_pool1",
+      "txHash": "0xe43f22d952ee1b8f72c0fbc3d9e205578ebff82c6a1fd44fe49ae779caca103a",
+      "status": "0x1",
+      "blockNumber": "0xb68431",
+      "gasUsed": "0x2be7f",
+      "contractAddress": null,
+      "actionExecutedEvents": 1
+    },
+    {
+      "label": "refresh_usdc",
+      "txHash": "0xa279f124d3123eb12c88c5fc6650a8621199af8e6e258c93483f4a2e21fc0e29",
+      "status": "0x1",
+      "blockNumber": "0xb6845b",
+      "gasUsed": "0x8621",
+      "contractAddress": null,
+      "actionExecutedEvents": 0
+    },
+    {
+      "label": "refresh_weth",
+      "txHash": "0xb2cc25bdb16500ccbb4e99358d54f83c4db676eff02c6e9fbda1965af3de14cd",
+      "status": "0x1",
+      "blockNumber": "0xb6845c",
+      "gasUsed": "0x862d",
+      "contractAddress": null,
+      "actionExecutedEvents": 0
+    },
+    {
+      "label": "refresh_wsteth",
+      "txHash": "0xccda94da49c53bc7937b4fa76ae5a45daa2f7587d50d7b46262e7d3d1d547977",
+      "status": "0x1",
+      "blockNumber": "0xb6845d",
+      "gasUsed": "0x862d",
+      "contractAddress": null,
+      "actionExecutedEvents": 0
+    }
+  ],
+  "runs": [
+    {
+      "runId": "run-mvhvo8xg-1",
+      "state": "COMPLETED_PARTIAL",
+      "ledger": [
+        {
+          "runId": "run-mvhvo8xg-1",
+          "actionIndex": 0,
+          "txHash": "0x72abb3c8c2aa09cd3a01fcc5b83354c8d6e5576450d1d4881ca3d7fa5de640c2",
+          "mandateId": "1",
+          "spendUsd8": "8657000000",
+          "gasWei": "55553665640",
+          "gasUsd8": null,
+          "status": "mined",
+          "ts": 1792573026
+        }
+      ],
+      "auditVerified": true,
+      "report": {
+        "state": "COMPLETED_PARTIAL",
+        "planId": "[REDACTED_KEY]",
+        "spentUsd8": "8657000000",
+        "remainingUsd8": "17343000000",
+        "unsavedPools": [
+          1
+        ],
+        "healthFactors": [
+          {
+            "poolId": 0,
+            "healthFactor": "1005002169891048628"
+          },
+          {
+            "poolId": 1,
+            "healthFactor": "1051428571428571428"
+          }
+        ],
+        "actionsMined": 1,
+        "actionsRejected": 0,
+        "actionsUnknown": 0,
+        "remainingActions": 1,
+        "txHashes": [
+          "[REDACTED_KEY]"
+        ],
+        "summary": "COMPLETED_PARTIAL: spent $86.57 of $260.00; 1 mined, 0 rejected, 0 unknown. Unsaved pools: 1. Remaining actions: 1."
+      }
+    },
+    {
+      "runId": "run-mvhvtky7-2",
+      "state": "COMPLETED_PARTIAL",
+      "ledger": [
+        {
+          "runId": "run-mvhvtky7-2",
+          "actionIndex": 0,
+          "txHash": "0xe43f22d952ee1b8f72c0fbc3d9e205578ebff82c6a1fd44fe49ae779caca103a",
+          "mandateId": "1",
+          "spendUsd8": "16359000000",
+          "gasWei": "35972116136",
+          "gasUsd8": null,
+          "status": "mined",
+          "ts": 1792573266
+        }
+      ],
+      "auditVerified": true,
+      "report": {
+        "state": "COMPLETED_PARTIAL",
+        "planId": "[REDACTED_KEY]",
+        "spentUsd8": "25016000000",
+        "remainingUsd8": "984000000",
+        "unsavedPools": [
+          0
+        ],
+        "healthFactors": [
+          {
+            "poolId": 0,
+            "healthFactor": "1005002169891048628"
+          },
+          {
+            "poolId": 1,
+            "healthFactor": "1116670017182456446"
+          }
+        ],
+        "actionsMined": 1,
+        "actionsRejected": 0,
+        "actionsUnknown": 0,
+        "remainingActions": 0,
+        "txHashes": [
+          "[REDACTED_KEY]"
+        ],
+        "summary": "COMPLETED_PARTIAL: spent $250.16 of $260.00; 1 mined, 0 rejected, 0 unknown. Unsaved pools: 0."
+      }
+    }
+  ],
+  "positionsBeforeShock": [
+    {
+      "poolId": 0,
+      "collateralToken": "0x4af3390E7230C1fd030C5298C3c802a2aFB9d8C3",
+      "debtToken": "0xC4F2Eaf3b0E1EF5F8B67270f896E9ad6Ce42A0E0",
+      "collateral": "1000000000000000000",
+      "debt": "1400000000",
+      "healthFactor": "1178571428571428571",
+      "ltBps": 8250,
+      "liqBonusBps": 500,
+      "closeFactorBps": 5000
+    },
+    {
+      "poolId": 1,
+      "collateralToken": "0x2D241203242594fd305AaeEd482DA5e9C7D1072c",
+      "debtToken": "0xC4F2Eaf3b0E1EF5F8B67270f896E9ad6Ce42A0E0",
+      "collateral": "2000000000000000000",
+      "debt": "2800000000",
+      "healthFactor": "1314285714285714285",
+      "ltBps": 8000,
+      "liqBonusBps": 700,
+      "closeFactorBps": 5000
+    }
+  ],
+  "positionsShocked": [
+    {
+      "poolId": 0,
+      "collateralToken": "0x4af3390E7230C1fd030C5298C3c802a2aFB9d8C3",
+      "debtToken": "0xC4F2Eaf3b0E1EF5F8B67270f896E9ad6Ce42A0E0",
+      "collateral": "1000000000000000000",
+      "debt": "1400000000",
+      "healthFactor": "942857142857142857",
+      "ltBps": 8250,
+      "liqBonusBps": 500,
+      "closeFactorBps": 5000
+    },
+    {
+      "poolId": 1,
+      "collateralToken": "0x2D241203242594fd305AaeEd482DA5e9C7D1072c",
+      "debtToken": "0xC4F2Eaf3b0E1EF5F8B67270f896E9ad6Ce42A0E0",
+      "collateral": "2000000000000000000",
+      "debt": "2800000000",
+      "healthFactor": "1051428571428571428",
+      "ltBps": 8000,
+      "liqBonusBps": 700,
+      "closeFactorBps": 5000
+    }
+  ],
+  "positionsAfterFirstRun": [
+    {
+      "poolId": 0,
+      "collateralToken": "0x4af3390E7230C1fd030C5298C3c802a2aFB9d8C3",
+      "debtToken": "0xC4F2Eaf3b0E1EF5F8B67270f896E9ad6Ce42A0E0",
+      "collateral": "1000000000000000000",
+      "debt": "1313430000",
+      "healthFactor": "1005002169891048628",
+      "ltBps": 8250,
+      "liqBonusBps": 500,
+      "closeFactorBps": 5000
+    },
+    {
+      "poolId": 1,
+      "collateralToken": "0x2D241203242594fd305AaeEd482DA5e9C7D1072c",
+      "debtToken": "0xC4F2Eaf3b0E1EF5F8B67270f896E9ad6Ce42A0E0",
+      "collateral": "2000000000000000000",
+      "debt": "2800000000",
+      "healthFactor": "1051428571428571428",
+      "ltBps": 8000,
+      "liqBonusBps": 700,
+      "closeFactorBps": 5000
+    }
+  ],
+  "positionsAfterSecondRun": [
+    {
+      "poolId": 0,
+      "collateralToken": "0x4af3390E7230C1fd030C5298C3c802a2aFB9d8C3",
+      "debtToken": "0xC4F2Eaf3b0E1EF5F8B67270f896E9ad6Ce42A0E0",
+      "collateral": "1000000000000000000",
+      "debt": "1313430000",
+      "healthFactor": "1005002169891048628",
+      "ltBps": 8250,
+      "liqBonusBps": 500,
+      "closeFactorBps": 5000
+    },
+    {
+      "poolId": 1,
+      "collateralToken": "0x2D241203242594fd305AaeEd482DA5e9C7D1072c",
+      "debtToken": "0xC4F2Eaf3b0E1EF5F8B67270f896E9ad6Ce42A0E0",
+      "collateral": "2000000000000000000",
+      "debt": "2636410000",
+      "healthFactor": "1116670017182456446",
+      "ltBps": 8000,
+      "liqBonusBps": 700,
+      "closeFactorBps": 5000
+    }
+  ],
+  "chainState": {
+    "spentUsd8": "25016000000",
+    "actionNonce": "2",
+    "healthFactorPool0": "1005002169891048628",
+    "healthFactorPool1": "1116670017182456446"
+  },
+  "note": "Both pools recovered above HF 1.0 across two real runs. Each run reported COMPLETED_PARTIAL; the second report still marks pool 0 unsaved against its stricter stress target under the $260 budget. The first run replanned after a 3-block age exceeded the 2-block policy; it did not resend action 0."
+}

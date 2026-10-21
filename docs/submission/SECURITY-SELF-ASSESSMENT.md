@@ -1,8 +1,9 @@
 # Security Self-Assessment — MarginPilot
 
-Date: 2026-10-21 · Chain: **SIMULATED by default**; a local-anvil real-EVM end-to-end run is
-recorded in `evidence/anvil-e2e-20261021T060254Z.json`. There is **no public-testnet deployment
-yet** (A-10/A-13 are human-run; D-034 cut only the anvil evaluation runner, not the chain adapter).
+Date: 2026-10-21 · Chain: **SIMULATED by default**. Local-anvil and public Ethereum Sepolia real-EVM
+runs are recorded in `evidence/anvil-e2e-20261021T060254Z.json` and
+`evidence/sepolia-e2e-20261021.json`. Sepolia hosts our **simulated** lending market; A-13 (public
+URL) remains human-run.
 
 Wording rule followed: no violations were found in the reported scenarios; this is **not** a claim
 that the system is secure. Contracts are unaudited and must not hold real funds.
@@ -52,17 +53,18 @@ owner may unpause.
 | Injection handling | `apps/agent/src/prompts.ts:77` sanitize, `:62` tripwire, escaping | `apps/agent/test/llm.test.ts` sanitizer/tripwire; `mandate.test.ts` m09 |
 | Mandate clamping / clarification | `apps/agent/src/mandate/compile.ts`; refusal on open clarifications | `mandate.test.ts` m01–m12, widening/clarification tests |
 | Redaction | `packages/core/src/redact.ts:20` `redactText`, `:38` `redactValue` | `packages/core/test/audit-redact.test.ts` (7 tests) |
-| Rate limiting / demo gating | `apps/agent/src/api/server.ts:63` bucket, `:174` 429, demo route guard | `apps/agent/test/api.test.ts` 429 and demo-hidden tests |
+| Rate limiting / demo gating | `apps/agent/src/api/server.ts` 429, shock/injection gates, server-key mandate confirmation disabled outside demo mode | `apps/agent/test/api.test.ts` 429 and demo-hidden/confirm tests; public demo with owner key is still unsafe (R4) |
 
 ## 4. Test results
 
-`tests_total=304 passed=304 scenarios=7 runs_per_scenario=1 any_failed=none`
+`tests_total=306 passed=306 scenarios=7 runs_per_scenario=1 any_failed=none`
 
-Breakdown: 128 Foundry, 89 core, 74 agent, 5 web, 8 eval (all run 2026-10-21; `scripts/verify-all.sh`
+Breakdown: 128 Foundry, 89 core, 76 agent, 5 web, 8 eval (all run 2026-10-21; `scripts/verify-all.sh`
 GREEN). The seven scenarios are S1–S5, S7, S9, each run once with `ScriptedLlm` on
 `MockChainPort`; the Part 2 ablation adds 28 SIMULATED runs (A–D × S1–S5/S7/S9/T15). The separate
-local-anvil E2E installs a mandate and mines two rescue actions on chain 31338. This is **not** a
-repeated-run (pass^k) study and not public-testnet evidence.
+local-anvil E2E installs a mandate and mines two rescue actions on chain 31338. On public Sepolia
+the agent mined two REPAY actions across two runs; both reported `COMPLETED_PARTIAL`, not a fully
+stress-safe result. This is **not** a repeated-run (pass^k) study.
 
 | ID | Status | Layer | Evidence / gap |
 |---|---|---|---|
@@ -73,7 +75,7 @@ repeated-run (pass^k) study and not public-testnet evidence.
 | T05 | pass | C, T | `Check11_Stale*`; agent `S5` zero transactions, halt recorded |
 | T05b | pass | C, T | `Check12_DeviationExceeded`; agent `S3` replans after price move |
 | T06 | pass | C | `Check15_SlippageExceeded`, `test_Swap_RevertsOneUnitAboveSlippage` |
-| T07 | **partial** | C, T | Contract tests for target-revert atomicity pass (effects/check #16 merged); local-anvil E2E mines two successful actions. No injected target failure on a public testnet |
+| T07 | **partial** | C, T | Contract tests for target-revert atomicity pass (effects/check #16 merged); local-anvil and Sepolia runs mined successful actions. No injected target failure on a public testnet |
 | T08 | **partial** | T | Sanitizer/tripwire and m09 unit tests; no end-to-end injected-note run |
 | T09 | pass | C | `SetMandateWithSig_*` replay/wrong signer/expired; EIP-712 digest tests |
 | T09b | pass | C | `Check04_WrongMandateId`, `Check04_WrongNonce` |
@@ -87,7 +89,7 @@ repeated-run (pass^k) study and not public-testnet evidence.
 | T17 | pass | T | 7 audit/redaction tests; secret-shaped prompt test reports pattern ids only |
 | T18 | pass | T | API burst test returns 429; demo endpoints hidden unless demo controls are enabled |
 
-Not represented as passing: public-testnet evidence, repeated-run consistency, injected-note plan
+Not represented as passing: public-testnet S2/S7 failure injections, repeated-run consistency, injected-note plan
 comparison, indexer disagreement, browser-extension wallet E2E (the signing protocol is unit/API
 tested).
 

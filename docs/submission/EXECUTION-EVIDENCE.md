@@ -1,7 +1,8 @@
 # Execution Evidence — MarginPilot
 
-Date: 2026-10-21 · Default demo: **SIMULATED** · Real-EVM proof: **local anvil, chain 31338** ·
-Public testnet: **not deployed yet** (requires a funded testnet account and RPC from the human).
+Date: 2026-10-21 · Default demo: **SIMULATED** · Real-EVM proof: **local anvil 31338 and
+Ethereum Sepolia 11155111**. The lending market on both chains is **SIMULATED**, not Aave or
+another real lending protocol.
 
 This file separates three kinds of evidence:
 
@@ -10,9 +11,10 @@ This file separates three kinds of evidence:
    vault enforcement and receipt handling against real EVM bytecode, but it is **not** a public
    testnet and must not be labelled `TESTNET`.
 2. **SIMULATED** — in-memory `MockChainPort`; hashes are synthetic and deliberately not listed here.
-3. **NOT RUN** — public-testnet deployment and public explorer links.
+3. **REAL EVM, PUBLIC TESTNET** — contract deployment and two owner-mandated REPAY transactions
+   mined on Ethereum Sepolia, independently checked through a second public RPC.
 
-No hash or address in this file was invented. The rescue/mandate/shock hashes below are copied from
+No hash or address in this file was invented. The local rescue/mandate/shock hashes below are copied from
 [`evidence/anvil-e2e-20261021T060254Z.json`](../../evidence/anvil-e2e-20261021T060254Z.json); the
 three price-refresh hashes are from that run's console output (the JSON stores the rescue ledger, not
 the refresh transactions).
@@ -50,31 +52,47 @@ as prepare → `eth_signTypedData_v4` → relay, with server-side recovery again
 it is covered by unit/API tests (`apps/agent/test/runtime.test.ts`,
 `apps/agent/test/api.test.ts`). A MetaMask extension run has not been recorded.
 
-## 2. Public-testnet deployment (NOT RUN)
+## 2. Ethereum Sepolia run (TESTNET; simulator market)
 
-There is **no public-testnet deployment** in this repository and therefore **no explorer-resolvable
-transaction hash**. Public-testnet broadcast is blocked on:
+Source of truth: [`evidence/sepolia-e2e-20261021.json`](../../evidence/sepolia-e2e-20261021.json)
+and [`deployments/11155111.json`](../../deployments/11155111.json). All 15 receipt summaries in the
+JSON were fetched from `https://sepolia.drpc.org` after broadcasts via a separate public RPC;
+each has `status: 0x1`. The two REPAY receipts each contain one `ActionExecuted` log. The agent
+also checked the RPC chain id and code at every deployed address before serving `TESTNET` mode.
+`bash scripts/verify-sepolia-bytecode.sh` independently matched the exact compiled creation input
+and successful on-chain receipt for **all seven contracts** against `https://sepolia.drpc.org`.
+The six simulator contracts use the pinned `sepolia_simulator_20261021` Foundry profile; the vault
+uses the smaller default via-IR profile.
 
-- a funded testnet deployer/owner account and a public RPC configured in `.env`;
-- a Foundry keystore or hardware signer (the deploy wrapper refuses `--private-key`);
-- an explicit human-present go-ahead.
+| Item | Public-chain evidence |
+|---|---|
+| Vault | [`0x2014c1F2f3175f46f9b2158fe68510Dc3F05fFA1`](https://sepolia.etherscan.io/address/0x2014c1F2f3175f46f9b2158fe68510Dc3F05fFA1), deployment [receipt](https://sepolia.etherscan.io/tx/0x839337f711ac2110e5963fd32d7328fbb081f6e3d3364204b770c7be604d3436) |
+| Owner / executor | `0xdcf89b628aaee7b4C91Ce3d594049E596Dd9c85C` / `0xe219FB396253ba14cD59a91D7C5B163Fd04BbD28` |
+| Oracle shocks | [mWETH](https://sepolia.etherscan.io/tx/0x8293309987708e48ce0c3af629b3cbcbf68ac65fb93059ab53d8e9b29a9b30b6), [mWSTETH](https://sepolia.etherscan.io/tx/0x99a5d2e8430a120694228605ede8e8953aa55e0ed2391577b63aafd55ae8d228) |
+| Owner-signed mandate #1 | [setMandateWithSig receipt](https://sepolia.etherscan.io/tx/0xa01bc76d034806cb9f93b924278ee49d2509f3ad21b8ea64e2a61548b0222e1d) |
+| REPAY pool 0 | [receipt](https://sepolia.etherscan.io/tx/0x72abb3c8c2aa09cd3a01fcc5b83354c8d6e5576450d1d4881ca3d7fa5de640c2), `$86.57` |
+| REPAY pool 1 | [receipt](https://sepolia.etherscan.io/tx/0xe43f22d952ee1b8f72c0fbc3d9e205578ebff82c6a1fd44fe49ae779caca103a), `$163.59` |
+| On-chain budget and nonce | `spentUsd(1) = 25016000000` USD8 = **$250.16 of $260**; `actionNonce() = 2` |
+| Health factors after shocks → after both actions | pool 0: `0.942857… → 1.005002…`; pool 1: `1.051428… → 1.116670…` |
 
-The guarded path is prepared:
+The agent made **two runs**, `run-mvhvo8xg-1` and `run-mvhvtky7-2`. Run 1 mined the first action,
+then **refused** its second action when the original plan aged three blocks (limit: two); it did not
+resubmit the first transaction. After oracle timestamps were refreshed by the on-chain oracle admin,
+run 2 replanned against the updated nonce and spent the remaining `$163.59` on pool 1. Both runs
+reported `COMPLETED_PARTIAL`: pool 0 is above HF 1 but below the planner's stricter stress target
+with only `$9.84` remaining. **This is two real rescues, not a claim that the full stress objective
+was achieved.** Gas is separate from the on-chain USD budget. Both audit chains verified locally.
 
-```bash
-# .env: CHAIN_MODE=testnet, CHAIN_ID=<testnet>, RPC_URL=<public RPC>,
-#       EXPLORER_BASE_URL=<explorer>, OWNER_ADDRESS=<owner EOA>,
-#       EXECUTOR_ADDRESS=<executor EOA>
-bash scripts/deploy-testnet.sh
-CHAIN_MODE=testnet pnpm --filter @marginpilot/agent prices:refresh
-bash scripts/start-testnet.sh testnet
-```
-
-`deploy-testnet.sh` refuses well-known mainnet chain ids and local chain ids, refuses key material on
-the command line, requires
-`SENDER` (a funded EOA), a Foundry account/hardware signer in `EXTRA_FORGE_ARGS`, owner ≠ executor,
-and EOAs for both roles. The agent refuses mainnet ids, verifies the RPC chain id, and checks that
-every deployment address has code before serving.
+The `scripts/deploy-testnet.sh` Forge path **did not** produce this deployment. Two Forge
+broadcast attempts ran out of gas; the original vault bytecode also exceeded the observed
+16,777,216 gas-per-transaction execution ceiling on this Sepolia deployment. The successful
+deployment used a temporary Foundry-compatible encrypted keystore (no raw key on the command
+line), explicit per-transaction `cast send` gas limits for the simulator contracts, and a smaller
+vault compiled with `via_ir = true`, `optimizer_runs = 1`. The six simulator contracts were compiled
+before that profile change. The deployed addresses, successful creation receipts, and vault source
+are recorded above; a reusable guarded manual-deploy wrapper has **not** been added yet. Do not
+rerun `deploy-testnet.sh` expecting these same addresses or a successful Sepolia deployment; it
+now fails closed for chain `11155111` before any RPC or broadcast.
 
 ## 3. Simulated scenario evidence (SIMULATED)
 
@@ -91,7 +109,7 @@ is the asserted outcome, not a claim about a public chain.
 | S5 | 1 | stale oracle; `StalePrice` blocks execution; zero transactions; halt recorded | none | none | SIMULATED |
 | S7 / T15 | 1 | config D direct SWAP rejected: `ActionNotAllowed`; SWAP-allowed-but-locked variant: `AssetLocked`; permissive config C mines (ablation) | none | none | SIMULATED |
 | S9 | 1–2 | kill switch after action 1; no action after pause; report remainder | none | none | SIMULATED |
-| T07 | — | contract-level target-revert atomicity passes in Foundry; local-anvil E2E mines two successful actions. No injected target failure was run on a public testnet | anvil hashes above are successful actions only | none | local ANVIL / public NOT RUN |
+| T07 | — | contract-level target-revert atomicity passes in Foundry; anvil and Sepolia E2Es mined successful actions. No injected target failure was run on a public testnet | public success hashes above; no public failure injection | Sepolia links above | local ANVIL / public TESTNET |
 | T08/T12 | — | end-to-end injected note vs control plan **not run**; only sanitizer/tripwire unit tests | none | none | not run |
 
 Part 2 (B-12, D-034) ran 28 SIMULATED runs (configs A–D × S1–S5, S7/T15, S9) on `MockChainPort` with
@@ -115,14 +133,15 @@ Captured from the served SIMULATED demo on 2026-10-20 (`docs/submission/screensh
 | `console-halt-budget-exhausted.png` | A second run after the first: `HALTED_NEEDS_OWNER — Budget insufficient: $113.43 needed, $9.84 available`, plan with 0 actions, no new ledger entry |
 | `console-halt-stale-oracle.png` | Fresh state with a stale oracle price: `HALTED_NEEDS_OWNER — STALE_OR_CONFLICTING_DATA: simulation rejected: StalePrice`, no transaction sent |
 
-`TODO(human)`: the optional ≤5-minute demo video and the public-testnet screenshots are not attached
-yet.
+`TODO(human)`: the optional ≤5-minute demo video and public-testnet screenshots are not attached yet.
 
 ## 5. What is still missing
 
-1. A funded public-testnet deployer/owner and RPC; run `scripts/deploy-testnet.sh` with the human
-   present.
-2. Re-run S1/S2/S7 (and the kill switch) against that deployment with `scripts/start-testnet.sh`,
-   then replace the “NOT RUN” row above with explorer-resolvable hashes.
-3. Keep the labels honest: `ANVIL` for the local run, `TESTNET` only after the public broadcast.
-4. Do not reuse the SIMULATED rows as public-testnet evidence.
+1. Public-testnet S2/S7, the injected target-failure and kill-switch scenarios have **not** been
+   exercised; the two real REPAY transactions above are the only on-chain rescue actions evidenced.
+2. Automate the explicit-gas deployment path; Forge's current gas estimates are inadequate on this
+   Sepolia network. The local `.env` still points at anvil; public settings were supplied through
+   an ignored, temporary shell config file.
+3. Capture a public-testnet UI walkthrough or video. The screenshots above remain SIMULATED.
+4. Keep the labels honest: `ANVIL` locally, `TESTNET` only for Sepolia, and **SIMULATED lending
+   market** in both modes. The browser-wallet extension path is still unit/API-tested only.
