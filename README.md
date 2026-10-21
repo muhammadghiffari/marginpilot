@@ -82,6 +82,11 @@ against self-deployed simulator contracts, **not real DeFi positions**.
 In the console the chain badge links to the vault, a **Deployment** card links all seven contracts,
 the owner-signed mandate transaction is linked, and every mined action links to Etherscan.
 
+The **Scenario lab** (bottom right, `TESTNET CONTROLS`) has the market controls: `mWETH -20%` /
+`mWSTETH -20%` shock a pool, and **Refresh oracle timestamps** re-stamps every price (including the
+reserve token). The mandate only accepts prices younger than its freshness window (600 s in the
+demo), so a run that halts with `StalePrice` just needs that button and a second run.
+
 To use the existing deployment, supply public Sepolia overrides **after** sourcing your ignored
 `.env` (which holds the testnet-only keys). `scripts/start-testnet.sh` supports `ENV_FILE` pointing
 to an ignored shell file that sources `.env` and then sets `CHAIN_ID=11155111`, Sepolia `RPC_URL`,

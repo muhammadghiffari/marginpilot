@@ -73,4 +73,9 @@ describe('mandate rescue UI states', () => {
     expect(html).toContain('Stale oracle; ask the owner to refresh the price.');
     expect(html).toContain('HALTED_NEEDS_OWNER');
   });
+
+  test('the scenario lab can re-stamp every oracle price, including the reserve token', () => {
+    const html = renderToStaticMarkup(<App initialState={state(true)} />);
+    expect(html).toContain('Refresh oracle timestamps');
+  });
 });
