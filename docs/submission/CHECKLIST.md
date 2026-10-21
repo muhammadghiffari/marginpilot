@@ -23,7 +23,7 @@ Source: official International Track rules file and registration form, captured 
 - [x] Execution evidence (`EXECUTION-EVIDENCE.md`) — SIMULATED market labelled; local-anvil and public Sepolia receipts verified; a browser-driven Sepolia run finished `COMPLETED`; public S2/S7 cases still TODO
 - [x] Evaluation summary + `results.json` (Part 1 and Part 2 SIMULATED artifacts)
 - [ ] Public link (TODO(human), A-13) + known-risks list (present)
-- [ ] Demo script (`DEMO-SCRIPT.md`) as supporting material, if recording the optional video
+- [x] Demo script (`DEMO-SCRIPT.md`) as supporting material, if recording the optional video — 5-minute script in **English and Bahasa Indonesia**, with the live Sepolia flow, fallbacks, quotable numbers and the claims to avoid
 
 ## Gates before submit
 - [x] `scripts/verify-all.sh` green (2026-10-21, 310 tests)
