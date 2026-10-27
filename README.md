@@ -160,3 +160,18 @@ evidence: [`eval/results/2026-10-20T09-44-04-427Z/summary.md`](eval/results/2026
 - [Architecture](docs/spec/ARCHITECTURE.md) · [Interfaces](docs/spec/INTERFACES.md) · [Contracts](docs/spec/CONTRACTS.md) · [Scenarios](docs/spec/SCENARIOS.md)
 - [Evaluation plan](docs/eval/EVALUATION-PLAN.md) · [Known risks](docs/security/KNOWN-RISKS.md) · [Decisions](docs/DECISIONS.md)
 - [Status](STATUS.md) · [Dev A blockers](docs/reviews/MESSAGE-TO-DEV-A.md)
+
+## Team and roles
+
+All commits in this repository were made under a single Git identity (`muhammadghiffari`), so the commit log does not show who did what. Roles:
+
+| Area | Role | Folders |
+|---|---|---|
+| Dev A: contracts, deployment, chain evidence | Muhammad Ghiffari | `contracts/`, `deployments/`, `scripts/deploy*`, `evidence/` |
+| Dev B: core, agent, web, real-chain adapter and Sepolia run | Radith (collaborator) | `packages/`, `apps/`, TS side of `eval/` |
+
+Post-submission work (from 2026-10-28) is described in `docs/DECISIONS.md` D-046 and is not part of the original competition submission.
+
+## License
+
+MIT, copyright "MarginPilot team" (D-044). See `LICENSE`.
