@@ -292,7 +292,7 @@ export class ViemChainPort implements ChainPort, MandateWriter {
   private async snapshotAt<T>(read: (blockNumber: bigint) => Promise<T>): Promise<T> {
     let lastError: unknown;
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      const blockNumber = await this.publicClient.getBlockNumber();
+      const blockNumber = await this.publicClient.getBlockNumber({ cacheTime: 0 });
       try {
         return await read(blockNumber);
       } catch (error) {

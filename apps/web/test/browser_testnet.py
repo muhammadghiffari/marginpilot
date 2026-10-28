@@ -28,6 +28,7 @@ def main() -> None:
     parser.add_argument("--base-url", default="http://127.0.0.1:8790")
     parser.add_argument("--artifacts", default=".playwright-artifacts")
     parser.add_argument("--explorer", default=EXPLORER)
+    parser.add_argument("--label", default="TESTNET")
     args = parser.parse_args()
     artifacts = Path(args.artifacts)
     artifacts.mkdir(parents=True, exist_ok=True)
@@ -76,7 +77,7 @@ def main() -> None:
         expect(page.get_by_text("DRAFT · NOT SIGNED").first).to_be_visible(timeout=30_000)
         page.get_by_role("button", name="Sign & activate · owner key").click(timeout=90_000)
         expect(page.locator(".announcements")).to_contain_text("activated on chain", timeout=90_000)
-        expect(page.get_by_text("ACTIVE · TESTNET").first).to_be_visible(timeout=30_000)
+        expect(page.get_by_text(f"ACTIVE · {args.label}").first).to_be_visible(timeout=30_000)
 
         # The mandate transaction itself is linked for the record.
         mandate_link = page.locator(".mandate-sheet a[href*='/tx/']").first
