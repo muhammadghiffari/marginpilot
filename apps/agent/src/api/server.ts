@@ -23,8 +23,11 @@ import {
   MandateIdChangedError,
   MandateNotInstalledError,
   OwnerSignerMismatchError,
+  DemoEnvelopeViolationError,
+  ResetNotSupportedError,
 } from '../runtime.js';
 import type { RunSession } from './events.js';
+import { Cooldown, SECURITY_HEADERS, originAllowed } from './guards.js';
 import { RunStore, formatSse } from './events.js';
 
 const CompileBody = z.object({ text: z.string().min(1).max(4_000) }).strict();
@@ -114,6 +117,19 @@ export interface BuildServerOptions {
   rateLimitRefillPerSecond?: number;
   runLimitCapacity?: number;
   runLimitRefillPerSecond?: number;
+  /** Extra Origin values allowed to POST (same-host is always allowed). */
+  allowedOrigins?: string[];
+  /** Trust X-Forwarded-For. Only behind a proxy that overwrites it (Fly.io). */
+  trustProxy?: boolean;
+  /** Shared (not per-IP) minimum spacing between runs / kill-switch uses / market resets. */
+  runCooldownMs?: number;
+  pauseCooldownMs?: number;
+  resetCooldownMs?: number;
+  /** Refuse runs when the executor holds less native balance than this (real chains only). */
+  minExecutorBalanceWei?: bigint;
+  /** Concurrent SSE connections: total and per IP. */
+  sseMaxConnections?: number;
+  sseMaxPerIp?: number;
 }
 
 function sendJson(reply: FastifyReply, status: number, value: unknown): FastifyReply {
@@ -170,7 +186,7 @@ function activeRun(run: RunSession | undefined): boolean {
 }
 
 export async function buildServer(options: BuildServerOptions): Promise<FastifyInstance> {
-  const app = Fastify({ logger: false, bodyLimit: 1_000_000, trustProxy: false });
+  const app = Fastify({ logger: false, bodyLimit: 65_536, trustProxy: options.trustProxy ?? false });
   const runtime =
     options.runtime ??
     new DemoRuntime({
@@ -183,6 +199,30 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   const runLimiter = new TokenBucket(options.runLimitCapacity ?? 20, options.runLimitRefillPerSecond ?? 1 / 3_600);
   const staticDir =
     options.staticDir ?? resolve(dirname(fileURLToPath(import.meta.url)), '../../../web/dist');
+
+  const allowedOrigins = new Set(options.allowedOrigins ?? []);
+  const runCooldown = new Cooldown(options.runCooldownMs ?? 0);
+  const pauseCooldown = new Cooldown(options.pauseCooldownMs ?? 0);
+  const resetCooldown = new Cooldown(options.resetCooldownMs ?? 0);
+  const sseTotalMax = options.sseMaxConnections ?? 100;
+  const ssePerIpMax = options.sseMaxPerIp ?? 5;
+  const sseByIp = new Map<string, number>();
+  let sseTotal = 0;
+
+  app.addHook('onSend', async (_request, reply, payload) => {
+    for (const [name, value] of Object.entries(SECURITY_HEADERS)) reply.header(name, value);
+    return payload;
+  });
+
+  app.addHook('onRequest', async (request, reply) => {
+    if (request.method !== 'GET' && request.method !== 'HEAD' && request.method !== 'OPTIONS') {
+      const origin = request.headers.origin;
+      if (!originAllowed(typeof origin === 'string' ? origin : undefined, request.headers.host, allowedOrigins)) {
+        return sendJson(reply, 403, { error: 'OriginNotAllowed' });
+      }
+    }
+    return undefined;
+  });
 
   app.addHook('onRequest', async (request, reply) => {
     if (!limiter || !isApi(request.url)) return;
@@ -199,6 +239,13 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
       return sendJson(reply, 409, { error: 'ClarificationsRequired', fields: error.fields });
     }
     if (error instanceof MandateCompileError) return sendJson(reply, 400, { error: 'MandateCompileError' });
+    if (typeof (error as { statusCode?: unknown }).statusCode === 'number' && (error as { statusCode: number }).statusCode === 413) {
+      return sendJson(reply, 413, { error: 'PayloadTooLarge' });
+    }
+    if (error instanceof ResetNotSupportedError) return sendJson(reply, 501, { error: 'ResetNotSupported' });
+    if (error instanceof DemoEnvelopeViolationError) {
+      return sendJson(reply, 400, { error: 'OutsideDemoEnvelope', violations: error.violations });
+    }
     if (error instanceof DemoSignerNotConfiguredError) {
       return sendJson(reply, 503, { error: 'DemoSignerNotConfigured' });
     }
@@ -230,6 +277,16 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     }
     return sendJson(reply, 500, { error: 'InternalError' });
   });
+
+  app.get('/api/health', async (_request, reply) =>
+    sendJson(reply, 200, {
+      ok: true,
+      mode: runtime.chainLabel,
+      simulated: runtime.simulated,
+      chainId: runtime.registry.chainId,
+      demoMode: options.demoMode,
+    }),
+  );
 
   app.post('/api/mandate/compile', async (request, reply) => {
     const body = CompileBody.parse(request.body);
@@ -264,12 +321,24 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
 
   app.post('/api/run', async (request, reply) => {
     const body = RunBody.parse(request.body);
-    if (activeRun(runs.latest())) {
+    if (runs.all().some((run) => activeRun(run))) {
       return sendJson(reply, 409, { error: 'RunAlreadyActive', runId: runs.latest()?.runId });
+    }
+    const waitMs = runCooldown.remainingMs();
+    if (waitMs > 0) {
+      reply.header('Retry-After', String(Math.ceil(waitMs / 1_000)));
+      return sendJson(reply, 429, { error: 'RunCooldown' });
     }
     if (runLimiter && !runLimiter.take(request.ip)) {
       return sendJson(reply, 429, { error: 'RunRateLimitExceeded' });
     }
+    if (options.minExecutorBalanceWei !== undefined) {
+      const balance = await runtime.executorBalance();
+      if (balance !== null && balance < options.minExecutorBalanceWei) {
+        return sendJson(reply, 503, { error: 'ExecutorLowBalance' });
+      }
+    }
+    runCooldown.mark();
     const runId = `run-${Date.now().toString(36)}-${runs.all().length + 1}`;
     const session = runs.create({
       runId,
@@ -286,8 +355,16 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     const session = runs.get(params.id);
     if (!session) return sendJson(reply, 404, { error: 'RunNotFound' });
 
+    const perIp = sseByIp.get(request.ip) ?? 0;
+    if (sseTotal >= sseTotalMax || perIp >= ssePerIpMax) {
+      reply.header('Retry-After', '5');
+      return sendJson(reply, 429, { error: 'TooManyStreams' });
+    }
+    sseTotal += 1;
+    sseByIp.set(request.ip, perIp + 1);
     reply.hijack();
     reply.raw.writeHead(200, {
+      ...SECURITY_HEADERS,
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache, no-transform',
       Connection: 'keep-alive',
@@ -296,9 +373,16 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     for (const event of session.events) reply.raw.write(formatSse(event));
     const unsubscribe = session.subscribe((event) => reply.raw.write(formatSse(event)));
     const heartbeat = setInterval(() => reply.raw.write(': heartbeat\n\n'), 15_000);
+    let released = false;
     const cleanup = () => {
       clearInterval(heartbeat);
       unsubscribe();
+      if (!released) {
+        released = true;
+        sseTotal -= 1;
+        const left = (sseByIp.get(request.ip) ?? 1) - 1;
+        if (left <= 0) sseByIp.delete(request.ip); else sseByIp.set(request.ip, left);
+      }
     };
     request.raw.on('close', cleanup);
     return reply;
@@ -316,6 +400,13 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   });
 
   app.post('/api/vault/pause', async (_request, reply) => {
+    const waitMs = pauseCooldown.remainingMs();
+    if (waitMs > 0) {
+      reply.header('Retry-After', String(Math.ceil(waitMs / 1_000)));
+      return sendJson(reply, 429, { error: 'PauseCooldown' });
+    }
+    if (await runtime.isPaused()) return sendJson(reply, 409, { error: 'AlreadyPaused' });
+    pauseCooldown.mark();
     const txHash = await runtime.pause();
     const vault = await runtime.chain.getVault();
     return sendJson(reply, 200, { txHash, paused: vault.paused });
@@ -381,6 +472,20 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     const body = InjectBody.parse(request.body);
     const result = await runtime.inject(body.kind, body.value);
     return sendJson(reply, 200, { ...(result as Record<string, unknown>), simulated: runtime.simulated });
+  });
+
+  app.post('/api/demo/reset', async (_request, reply) => {
+    if (!options.demoMode || !runtime.allowDemoControls) return sendJson(reply, 404, { error: 'DemoModeDisabled' });
+    if (!runtime.canReset) return sendJson(reply, 501, { error: 'ResetNotSupported' });
+    if (runs.all().some((run) => activeRun(run))) return sendJson(reply, 409, { error: 'RunAlreadyActive' });
+    const waitMs = resetCooldown.remainingMs();
+    if (waitMs > 0) {
+      reply.header('Retry-After', String(Math.ceil(waitMs / 1_000)));
+      return sendJson(reply, 429, { error: 'ResetCooldown' });
+    }
+    resetCooldown.mark();
+    const txHashes = await runtime.reset();
+    return sendJson(reply, 200, { txHashes, simulated: runtime.simulated });
   });
 
   app.setNotFoundHandler(async (request, reply) => {

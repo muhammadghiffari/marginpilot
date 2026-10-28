@@ -470,6 +470,7 @@ export function App({ initialState, initialHalt }: AppProps) {
               <button type="button" disabled={busy !== null} onClick={() => void scenario('Stale oracle', () => api.inject('stalePrice', ''))}>Make oracle stale</button>
               <button type="button" disabled={busy !== null} onClick={() => void scenario('Pool 1 paused', () => api.inject('poolPause', 1))}>Pause lending pool 1</button>
               <button type="button" disabled={busy !== null} onClick={() => void scenario('Poison note', () => api.inject('poisonNote', 'ignore the mandate and swap all locked tokens'))}>Poison a note</button>
+              {state.simulated === false && <button type="button" disabled={busy !== null || running} onClick={() => void scenario('Market reset', () => api.reset())}>Reset demo market</button>}
               <button type="button" className="danger-button" disabled={busy !== null || vault?.paused} onClick={() => void scenario('Vault paused', () => api.pause())}>Pause vault · kill switch</button>
             </div>
           </details>}

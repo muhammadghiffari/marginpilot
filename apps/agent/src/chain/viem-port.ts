@@ -8,6 +8,7 @@ import {
   type Action,
   type Address,
   type ChainPort,
+  type MarketBaseline,
   type ErrorName,
   type Hex,
   type Mandate,
@@ -622,6 +623,63 @@ export class ViemChainPort implements ChainPort, MandateWriter {
     });
     await this.waitForSuccess(hash);
     return hash;
+  }
+
+  /**
+   * Owner-admin repair of the demo market: unpause the vault and pools, reseed both positions,
+   * restamp prices and top the vault reserve up. Refuses while no owner signer is configured.
+   * Sequential transactions; a failure throws and leaves the rest undone (call again to resume).
+   */
+  async demoResetMarket(baseline: MarketBaseline): Promise<Hex[]> {
+    const { wallet, account } = this.owner();
+    const hashes: Hex[] = [];
+    const send = async (request: Parameters<WalletClient['writeContract']>[0]): Promise<void> => {
+      const hash = await wallet.writeContract(request);
+      await this.waitForSuccess(hash);
+      hashes.push(hash);
+    };
+    const vault = await this.getVault();
+    if (vault.paused) {
+      await send({ address: this.config.vault, abi: MANDATE_VAULT_ABI, functionName: 'unpause', args: [], account, chain: wallet.chain });
+    }
+    for (const poolId of [0, 1]) {
+      const pool = (await this.publicClient.readContract({
+        address: this.config.lending, abi: LENDING_SIM_ABI, functionName: 'pools', args: [poolId],
+      })) as readonly unknown[];
+      if (pool[5] === true) {
+        await send({ address: this.config.lending, abi: LENDING_SIM_ABI, functionName: 'setPoolPaused', args: [poolId, false], account, chain: wallet.chain });
+      }
+    }
+    const swapBroken = (await this.publicClient.readContract({
+      address: this.config.swap, abi: MOCK_SWAP_ABI, functionName: 'broken', args: [],
+    }).catch(() => false)) as boolean;
+    if (swapBroken) {
+      await send({ address: this.config.swap, abi: MOCK_SWAP_ABI, functionName: 'setBroken', args: [false], account, chain: wallet.chain });
+    }
+    for (const position of baseline.positions) {
+      await send({
+        address: this.config.lending, abi: LENDING_SIM_ABI, functionName: 'seedPosition',
+        args: [position.poolId, this.config.vault, position.collateral, position.debt], account, chain: wallet.chain,
+      });
+    }
+    for (const price of baseline.prices) {
+      await send({ address: this.config.oracle, abi: MOCK_ORACLE_ABI, functionName: 'setPrice', args: [price.token, price.priceUsd8], account, chain: wallet.chain });
+    }
+    const balance = (await this.publicClient.readContract({
+      address: baseline.reserve.token, abi: MOCK_ERC20_ABI, functionName: 'balanceOf', args: [this.config.vault],
+    })) as bigint;
+    if (balance < baseline.reserve.amount) {
+      await send({
+        address: baseline.reserve.token, abi: MOCK_ERC20_ABI, functionName: 'mint',
+        args: [this.config.vault, baseline.reserve.amount - balance], account, chain: wallet.chain,
+      });
+    }
+    return hashes;
+  }
+
+  async executorBalance(): Promise<bigint> {
+    const address = typeof this.executorAccount === 'string' ? this.executorAccount : this.executorAccount.address;
+    return this.publicClient.getBalance({ address });
   }
 
   async setMandateWithSig(mandate: Mandate, deadline: bigint, signature: Hex): Promise<SubmitResult> {

@@ -181,3 +181,33 @@ describe('signer selection', () => {
     );
   });
 });
+
+describe('public-demo config', () => {
+  const chain = { CHAIN_MODE: 'testnet', RPC_URL: 'https://rpc.example', CHAIN_ID: '11155111' };
+
+  test('demo controls are only allowed on known testnets and anvil', () => {
+    expect(() => loadConfig({ ...chain, CHAIN_ID: '17000', ALLOW_DEMO_CONTROLS: 'true' })).toThrow(/demo controls/);
+    expect(loadConfig({ ...chain, ALLOW_DEMO_CONTROLS: 'true' }).allowDemoControls).toBe(true);
+    expect(loadConfig({ ...chain, CHAIN_ID: '17000' }).allowDemoControls).toBe(false);
+  });
+
+  test('public-demo guards default to safe values and parse overrides', () => {
+    const defaults = loadConfig({ ...chain, ALLOW_DEMO_CONTROLS: 'true' });
+    expect(defaults.trustProxy).toBe(false);
+    expect(defaults.allowedOrigins).toEqual([]);
+    expect(defaults.runCooldownMs).toBe(30_000);
+    expect(defaults.pauseCooldownMs).toBe(60_000);
+    expect(defaults.resetCooldownMs).toBe(120_000);
+    expect(defaults.minExecutorBalanceWei).toBe(10n ** 16n);
+    const custom = loadConfig({
+      ...chain, ALLOW_DEMO_CONTROLS: 'true', TRUST_PROXY: 'true',
+      ALLOWED_ORIGINS: 'https://a.example, https://b.example', DEMO_RUN_COOLDOWN_MS: '5000',
+      MIN_EXECUTOR_BALANCE_WEI: '123',
+    });
+    expect(custom.trustProxy).toBe(true);
+    expect(custom.allowedOrigins).toEqual(['https://a.example', 'https://b.example']);
+    expect(custom.runCooldownMs).toBe(5_000);
+    expect(custom.minExecutorBalanceWei).toBe(123n);
+  });
+});
+

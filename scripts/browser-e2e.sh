@@ -73,3 +73,12 @@ if [ "${SERVE_ONLY:-0}" = "1" ]; then
 fi
 python3 "$ROOT/apps/web/test/browser_testnet.py" --base-url "http://127.0.0.1:${AGENT_PORT}" \
   --artifacts "$ARTIFACTS" --explorer "$EXPLORER" --label ANVIL
+
+# Guarded market reset: positions return to the baseline health factors and the vault is unpaused.
+BASE="http://127.0.0.1:${AGENT_PORT}"
+curl -fsS -X POST "$BASE/api/demo/reset" -H 'content-type: application/json' -d '{}' | jq -e '(.txHashes | length) >= 3' >/dev/null
+curl -fsS "$BASE/api/state" | jq -e '[.positions[].healthFactor | tonumber] | all(. > 1000000000000000000 * 1.04)' >/dev/null \
+  || { echo "browser-e2e: reset did not restore baseline health factors" >&2; exit 1; }
+# The bundle must not contain key-shaped values.
+bash "$ROOT/scripts/check-bundle.sh" "$ROOT/apps/web/dist"
+echo "browser-e2e: PASS (UI rescue, guarded reset, bundle scan)"

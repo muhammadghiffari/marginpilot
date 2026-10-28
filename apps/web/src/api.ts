@@ -197,6 +197,7 @@ export const api = {
   shock: (token: string, priceUsd8: bigint) => post('/api/demo/shock', {
     token, priceUsd8: priceUsd8.toString(),
   }, DemoResponseSchema),
+  reset: () => post('/api/demo/reset', {}, DemoResponseSchema),
   inject: (kind: string, value: string | number | boolean) => post('/api/demo/inject', {
     kind, value,
   }, DemoResponseSchema),

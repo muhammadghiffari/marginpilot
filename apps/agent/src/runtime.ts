@@ -10,6 +10,8 @@ import {
 import { recoverTypedDataAddress } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
+import { demoEnvelopeViolations } from './api/guards.js';
+import { demoBaseline } from './chain/baseline.js';
 import { createDemoChain } from './chain/factory.js';
 import { ScriptedLlm } from './llm/scripted.js';
 import { assertDraftConfirmable, compileMandate } from './mandate/compile.js';
@@ -93,6 +95,20 @@ const DEMO_MODEL_OUTPUT = {
   swapAllowed: false,
   unresolvedFields: [],
 };
+
+export class DemoEnvelopeViolationError extends Error {
+  constructor(readonly violations: string[]) {
+    super(`mandate is outside the public-demo envelope: ${violations.join('; ')}`);
+    this.name = 'DemoEnvelopeViolationError';
+  }
+}
+
+export class ResetNotSupportedError extends Error {
+  constructor() {
+    super('market reset is not supported on this chain');
+    this.name = 'ResetNotSupportedError';
+  }
+}
 
 export class DemoSignerNotConfiguredError extends Error {
   constructor() {
@@ -242,6 +258,12 @@ export class AgentRuntime {
     if (!this.simulated && owner !== undefined && account.address.toLowerCase() !== owner.toLowerCase()) {
       throw new OwnerSignerMismatchError();
     }
+    if (!this.simulated) {
+      // The server signs with the demo owner key: keep that authority inside a small envelope.
+      const targets: Address[] = [this.registry.targets.lending, this.registry.targets.swap];
+      const violations = demoEnvelopeViolations(draft.mandate as Mandate, targets);
+      if (violations.length > 0) throw new DemoEnvelopeViolationError(violations);
+    }
     const prepared = await this.prepareWallet(draft);
     const signature = await account.signTypedData(prepared.typedData);
     return this.install(prepared.mandate, prepared.deadline, signature);
@@ -338,6 +360,27 @@ export class AgentRuntime {
 
   async pause(): Promise<Hex> {
     return this.chain.pause();
+  }
+
+  async isPaused(): Promise<boolean> {
+    return (await this.chain.getVault()).paused;
+  }
+
+  /** True when this chain can repair the demo market (real chain with an owner signer). */
+  get canReset(): boolean {
+    return typeof this.chain.demoResetMarket === 'function';
+  }
+
+  /** Guarded demo repair: restore the baseline market. Requires demo controls. */
+  async reset(): Promise<Hex[]> {
+    this.requireDemoControls();
+    if (!this.chain.demoResetMarket) throw new ResetNotSupportedError();
+    return this.chain.demoResetMarket(demoBaseline(this.registry.tokens));
+  }
+
+  /** Executor gas balance, or null when the chain has no native balance (simulation). */
+  async executorBalance(): Promise<bigint | null> {
+    return this.chain.executorBalance ? this.chain.executorBalance() : null;
   }
 
   private async withNextId(draft: MandateDraft): Promise<Mandate> {

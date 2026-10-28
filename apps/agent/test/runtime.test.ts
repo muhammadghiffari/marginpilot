@@ -10,6 +10,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { LOCAL_TEST_REGISTRY, type TokenRegistry } from '../src/mandate/registry.js';
 import {
   AgentRuntime,
+  DemoEnvelopeViolationError,
   DemoSignerNotConfiguredError,
   InvalidOwnerSignatureError,
   MandateDraftMismatchError,
@@ -140,6 +141,23 @@ describe('AgentRuntime owner confirmation', () => {
     expect(confirmed.signature).toMatch(/^0x[0-9a-f]{130}$/);
     expect(setMandateWithSig).toHaveBeenCalledTimes(1);
     expect(setMandateWithSig.mock.calls[0]?.[0].id).toBe(5n);
+  });
+
+  test('refuses to sign a mandate outside the public-demo envelope', async () => {
+    const setMandateWithSig = vi.fn();
+    const runtime = new AgentRuntime({
+      registry: registry(),
+      chain: fakeChain({ setMandateWithSig }),
+      simulated: false,
+      ownerPrivateKey: OWNER_KEY,
+      vaultAddress: LOCAL_TEST_REGISTRY.targets.vault,
+    });
+    const wide: MandateDraft = {
+      ...draft,
+      mandate: { ...draft.mandate, maxTotalSpendUsd: 90_000_000_000_000n, allowBorrow: true, allowedActions: 7 },
+    };
+    await expect(runtime.confirm(wide)).rejects.toBeInstanceOf(DemoEnvelopeViolationError);
+    expect(setMandateWithSig).not.toHaveBeenCalled();
   });
 
   test('rejects an owner key that does not match the deployment owner', async () => {

@@ -49,10 +49,32 @@ export interface AgentConfig {
   rateLimitRefillPerSecond: number;
   runLimitCapacity: number;
   runLimitRefillPerSecond: number;
+  trustProxy: boolean;
+  allowedOrigins: string[];
+  runCooldownMs: number;
+  pauseCooldownMs: number;
+  resetCooldownMs: number;
+  /** Real chains only: runs are refused when the executor holds less native balance. */
+  minExecutorBalanceWei: bigint;
 }
+
+/** Chains where the public demo may expose owner-signed admin helpers (shock, reset). */
+const DEMO_CONTROL_CHAIN_IDS = new Set([31337, 31338, 11155111, 84532]);
 
 const KEY_PATTERN = /^0x[0-9a-fA-F]{64}$/;
 const ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/;
+
+function nonNegativeInt(raw: string | undefined, fallback: number): number {
+  if (raw === undefined || raw.trim() === '') return fallback;
+  if (!/^\d+$/.test(raw.trim())) throw new ConfigError('expected a non-negative integer in a numeric setting');
+  return Number(raw.trim());
+}
+
+function nonNegativeBigint(raw: string | undefined, fallback: bigint): bigint {
+  if (raw === undefined || raw.trim() === '') return fallback;
+  if (!/^\d+$/.test(raw.trim())) throw new ConfigError('expected a non-negative integer in a numeric setting');
+  return BigInt(raw.trim());
+}
 
 /** Accept either a 0x-prefixed key or the bare 64-hex form used by some wallets. */
 function normalizePrivateKey(raw: string): string {
@@ -173,6 +195,10 @@ export function loadConfig(env: NodeJS.ProcessEnv): AgentConfig {
     : env.ALLOW_DEMO_CONTROLS === 'true';
   const allowDemoControls = mode === 'simulated' || env.ALLOW_DEMO_CONTROLS === 'true';
 
+  if (mode === 'chain' && allowDemoControls && !DEMO_CONTROL_CHAIN_IDS.has(chainId)) {
+    throw new ConfigError(`demo controls are not allowed on chain ${chainId}`);
+  }
+
   const chainLabel: AgentConfig['chainLabel'] = mode === 'simulated'
     ? 'SIMULATED'
     : rawMode === 'anvil'
@@ -202,6 +228,12 @@ export function loadConfig(env: NodeJS.ProcessEnv): AgentConfig {
     rateLimitRefillPerSecond: positiveNumber(env.RATE_LIMIT_REFILL_PER_SECOND, 2),
     runLimitCapacity: positiveInt(env.DEMO_MAX_RUNS_PER_HOUR, 20),
     runLimitRefillPerSecond: 1 / 3_600,
+    trustProxy: env.TRUST_PROXY === 'true',
+    allowedOrigins: (env.ALLOWED_ORIGINS ?? '').split(',').map((value) => value.trim()).filter((value) => value !== ''),
+    runCooldownMs: nonNegativeInt(env.DEMO_RUN_COOLDOWN_MS, 30_000),
+    pauseCooldownMs: nonNegativeInt(env.DEMO_PAUSE_COOLDOWN_MS, 60_000),
+    resetCooldownMs: nonNegativeInt(env.DEMO_RESET_COOLDOWN_MS, 120_000),
+    minExecutorBalanceWei: mode === 'chain' ? nonNegativeBigint(env.MIN_EXECUTOR_BALANCE_WEI, 10n ** 16n) : 0n,
   } as AgentConfig;
 }
 

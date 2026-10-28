@@ -47,4 +47,15 @@ export interface ChainPort extends Partial<MandateWriter> {
   demoSetPrice(token: Address, priceUsd8: bigint, updatedAt?: bigint): Promise<Hex>;
   demoSetPoolPaused(pool: number, paused: boolean): Promise<Hex>;
   demoSetSwapBroken?(broken: boolean): Promise<Hex>;
+  /** Restore the demo market to its deployment baseline (unpause, reseed, fresh prices, reserve top-up). */
+  demoResetMarket?(baseline: MarketBaseline): Promise<Hex[]>;
+  /** Native balance of the executor hot key, for the public-demo gas guard. */
+  executorBalance?(): Promise<bigint>;
+}
+
+export interface MarketBaseline {
+  prices: { token: Address; priceUsd8: bigint }[];
+  positions: { poolId: number; collateral: bigint; debt: bigint }[];
+  /** The vault is topped up to this reserve token balance if it is below it. */
+  reserve: { token: Address; amount: bigint };
 }

@@ -136,6 +136,12 @@ async function main() {
     rateLimitRefillPerSecond: config.rateLimitRefillPerSecond,
     runLimitCapacity: config.runLimitCapacity,
     runLimitRefillPerSecond: config.runLimitRefillPerSecond,
+    trustProxy: config.trustProxy,
+    allowedOrigins: config.allowedOrigins,
+    runCooldownMs: config.runCooldownMs,
+    pauseCooldownMs: config.pauseCooldownMs,
+    resetCooldownMs: config.resetCooldownMs,
+    minExecutorBalanceWei: config.minExecutorBalanceWei,
   });
   await app.listen({ port: config.port, host: config.host });
   console.log(
