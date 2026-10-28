@@ -79,6 +79,15 @@ BASE="http://127.0.0.1:${AGENT_PORT}"
 curl -fsS -X POST "$BASE/api/demo/reset" -H 'content-type: application/json' -d '{}' | jq -e '(.txHashes | length) >= 3' >/dev/null
 curl -fsS "$BASE/api/state" | jq -e '[.positions[].healthFactor | tonumber] | all(. > 1000000000000000000 * 1.04)' >/dev/null \
   || { echo "browser-e2e: reset did not restore baseline health factors" >&2; exit 1; }
+# Evidence generator: record the UI run from the agent API, re-read every receipt from anvil.
+EV="$TMP/evidence"; mkdir -p "$EV"
+EVC=(env EVIDENCE_DIR="$EV" pnpm --silent --filter @marginpilot/agent evidence)
+"${EVC[@]}" collect --manifest anvil-browser --chain "$CHAIN_ID" --api "$BASE" --scenario "S1 via web console" --driver ui
+"${EVC[@]}" generate --rpc "$RPC_URL" --manifest anvil-browser --out "$EV/EXECUTION-EVIDENCE.md"
+grep -q "LOCAL ANVIL" "$EV/EXECUTION-EVIDENCE.md" && grep -q "ScriptedLlm" "$EV/EXECUTION-EVIDENCE.md" \
+  || { echo "browser-e2e: generated evidence is missing labels" >&2; exit 1; }
+test "$(jq '[.receipts[] | select(.kind == "action" and .status == "success" and .actionExecutedEvents >= 1)] | length' "$EV/receipts/anvil-browser.json")" -ge 2 \
+  || { echo "browser-e2e: expected two successful action receipts with ActionExecuted" >&2; exit 1; }
 # The bundle must not contain key-shaped values.
 bash "$ROOT/scripts/check-bundle.sh" "$ROOT/apps/web/dist"
 echo "browser-e2e: PASS (UI rescue, guarded reset, bundle scan)"

@@ -1,5 +1,24 @@
 # STATUS (update at the end of every task; agents load this each session)
 
+## HANDOFF 2026-10-28 (post-submission improvement; new session: read this block + tail of docs/DECISIONS.md)
+**State.** `main` = `origin/main`, gate green: 149 Forge + 89 core(+2 redactor) + agent + 10 web + 8 eval. Tasks 1-4 and 6 done and pushed:
+1 integrated remote work (D-042/D-043; local I-02 commits stay on `wip/dev-a-local`, not pushed), MIT license, README "Team and roles";
+2 EIP-712 digest pin (Solidity vs viem) + vault signature edge-case tests (T09d-g);
+3 UI/chain bugs fixed with regression tests (D-047: viem block-number cache made snapshots stale on fast chains; non-JSON error responses; SSE notice);
+4 public-demo hardening (D-048): demo envelope, Origin check, CSP, cooldowns, SSE caps, gas guard, guarded `POST /api/demo/reset`, `/api/health`, `scripts/check-bundle.sh`;
+6 redactor keeps tx/plan hashes in hash-named fields (free text still redacted); evidence generator `apps/agent/src/cli/evidence.ts`
+(`collect | add-tx | import | generate`, tests `apps/agent/test/evidence.test.ts`); `evidence/manifests/sepolia-run2-2026-10-21.json` + `evidence/receipts/...json` = 40 REAL Sepolia receipts re-read from chain (all success).
+**Tools.** `bash scripts/browser-e2e.sh` = fresh anvil 31338 + deploy + agent + headless Chromium UI rescue + reset + evidence generate + bundle scan (needs `pip install playwright`; one run ~2 min; never run two at once, it has a lock). `SERVE_ONLY=1` keeps the stack up.
+**Rules in force.** `contracts/src/*.sol` frozen (tests only; ask if a change seems needed). No force push, no tags, merge not rebase. Date docs honestly: the 20 Oct 23:59 Beijing deadline passed (D-046). Node here is v26 (repo wants 22): warnings only.
+**Next tasks (user order):** 8 explicit-gas Sepolia deploy with fresh keys (dry-run gas first; remove the Sepolia refusal in `scripts/deploy-testnet.sh`; archive the current `deployments/11155111.json` as `11155111-run2.json`; vault deploy ~15.89M gas, keep bytecode identical),
+9 reuse `scripts/testnet-evidence.sh` (6 vault rejections incl. Paused) + one S1 through the UI + kill switch through the UI, record with `evidence add-tx/collect`, then `generate` to `docs/submission/EXECUTION-EVIDENCE.md` (archive the old hand-written one as `EXECUTION-EVIDENCE-2026-10-21.md`),
+10 Dockerfile + `fly.toml` (ONE always-on machine, auto_stop off, min 1, no autoscale; `TRUST_PROXY=true`), exact env list below, smoke test the public URL,
+5 live LLM once during the Sepolia/public smoke run (`LLM_*` env, record via `collect`: audit shows model),
+11 docs refresh from one fresh-clone verify-all (README, TECH-DOC, SECURITY-SELF-ASSESSMENT, DEMO-SCRIPT, CHECKLIST, KNOWN-RISKS dup R22, stale M3/M4 lines), 12 final gate. Also still to do: `.github/workflows/verify.yml` (minimal; push needs `workflow` token scope).
+**Fly env (names only, set with `fly secrets set`):** CHAIN_MODE=testnet CHAIN_ID=11155111 RPC_URL (dedicated, in-sync) DEMO_OWNER_PRIVATE_KEY EXECUTOR_PRIVATE_KEY ALLOW_DEMO_CONTROLS=true EXPLORER_BASE_URL=https://sepolia.etherscan.io HOST=0.0.0.0 PORT TRUST_PROXY=true ALLOWED_ORIGINS(optional) MIN_EXECUTOR_BALANCE_WEI; live LLM: LLM_PROVIDER LLM_MODEL LLM_BASE_URL LLM_API_KEY (+ LLM_FALLBACK_*).
+**HUMAN items open.** (a) two fresh Sepolia keys imported with `cast wallet import` (owner/deployer, executor) and funded after the dry-run estimate; (b) dedicated Sepolia RPC URL (public nodes are out of sync / drpc is paid); (c) Fly.io account + secrets; (d) LLM key with a spend cap; (e) `workflow` scope on the gh token for CI; (f) present for every broadcast; (g) confirm "Team and roles" names in README (Dev A = Muhammad Ghiffari, Dev B = Radith were assumed from the task split); (h) submission-era items in `docs/submission/CHECKLIST.md` (deck, video, organizer email) are untouched.
+**Known gaps.** FR-01 only 12 prompts; FR-05 grounding test missing; FR-15/16 missing; S6/S8 no scenario tests; R20 custom ecrecover unaudited; MetaMask path never run with a real wallet (R24); redactor still masks 64-hex values in free text by design.
+
 Last updated: 2026-10-21. The default demo remains SIMULATED. Real EVM transactions have now
 mined on **Ethereum Sepolia 11155111** against a self-deployed SIMULATED lending market; local
 anvil 31338 remains separate evidence. The local `.env` still points at anvil; Sepolia was run

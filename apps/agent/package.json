@@ -8,7 +8,8 @@
     "typecheck": "tsc -p tsconfig.json",
     "start": "tsx src/server.ts",
     "dev": "tsx watch src/server.ts",
-    "prices:refresh": "tsx src/cli/refresh-prices.ts"
+    "prices:refresh": "tsx src/cli/refresh-prices.ts",
+    "evidence": "tsx src/cli/evidence.ts"
   },
   "dependencies": {
     "@marginpilot/core": "workspace:*",

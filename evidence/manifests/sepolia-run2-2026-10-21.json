@@ -1,0 +1,210 @@
+{
+  "name": "sepolia-run2-2026-10-21",
+  "chainId": 11155111,
+  "vault": "0xd7FC116f1acaE8cE017114aD7E41F132a998743C",
+  "explorerBase": "https://sepolia.etherscan.io",
+  "note": "",
+  "entries": [
+    {
+      "label": "deploy_mUSDC",
+      "kind": "deploy",
+      "txHash": "0xc75b3b46d40ec3b1742e9fba153e55659855ad10e0075ecbc5aad39bf9af6a3f"
+    },
+    {
+      "label": "deploy_mWETH",
+      "kind": "deploy",
+      "txHash": "0x305a8bc5d6662c246a8805fe9c8edd661963daff86eeefa4fefed18c2c984001"
+    },
+    {
+      "label": "deploy_mWSTETH",
+      "kind": "deploy",
+      "txHash": "0x8333d23aa780fa2ca9e476acd384b60701100972fe365707c4d4759dfef6479d"
+    },
+    {
+      "label": "deploy_oracle",
+      "kind": "deploy",
+      "txHash": "0x995593d70642826105f5c09148815bb457c0a62860a019ad8a2084d90727a47a"
+    },
+    {
+      "label": "deploy_lending",
+      "kind": "deploy",
+      "txHash": "0xed5f9e2dc7f3d8f96930226b34f13ff09f3f3011e123d7ff48c0ef4625de6019"
+    },
+    {
+      "label": "deploy_swap",
+      "kind": "deploy",
+      "txHash": "0xd6548c515b9ac5ad3c3ae676ef9a87ea7fa8307a098473f918c9261707211e3e"
+    },
+    {
+      "label": "deploy_vault",
+      "kind": "deploy",
+      "txHash": "0xfbcd9ea5e9cc14daa3bd32695a9779e1fc708b37bc7afeeb12cfe6899c792cea"
+    },
+    {
+      "label": "seed_pool0",
+      "kind": "admin",
+      "txHash": "0x907f080b5cc9ceeb68c103dc7d33babf2d14b92dd3e622ce367d4dc2d0cca55f"
+    },
+    {
+      "label": "seed_pool1",
+      "kind": "admin",
+      "txHash": "0xfd1bebd2fdb8b647614a6485cd6e255ee4807546ef97d5c3621a9ec8c87138a2"
+    },
+    {
+      "label": "reset_price_usdc",
+      "kind": "admin",
+      "txHash": "0xd6fe905b524855328b04bd8ce16eb30056ba185ff9298420dae658913a46b8fa"
+    },
+    {
+      "label": "reset_price_weth",
+      "kind": "admin",
+      "txHash": "0x0420f9008d7876550a1677fe04a71697b4ad96160564caeae1f76d6288e7f839"
+    },
+    {
+      "label": "reset_price_wsteth",
+      "kind": "admin",
+      "txHash": "0xf5c2bf4b1d883328d569c81bad30b654e3e47ef6be94910a46fc7011e82902dc"
+    },
+    {
+      "label": "reset_topup_vault",
+      "kind": "admin",
+      "txHash": "0x4c9737d3b4fd0ad6712f76458efb4bbf617de2aa39c55b362496e515c3456ea2"
+    },
+    {
+      "label": "reset_topup_lending",
+      "kind": "admin",
+      "txHash": "0x945e48756edc311cc7ba7c20772a32236320f288792781a132ec23a8a217943b"
+    },
+    {
+      "label": "reset_seed_pool0",
+      "kind": "admin",
+      "txHash": "0xd03ecf612d10ebd3745658fc06891afde5baa8da8a9b29e2c6791e985c4783ec"
+    },
+    {
+      "label": "reset_seed_pool1",
+      "kind": "admin",
+      "txHash": "0x1b6fdd9a6cc3d96f8d47564697c9ecdb119c2209efca44b90b1efa756b741604"
+    },
+    {
+      "label": "ui_shock_weth",
+      "kind": "shock",
+      "txHash": "0x7f15e63cfddb8343d92d017717ee252796e4fc85426e8f5da082a9a3ab54fa79"
+    },
+    {
+      "label": "ui_shock_wsteth",
+      "kind": "shock",
+      "txHash": "0xe9df8e223af79fb175884c231189ab1ca8d7015c163677637d185348fe7ed7b7"
+    },
+    {
+      "label": "refresh_usdc",
+      "kind": "admin",
+      "txHash": "0x23eddb83938bd8eef3c548f32ffeb40d435e156c25a96ce0fbd95284ba9e286e"
+    },
+    {
+      "label": "refresh_weth",
+      "kind": "admin",
+      "txHash": "0x5157c713e9c4698c033dacbd236f9636031c3dde003a200b1da05dd283b9a2f5"
+    },
+    {
+      "label": "refresh_wsteth",
+      "kind": "admin",
+      "txHash": "0x8be25b6ef17174264aeb2e7a807d8e15b4f0b7b42c6c24c91a9715ae17bd0c7e"
+    },
+    {
+      "label": "ui_mandate_2",
+      "kind": "mandate",
+      "txHash": "0x0a86732fa755613865b4b27ce6d16d091d46bfbb787e1df514290a9992fc6e39"
+    },
+    {
+      "label": "ui_repay_pool0",
+      "kind": "action",
+      "txHash": "0xbf947b0ca3a35b3b8c89e846318faf9ef5ca53c7f4e28896f56df55dddd5fe19"
+    },
+    {
+      "label": "ui_repay_pool1",
+      "kind": "action",
+      "txHash": "0xef8876ded2846a06c51aec2708e61d1fe1f3d98eb1389071f3beaf97997cbcab"
+    },
+    {
+      "label": "rehearsal_mandate_1",
+      "kind": "mandate",
+      "txHash": "0x9faf40cc185a474a6d8ab73690969ec53d920ed73ddcfe44ace79a38e2297f50"
+    },
+    {
+      "label": "rehearsal_repay_pool0",
+      "kind": "action",
+      "txHash": "0x3b770ce07beb117dcfea2b9af1dcfa4a1a623205146e57e15b534a9ac5864b08"
+    },
+    {
+      "label": "rehearsal_repay_pool1",
+      "kind": "action",
+      "txHash": "0xc93ac10773ab773e44361e360d2b3ae0daac8c57d5809c1359cd639c6746f6dd"
+    },
+    {
+      "label": "reset_price_usdc",
+      "kind": "admin",
+      "txHash": "0x95ce31e97326d7c32acbd72af4834cc71034a762dfabdf216dac03a622a0f818"
+    },
+    {
+      "label": "reset_price_weth",
+      "kind": "admin",
+      "txHash": "0x200e7060d9b06001b0471f3db18f7a6d2f2898f266b0797dc4b0dc8e4ed8b39b"
+    },
+    {
+      "label": "reset_price_wsteth",
+      "kind": "admin",
+      "txHash": "0x1491efd10c695a854f89a493d8365098544badf4486fea7665b9761b77b5fb5e"
+    },
+    {
+      "label": "reset_topup_vault",
+      "kind": "admin",
+      "txHash": "0x827414d771e8541aa56f2bc6f4d1fe3c23194ef28a82f04eadd5a6c99e3e84c7"
+    },
+    {
+      "label": "reset_topup_lending",
+      "kind": "admin",
+      "txHash": "0xe7775c8c6b21cfbf1d49085c38c1de6dbfcfe6340655a250daeec3c97ab8de98"
+    },
+    {
+      "label": "reset_seed_pool0",
+      "kind": "admin",
+      "txHash": "0x2fffdd7e0ca14ed799f7a5d398c9d19a85360c47b22a09b4bbfc988bfa0f922c"
+    },
+    {
+      "label": "reset_seed_pool1",
+      "kind": "admin",
+      "txHash": "0x1b3836da35bd2a620dd9bb17afcb16db5eff968994e98936639a3eb0f10ab278"
+    },
+    {
+      "label": "reset_withdraw_excess",
+      "kind": "admin",
+      "txHash": "0x38c3f952b9d77f685f076d3675484659a02545502f7eae0f1de253b8fc4c961f"
+    },
+    {
+      "label": "ui_shock_weth",
+      "kind": "shock",
+      "txHash": "0x8c1f074316a9c33d7203d1d3520530593cff754af54441b9c7153cc5eb29a579"
+    },
+    {
+      "label": "ui_shock_wsteth",
+      "kind": "shock",
+      "txHash": "0xaa3b6121dd6f9c7979c689cab94e198241317a629ef790e83ea9588c86471b6e"
+    },
+    {
+      "label": "ui_mandate_13",
+      "kind": "mandate",
+      "txHash": "0xe70ba8018e05028f8d91b757a165bcd35b8df823eb95bb0fdadaa9cbfcf2f5a8"
+    },
+    {
+      "label": "ui_repay_pool0",
+      "kind": "action",
+      "txHash": "0x756b52c8f4292c6ef918331d84fa710a31616cf8955faa588eabd82634016e04"
+    },
+    {
+      "label": "ui_repay_pool1",
+      "kind": "action",
+      "txHash": "0xadb2d86c3906fe9a8ec4d5f108732866817160e545becc0ac8078830d5df5fb9"
+    }
+  ],
+  "runs": []
+}

@@ -2,6 +2,8 @@ import { describe, expect, test } from 'vitest';
 
 import {
   AuditLog,
+  REDACTED,
+  REDACTED_KEY,
   redactText,
   redactValue,
   secretValuesFromEnv,
@@ -41,6 +43,29 @@ describe('redactor', () => {
     expect(secrets).not.toContain('openai');
     expect(secrets).not.toContain('abc');
     expect(redactText(`value=${ENV_SECRET}`, secrets)).not.toContain(ENV_SECRET);
+  });
+
+  test('keeps 32-byte hashes in named hash fields but still redacts them in free text', () => {
+    const hash = `0x${'ab'.repeat(32)}`;
+    const out = redactValue({
+      txHash: hash,
+      txHashes: [hash],
+      planId: hash,
+      note: `leaked ${hash}`,
+      privateKey: hash,
+      nested: { hash },
+    }) as Record<string, unknown>;
+    expect(out.txHash).toBe(hash);
+    expect(out.txHashes).toEqual([hash]);
+    expect(out.planId).toBe(hash);
+    expect((out.nested as { hash: string }).hash).toBe(hash);
+    expect(out.note).toBe(`leaked ${REDACTED_KEY}`);
+    expect(out.privateKey).toBe(REDACTED_KEY);
+  });
+
+  test('a known secret is redacted even under a hash field name', () => {
+    const secret = `0x${'cd'.repeat(32)}`;
+    expect((redactValue({ txHash: secret }, [secret]) as { txHash: string }).txHash).toBe(REDACTED);
   });
 
   test('redacts nested values without mutating the input', () => {
