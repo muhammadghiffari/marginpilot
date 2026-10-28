@@ -1,7 +1,7 @@
 # STATUS (update at the end of every task; agents load this each session)
 
 ## HANDOFF 2026-10-28 (post-submission improvement; new session: read this block + tail of docs/DECISIONS.md)
-**State.** `main` = `origin/main`, gate green: 149 Forge + 89 core(+2 redactor) + agent + 10 web + 8 eval. Tasks 1-4 and 6 done and pushed:
+**State.** `main` = `origin/main`, gate green (verify-all, 2026-10-28): 149 Forge + 91 core + 117 agent + 10 web + 8 eval = 375 tests. Tasks 1-4 and 6 done and pushed:
 1 integrated remote work (D-042/D-043; local I-02 commits stay on `wip/dev-a-local`, not pushed), MIT license, README "Team and roles";
 2 EIP-712 digest pin (Solidity vs viem) + vault signature edge-case tests (T09d-g);
 3 UI/chain bugs fixed with regression tests (D-047: viem block-number cache made snapshots stale on fast chains; non-JSON error responses; SSE notice);
