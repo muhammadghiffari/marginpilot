@@ -125,7 +125,7 @@ export function App({ initialState, initialHalt }: AppProps) {
           void refresh();
         }
       }
-    }, (cause) => setError(cause.message));
+    }, (cause) => setError(cause.message), () => setError((current) => current?.startsWith('Live updates were interrupted') ? null : current));
     return close;
   }, [runId, refresh]);
 

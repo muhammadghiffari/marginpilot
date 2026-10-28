@@ -156,7 +156,13 @@ async function request<T>(url: string, schema: { parse(input: unknown): unknown 
     ...init,
     headers: { 'Content-Type': 'application/json', ...init?.headers },
   });
-  const body: unknown = await response.json();
+  let body: unknown = null;
+  try {
+    body = await response.json();
+  } catch {
+    // Non-JSON body (proxy error page, empty 5xx): fall through to a typed error below.
+  }
+  if (response.ok && body === null) throw new ApiRequestError(502, 'InvalidResponse');
   if (!response.ok) {
     const error = z.object({ error: z.string() }).passthrough().safeParse(body);
     const details = error.success ? (error.data as Record<string, unknown>) : {};
@@ -205,15 +211,18 @@ export function connectRunEvents(
   runId: string,
   onEvent: (event: ApiEvent) => void,
   onError: (error: Error) => void,
+  onRecover?: () => void,
 ): () => void {
   const source = new EventSource(`/api/run/${encodeURIComponent(runId)}/events`);
+  let interrupted = false;
   source.onmessage = (message) => {
+    if (interrupted) { interrupted = false; onRecover?.(); }
     try {
       onEvent(ApiEventSchema.parse(JSON.parse(message.data) as unknown));
     } catch {
       onError(new Error('An event could not be verified. Refresh the chain state before acting.'));
     }
   };
-  source.onerror = () => onError(new Error('Live updates were interrupted. Refresh state or reconnect.'));
+  source.onerror = () => { interrupted = true; onError(new Error('Live updates were interrupted. Refresh state or reconnect.')); };
   return () => source.close();
 }
