@@ -1713,6 +1713,89 @@ contract MandateVaultTest is Test {
         assertEq(vault.activeMandateId(), 0);
     }
 
+    // secp256k1 group order, split so it is not mistaken for a 32-byte key by scripts/check-secrets.sh.
+    uint256 private constant SECP256K1_N =
+        (uint256(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE) << 128) | uint256(0xBAAEDCE6AF48A03BBFD25E8CD0364141);
+
+    function _splitSig(bytes memory sig) private pure returns (bytes32 r, bytes32 s, uint8 v) {
+        require(sig.length == 65, "len");
+        assembly {
+            r := mload(add(sig, 32))
+            s := mload(add(sig, 64))
+            v := byte(0, mload(add(sig, 96)))
+        }
+    }
+
+    function _expectBadSig(MandateVault.Mandate memory m, uint256 deadline, bytes memory sig) private {
+        vm.prank(alice);
+        vm.expectRevert(MandateVault.BadSignature.selector);
+        vault.setMandateWithSig(m, deadline, sig);
+        assertEq(vault.activeMandateId(), 0);
+    }
+
+    /// R20: a malleable (high-s) twin of a valid owner signature is rejected.
+    function test_T09d_HighSMalleableSignatureRejected() public {
+        MandateVault.Mandate memory m = _mandate(1);
+        uint256 deadline = block.timestamp + 1 hours;
+        (bytes32 r, bytes32 s, uint8 v) = _splitSig(_sign(OWNER_PK, m, deadline));
+        bytes memory twin = abi.encodePacked(r, bytes32(SECP256K1_N - uint256(s)), v == 27 ? uint8(28) : uint8(27));
+        _expectBadSig(m, deadline, twin);
+    }
+
+    /// R20: bad recovery ids are rejected; legacy 0/1 ids are accepted and normalised to 27/28.
+    function test_T09e_RecoveryIdHandling() public {
+        MandateVault.Mandate memory m = _mandate(1);
+        uint256 deadline = block.timestamp + 1 hours;
+        (bytes32 r, bytes32 s, uint8 v) = _splitSig(_sign(OWNER_PK, m, deadline));
+
+        _expectBadSig(m, deadline, abi.encodePacked(r, s, uint8(29)));
+        _expectBadSig(m, deadline, abi.encodePacked(r, s, uint8(2)));
+        _expectBadSig(m, deadline, abi.encodePacked(r, s, uint8(255)));
+
+        vm.prank(alice);
+        vault.setMandateWithSig(m, deadline, abi.encodePacked(r, s, uint8(v - 27)));
+        assertEq(vault.activeMandateId(), 1);
+    }
+
+    /// R20: wrong lengths (EIP-2098 compact 64 bytes, 66 bytes, empty) and unrecoverable input are rejected.
+    function test_T09f_WrongLengthAndUnrecoverableSignaturesRejected() public {
+        MandateVault.Mandate memory m = _mandate(1);
+        uint256 deadline = block.timestamp + 1 hours;
+        (bytes32 r, bytes32 s, uint8 v) = _splitSig(_sign(OWNER_PK, m, deadline));
+
+        bytes32 vs = bytes32(uint256(s) | (uint256(v - 27) << 255));
+        _expectBadSig(m, deadline, abi.encodePacked(r, vs));
+        _expectBadSig(m, deadline, abi.encodePacked(r, s, v, uint8(0)));
+        _expectBadSig(m, deadline, "");
+        _expectBadSig(m, deadline, abi.encodePacked(bytes32(0), bytes32(0), uint8(27)));
+        _expectBadSig(m, deadline, abi.encodePacked(bytes32(0), s, v));
+    }
+
+    /// Cross-language pin: apps/agent/test/eip712-pin.test.ts asserts the same digest from viem.
+    function test_T09g_PinnedDigestMatchesViem() public pure {
+        address[] memory targets = new address[](1);
+        targets[0] = address(0x1234);
+        address[] memory locked = new address[](1);
+        locked[0] = address(0xBEEF);
+        MandateVault.Mandate memory m = MandateVault.Mandate({
+            id: 1,
+            validFrom: 1000,
+            validUntil: 87400,
+            maxTotalSpendUsd: 260e8,
+            maxPerActionUsd: 260e8,
+            minLiquidReserveUsd: 100e8,
+            maxSlippageBps: 100,
+            maxPriceAgeSec: 600,
+            maxPriceDeviationBps: 300,
+            allowedActions: 3,
+            allowBorrow: false,
+            allowedTargets: targets,
+            lockedTokens: locked
+        });
+        bytes32 digest = _digestForDomain(m, 5000, 31337, 0x5FbDB2315678afecb367f032d93F642f64180aa3);
+        assertEq(digest, 0x31049e159cab0336ab85ade84e2a6a411cf83cb1df5d9f57aa4186dbc4ee9886);
+    }
+
     function test_T09b_StaleActionAfterNonceUsed() public {
         _setExecMandate(false, 7);
         MandateVault.Action memory a = _baseAction();
